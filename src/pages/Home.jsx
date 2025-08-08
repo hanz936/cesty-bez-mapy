@@ -1,5 +1,4 @@
 import React from 'react';
-import { Helmet } from 'react-helmet-async';
 import Navigation from '../components/Navigation';
 import Hero from '../components/Hero';
 import logger from '../utils/logger';
@@ -49,21 +48,19 @@ HomeErrorBoundary.displayName = 'HomeErrorBoundary';
 const Home = () => {
   return (
     <main className="min-h-screen">
-      <Helmet>
-        <title>Cesty (bez) mapy - Cestovní itineráře a inspirace na cesty</title>
-        <meta 
-          name="description" 
-          content="Místo, kde najdeš inspiraci, itineráře i tipy na místa, která se do běžných průvodců nevešla. Přidej se a nech se vést světem." 
-        />
-        <meta property="og:title" content="Cesty (bez) mapy - Cestovní itineráře a inspirace na cesty" />
-        <meta 
-          property="og:description" 
-          content="Místo, kde najdeš inspiraci, itineráře i tipy na místa, která se do běžných průvodců nevešla. Přidej se a nech se vést světem." 
-        />
-        <meta property="og:type" content="website" />
-        <meta property="og:image" content="/images/logo.png" />
-        <link rel="canonical" href="https://cestybezmapy.cz/" />
-      </Helmet>
+      <title>Cesty (bez) mapy - Cestovní itineráře a inspirace na cesty</title>
+      <meta 
+        name="description" 
+        content="Místo, kde najdeš inspiraci, itineráře i tipy na místa, která se do běžných průvodců nevešla. Přidej se a nech se vést světem." 
+      />
+      <meta property="og:title" content="Cesty (bez) mapy - Cestovní itineráře a inspirace na cesty" />
+      <meta 
+        property="og:description" 
+        content="Místo, kde najdeš inspiraci, itineráře i tipy na místa, která se do běžných průvodců nevešla. Přidej se a nech se vést světem." 
+      />
+      <meta property="og:type" content="website" />
+      <meta property="og:image" content="/images/logo.png" />
+      <link rel="canonical" href="https://cestybezmapy.cz/" />
       
       <Navigation />
       <Hero />

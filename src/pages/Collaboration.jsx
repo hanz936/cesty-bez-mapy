@@ -1,5 +1,4 @@
 import React, { useState, useCallback } from 'react';
-import { Helmet } from 'react-helmet-async';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import logger from '../utils/logger';
@@ -154,21 +153,19 @@ const Collaboration = () => {
 
   return (
     <main className={CLASSES.main}>
-      <Helmet>
-        <title>Spolupráce | Cesty (bez) mapy</title>
-        <meta 
-          name="description" 
-          content="Spolupracuj se mnou jako UGC travel tvůrcem. Autentický obsah z reálného cestování - videa, fotky, recenze pro hotely, značky a destinace." 
-        />
-        <meta property="og:title" content="Spolupráce | Cesty (bez) mapy" />
-        <meta 
-          property="og:description" 
-          content="Spolupracuj se mnou jako UGC travel tvůrcem. Autentický obsah z reálného cestování - videa, fotky, recenze pro hotely, značky a destinace." 
-        />
-        <meta property="og:type" content="website" />
-        <meta property="og:image" content="/images/logo.png" />
-        <link rel="canonical" href="https://cestybezmapy.cz/spoluprace" />
-      </Helmet>
+      <title>Spolupráce | Cesty (bez) mapy</title>
+      <meta 
+        name="description" 
+        content="Spolupracuj se mnou jako UGC travel tvůrcem. Autentický obsah z reálného cestování - videa, fotky, recenze pro hotely, značky a destinace." 
+      />
+      <meta property="og:title" content="Spolupráce | Cesty (bez) mapy" />
+      <meta 
+        property="og:description" 
+        content="Spolupracuj se mnou jako UGC travel tvůrcem. Autentický obsah z reálného cestování - videa, fotky, recenze pro hotely, značky a destinace." 
+      />
+      <meta property="og:type" content="website" />
+      <meta property="og:image" content="/images/logo.png" />
+      <link rel="canonical" href="https://cestybezmapy.cz/spoluprace" />
       
       <Navigation />
       

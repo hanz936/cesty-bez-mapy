@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import logger from '../utils/logger';
@@ -116,21 +115,19 @@ const PlanYourDreamTrip = () => {
 
   return (
     <main className={CLASSES.main}>
-      <Helmet>
-        <title>Naplánuj si cestu snů | Cesty (bez) mapy</title>
-        <meta 
-          name="description" 
-          content="Na cestu nemusíš být profík. S dobrým plánem toho zvládneš víc – bez stresu, bloudění nebo promarněných dnů. Začni plánovat svou cestu snů." 
-        />
-        <meta property="og:title" content="Naplánuj si cestu snů | Cesty (bez) mapy" />
-        <meta 
-          property="og:description" 
-          content="Na cestu nemusíš být profík. S dobrým plánem toho zvládneš víc – bez stresu, bloudění nebo promarněných dnů. Začni plánovat svou cestu snů." 
-        />
-        <meta property="og:type" content="website" />
-        <meta property="og:image" content="/images/about-background.png" />
-        <link rel="canonical" href="https://cestybezmapy.cz/naplanuj-si-cestu-snu" />
-      </Helmet>
+      <title>Naplánuj si cestu snů | Cesty (bez) mapy</title>
+      <meta 
+        name="description" 
+        content="Na cestu nemusíš být profík. S dobrým plánem toho zvládneš víc – bez stresu, bloudění nebo promarněných dnů. Začni plánovat svou cestu snů." 
+      />
+      <meta property="og:title" content="Naplánuj si cestu snů | Cesty (bez) mapy" />
+      <meta 
+        property="og:description" 
+        content="Na cestu nemusíš být profík. S dobrým plánem toho zvládneš víc – bez stresu, bloudění nebo promarněných dnů. Začni plánovat svou cestu snů." 
+      />
+      <meta property="og:type" content="website" />
+      <meta property="og:image" content="/images/about-background.png" />
+      <link rel="canonical" href="https://cestybezmapy.cz/naplanuj-si-cestu-snu" />
       
       <Navigation />
       
