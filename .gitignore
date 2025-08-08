@@ -19,6 +19,19 @@ dist-ssr
 .env.test.local
 .env.production.local
 *.env
+config.json
+secrets.json
+
+# Security and certificates
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+id_rsa
+id_dsa
+*.ssh
 
 # Database files
 *.db
@@ -28,6 +41,43 @@ db.json
 database/
 *.sql
 backups/
+
+# Large and binary files
+*.zip
+*.rar
+*.7z
+*.tar.gz
+*.exe
+*.dll
+*.so
+*.dylib
+*.class
+*.o
+*.pyc
+*.mov
+*.mp4
+*.avi
+*.wmv
+*.flv
+
+# Cache and temporary files
+.cache/
+tmp/
+temp/
+*.tmp
+*.temp
+.sass-cache/
+.parcel-cache/
+coverage/
+
+# Personal and sensitive data
+personal/
+private/
+confidential/
+test-data/
+*.backup
+notes.txt
+todo-private.md
 
 # Editor directories and files
 .vscode/*
