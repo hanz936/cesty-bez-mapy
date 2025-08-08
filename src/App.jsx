@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import MyStory from './pages/MyStory';
 import Collaboration from './pages/Collaboration';
 import PlanYourDreamTrip from './pages/PlanYourDreamTrip';
+import TravelInspiration from './pages/TravelInspiration';
 import logger from './utils/logger';
 
 // Error boundary for the entire application
@@ -66,7 +67,7 @@ function App() {
             <Route path="/naplanuj-si-cestu-snu" element={<PlanYourDreamTrip />} />
             <Route path="/plan-your-dream-trip" element={<PlanYourDreamTrip />} />
             <Route path="/cestovni-pruvodci" element={<Home />} />
-            <Route path="/inspirace" element={<Home />} />
+            <Route path="/inspirace" element={<TravelInspiration />} />
             <Route path="/spoluprace" element={<Collaboration />} />
           </Routes>
         </div>
