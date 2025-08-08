@@ -91,23 +91,27 @@ const Navigation = () => {
   const buttonRef = useRef(null);
   const firstMenuItemRef = useRef(null);
 
-  const toggleMenu = useCallback(() => {
+  const toggleMenu = useCallback((event) => {
+    const isKeyboardActivated = event?.detail === 0 || event?.key;
+    
     setIsMenuOpen(prev => {
       const newState = !prev;
-      if (newState) {
+      if (newState && isKeyboardActivated) {
         setTimeout(() => {
           firstMenuItemRef.current?.focus();
         }, 100);
-      } else {
+      } else if (!newState && isKeyboardActivated) {
         buttonRef.current?.focus();
       }
       return newState;
     });
   }, []);
 
-  const closeMenu = useCallback(() => {
+  const closeMenu = useCallback((shouldFocus = true) => {
     setIsMenuOpen(false);
-    buttonRef.current?.focus();
+    if (shouldFocus && !('ontouchstart' in window)) {
+      buttonRef.current?.focus();
+    }
   }, []);
 
   useEffect(() => {
@@ -238,8 +242,8 @@ const Navigation = () => {
       {isMenuOpen && (
         <div 
           className="xl:hidden fixed inset-0 z-40 opacity-0 top-20 xl:top-24"
-          onClick={closeMenu}
-          onTouchStart={closeMenu}
+          onClick={() => closeMenu(false)}
+          onTouchStart={() => closeMenu(false)}
           aria-hidden="true"
         />
       )}
@@ -259,7 +263,7 @@ const Navigation = () => {
                   ref={index === 0 ? firstMenuItemRef : null}
                   to={item.href}
                   className="block px-6 py-4 text-black font-semibold text-base md:text-lg hover:bg-gray-50 active:bg-gray-100 hover:text-green-600 transition-colors duration-200 rounded-lg mx-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 touch-manipulation"
-                  onClick={closeMenu}
+                  onClick={() => closeMenu(false)}
                   onTouchStart={() => {}}
                   role="menuitem"
                   aria-current={location.pathname === item.href ? "page" : undefined}
@@ -279,7 +283,7 @@ const Navigation = () => {
                 rel="noopener noreferrer"
                 aria-label="Sleduj mě na Instagramu @cestybezmapy"
                 className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors duration-200 rounded-lg mx-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 touch-manipulation"
-                onClick={closeMenu}
+                onClick={() => closeMenu(false)}
                 onTouchStart={() => {}}
                 role="menuitem"
               >
