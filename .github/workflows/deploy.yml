@@ -35,6 +35,13 @@ jobs:
         env:
           NODE_ENV: production
 
+      - name: Debug - List dist contents
+        run: |
+          echo "Contents of dist directory:"
+          ls -la dist/
+          echo "Dist size:"
+          du -sh dist/
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
