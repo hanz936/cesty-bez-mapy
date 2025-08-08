@@ -61,7 +61,7 @@ const Hero = () => {
     >
       {!imageError && (
         <img 
-          src="/images/hero-background.jpg" 
+          src="/cesty-bez-mapy/images/hero-background.jpg" 
           alt="Cestování a objevování světa - pozadí s krásnými destinacemi" 
           className={CLASSES.backgroundImg}
           width="1920"
@@ -90,7 +90,7 @@ const Hero = () => {
           aria-hidden="true"
           onError={handleVideoError}
         >
-          <source src="/video/background.mp4" type="video/mp4" />
+          <source src="/cesty-bez-mapy/video/background.mp4" type="video/mp4" />
           Váš prohlížeč nepodporuje video přehrávání.
         </video>
       )}

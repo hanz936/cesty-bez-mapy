@@ -30,13 +30,13 @@ const CLASSES = {
 };
 
 const SLIDESHOW_IMAGES = [
-  '/images/slide1.png',
-  '/images/slide2.png', 
-  '/images/slide3.png',
-  '/images/slide4.png',
-  '/images/slide5.png',
-  '/images/slide6.png',
-  '/images/slide7.png'
+  '/cesty-bez-mapy/images/slide1.png',
+  '/cesty-bez-mapy/images/slide2.png', 
+  '/cesty-bez-mapy/images/slide3.png',
+  '/cesty-bez-mapy/images/slide4.png',
+  '/cesty-bez-mapy/images/slide5.png',
+  '/cesty-bez-mapy/images/slide6.png',
+  '/cesty-bez-mapy/images/slide7.png'
 ];
 
 class PlanYourDreamTripErrorBoundary extends React.Component {
@@ -121,7 +121,7 @@ const PlanYourDreamTrip = () => {
       <section 
         className={CLASSES.heroSection}
         style={{
-          backgroundImage: 'url(/images/about-background.png)',
+          backgroundImage: 'url(/cesty-bez-mapy/images/about-background.png)',
           backgroundSize: 'contain',
           backgroundPosition: 'center center',
           backgroundRepeat: 'no-repeat',
@@ -162,7 +162,7 @@ const PlanYourDreamTrip = () => {
               <ul className={CLASSES.list} role="list">
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/images/pin.png" 
+                    src="/cesty-bez-mapy/images/pin.png" 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -171,7 +171,7 @@ const PlanYourDreamTrip = () => {
                 </li>
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/images/pin.png" 
+                    src="/cesty-bez-mapy/images/pin.png" 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -180,7 +180,7 @@ const PlanYourDreamTrip = () => {
                 </li>
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/images/pin.png" 
+                    src="/cesty-bez-mapy/images/pin.png" 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -189,7 +189,7 @@ const PlanYourDreamTrip = () => {
                 </li>
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/images/pin.png" 
+                    src="/cesty-bez-mapy/images/pin.png" 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -198,7 +198,7 @@ const PlanYourDreamTrip = () => {
                 </li>
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/images/pin.png" 
+                    src="/cesty-bez-mapy/images/pin.png" 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -215,7 +215,7 @@ const PlanYourDreamTrip = () => {
               <ul className={CLASSES.list} role="list">
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/images/pin.png" 
+                    src="/cesty-bez-mapy/images/pin.png" 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -224,7 +224,7 @@ const PlanYourDreamTrip = () => {
                 </li>
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/images/pin.png" 
+                    src="/cesty-bez-mapy/images/pin.png" 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -233,7 +233,7 @@ const PlanYourDreamTrip = () => {
                 </li>
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/images/pin.png" 
+                    src="/cesty-bez-mapy/images/pin.png" 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -242,7 +242,7 @@ const PlanYourDreamTrip = () => {
                 </li>
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/images/pin.png" 
+                    src="/cesty-bez-mapy/images/pin.png" 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -251,7 +251,7 @@ const PlanYourDreamTrip = () => {
                 </li>
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/images/pin.png" 
+                    src="/cesty-bez-mapy/images/pin.png" 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -300,7 +300,7 @@ const PlanYourDreamTrip = () => {
       <section 
         className={`${CLASSES.quizSection} mx-4 sm:mx-8 md:mx-16 lg:mx-32 xl:mx-48`}
         style={{
-          backgroundImage: 'url(/images/quiz-background.png)',
+          backgroundImage: 'url(/cesty-bez-mapy/images/quiz-background.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center center',
           backgroundRepeat: 'no-repeat',

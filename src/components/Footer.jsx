@@ -173,7 +173,7 @@ const Footer = () => {
         <div className="flex flex-col md:flex-row items-center md:items-start">
           <div className="mb-12 md:mb-0">
             <ImageWithFallback 
-              src="/images/logo-footer.png" 
+              src="/cesty-bez-mapy/images/logo-footer.png" 
               alt="Cesty bez mapy logo" 
               className="h-28 w-auto mx-auto"
               loading="eager"
@@ -205,7 +205,7 @@ const Footer = () => {
                   className="rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
                 >
                   <ImageWithFallback 
-                    src="/images/instagram.svg" 
+                    src="/cesty-bez-mapy/images/instagram.svg" 
                     alt="Instagram" 
                     className="w-7 h-7 grayscale hover:grayscale-0 transition-all duration-300 motion-reduce:transition-none"
                     loading="eager"
@@ -277,7 +277,7 @@ const Footer = () => {
               "@type": "Organization",
               "name": "Cesty (bez) mapy",
               "url": currentOrigin,
-              "logo": currentOrigin + "/images/logo-footer.png",
+              "logo": currentOrigin + "/cesty-bez-mapy/images/logo-footer.png",
               "sameAs": [
                 "https://www.instagram.com/cestybezmapy"
               ],

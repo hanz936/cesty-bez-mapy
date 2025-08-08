@@ -171,7 +171,7 @@ const Navigation = () => {
         aria-label="Cesty bez mapy - domovská stránka"
       >
         <ImageWithFallback 
-          src="/images/logo.png" 
+          src="/cesty-bez-mapy/images/logo.png" 
           alt="Cesty bez mapy logo" 
           className="h-16 xl:h-20 w-auto"
           loading="eager"
@@ -226,7 +226,7 @@ const Navigation = () => {
           className="focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 rounded touch-manipulation"
         >
           <ImageWithFallback 
-            src="/images/instagram.svg" 
+            src="/cesty-bez-mapy/images/instagram.svg" 
             alt="Instagram" 
             className="w-7 h-7 grayscale hover:grayscale-0 transition-all duration-300 motion-reduce:transition-none"
             loading="eager"
@@ -284,7 +284,7 @@ const Navigation = () => {
                 role="menuitem"
               >
                 <ImageWithFallback 
-                  src="/images/instagram.svg" 
+                  src="/cesty-bez-mapy/images/instagram.svg" 
                   alt="Instagram" 
                   className="w-6 h-6 md:w-7 md:h-7"
                   loading="eager"

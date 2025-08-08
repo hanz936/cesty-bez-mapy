@@ -92,7 +92,7 @@ const MyStory = () => {
           <div className="flex-1 lg:min-w-80 text-center order-1 lg:order-2">
             {!imageError ? (
               <img 
-                src="/images/jana.jpg" 
+                src="/cesty-bez-mapy/images/jana.jpg" 
                 alt="Fotka autorky itinerářů Jana - zakladatelka Cesty bez mapy" 
                 className="w-full max-w-sm sm:max-w-md rounded-xl shadow-2xl object-cover mx-auto"
                 width="384"
