@@ -53,7 +53,7 @@ const BLOG_POSTS = [
     tag: '#víkend',
     excerpt: 'Nemáš dovolenou, ale potřebuješ vypadnout? Připravila jsem 10 mých oblíbených destinací v Česku i Evropě, kam si můžeš odskočit na víkend – a přitom si to opravdu užít. Ať už hledáš klid, výhledy, kavárny nebo městskou atmosféru, najdeš tu přesně to, co potřebuješ. Stačí sbalit batoh a vyrazit.',
     image: '/cesty-bez-mapy/images/blog1.png',
-    alt: 'Fotka s popisem užij si víkend',
+    alt: 'Fotka motivující k víkendovému cestování',
     link: '/blog/article1'
   },
   {
@@ -98,7 +98,7 @@ const BLOG_POSTS = [
     tag: '#cestování',
     excerpt: 'Taky o promočeném stanu, staveništi místo ubytování a mořském ježkovi, kterého opravdu nechceš potkat. Tady jsou moje příběhy, kdy šlo všechno jinak – a přesto (nebo právě proto) nezapomenutelně.',
     image: '/cesty-bez-mapy/images/blog6.png',
-    alt: 'Fotka z Paříže s pohledem na Eifelovu věž',
+    alt: 'Fotka znázorňující neočekávané cestovatelské situace',
     link: '/blog/article6'
   }
 ];
@@ -114,9 +114,20 @@ const BlogCard = ({ post, onCardClick }) => {
     onCardClick(post);
   }, [post, onCardClick]);
 
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleCardClick();
+    }
+  }, [handleCardClick]);
+
   return (
     <div className="bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 ease-in-out hover:transform hover:-translate-y-1.5 hover:shadow-2xl border border-gray-100 min-h-[672px] max-h-[672px] cursor-pointer group"
-         onClick={handleCardClick}>
+         onClick={handleCardClick}
+         role="button"
+         tabIndex={0}
+         onKeyDown={handleKeyDown}
+         aria-label={`Zobrazit článek: ${post.title}`}>
       
       {/* Image Section */}
       <div className="relative w-full h-60 flex-shrink-0 overflow-hidden">
@@ -142,19 +153,29 @@ const BlogCard = ({ post, onCardClick }) => {
 
       {/* Content Section */}
       <div className="p-7 flex flex-col flex-grow">
-        <h3 className="text-lg font-medium text-gray-900 mb-2 leading-snug line-clamp-3 group-hover:text-green-800 transition-colors duration-200">
+        <h3 className="text-lg font-medium text-gray-900 mb-2 leading-snug group-hover:text-green-800 transition-colors duration-200 overflow-hidden" 
+            style={{
+              display: '-webkit-box',
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: 'vertical'
+            }}>
           {post.title}
         </h3>
         
         {/* Separator */}
         <div className="w-[70px] h-0.5 bg-gradient-to-r from-green-800 to-green-600 mx-auto my-3 rounded-full group-hover:w-[100px] transition-all duration-300 ease-in-out"></div>
         
-        <p className="text-sm text-gray-600 leading-relaxed mt-2 line-clamp-8 flex-grow">
+        <p className="text-sm text-gray-600 leading-relaxed mt-2 flex-grow overflow-hidden" 
+           style={{
+             display: '-webkit-box',
+             WebkitLineClamp: 8,
+             WebkitBoxOrient: 'vertical'
+           }}>
           {post.excerpt}
         </p>
         
         {/* Read More Button */}
-        <button className="inline-block self-start mt-auto py-2 px-5 bg-green-800 text-white text-sm rounded transition-colors duration-300 hover:bg-green-900 supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2 focus:outline-none">
+        <button className="self-start mt-auto py-2 px-5 bg-green-800 text-white text-sm rounded transition-colors duration-300 hover:bg-green-900 supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2 focus:outline-none">
           Přečti si celý článek
         </button>
       </div>
@@ -165,12 +186,10 @@ const BlogCard = ({ post, onCardClick }) => {
 BlogCard.displayName = 'BlogCard';
 
 const TravelInspiration = () => {
-  const [selectedPost, setSelectedPost] = useState(null);
-
   const handleCardClick = useCallback((post) => {
-    // Pro teď jen console log, později routing
-    console.log('Opening article:', post.title);
-    setSelectedPost(post);
+    // Pro teď prázdný handler, později zde bude routing k článku
+    // Například: navigate(`/blog/${post.id}`) nebo router.push(post.link)
+    void post; // Prevent unused parameter warning
   }, []);
 
   return (
@@ -183,6 +202,7 @@ const TravelInspiration = () => {
         style={{
           backgroundImage: 'url(/cesty-bez-mapy/images/blog-hero.jpg)'
         }}
+        aria-label="Hero sekce s názvem stránky"
       >
         {/* Dark Overlay */}
         <div className="absolute inset-0 bg-black/50 z-0"></div>
@@ -197,7 +217,7 @@ const TravelInspiration = () => {
       </section>
 
       {/* Blog Grid */}
-      <section className="py-16 px-5 max-w-6xl mx-auto">
+      <main className="py-16 px-5 max-w-6xl mx-auto" role="main" aria-label="Seznam článků o cestování">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
           {BLOG_POSTS.map((post) => (
             <BlogCard 
@@ -207,7 +227,7 @@ const TravelInspiration = () => {
             />
           ))}
         </div>
-      </section>
+      </main>
 
       <Footer />
     </div>
