@@ -202,7 +202,7 @@ const Navigation = () => {
       <button 
         ref={buttonRef}
         id="mobile-menu-button"
-        className={`relative w-12 h-12 md:w-14 md:h-14 xl:hidden bg-white hover:bg-gray-50 active:bg-gray-100 rounded-lg transition-colors duration-200 motion-reduce:transition-none border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md motion-reduce:shadow-sm focus:outline-none touch-manipulation ${!isTouch ? 'focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2' : ''}`}
+        className="relative w-12 h-12 md:w-14 md:h-14 xl:hidden bg-white hover:bg-gray-50 active:bg-gray-100 rounded-lg transition-colors duration-200 motion-reduce:transition-none border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md motion-reduce:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 touch-manipulation"
         onClick={toggleMenu}
         aria-label={isMenuOpen ? 'Zavřít menu' : 'Otevřít menu'}
         aria-expanded={isMenuOpen}
