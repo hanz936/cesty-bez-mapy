@@ -86,46 +86,29 @@ ImageWithFallback.displayName = 'ImageWithFallback';
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isTouch, setIsTouch] = useState(false);
   const location = useLocation();
   const menuRef = useRef(null);
   const buttonRef = useRef(null);
   const firstMenuItemRef = useRef(null);
 
-  // Detekce touch vs mouse použití
-  useEffect(() => {
-    const handleTouchStart = () => setIsTouch(true);
-    const handleMouseDown = () => setIsTouch(false);
-    
-    document.addEventListener('touchstart', handleTouchStart);
-    document.addEventListener('mousedown', handleMouseDown);
-    
-    return () => {
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('mousedown', handleMouseDown);
-    };
-  }, []);
-
   const toggleMenu = useCallback(() => {
     setIsMenuOpen(prev => {
       const newState = !prev;
-      if (newState && !isTouch) {
+      if (newState) {
         setTimeout(() => {
           firstMenuItemRef.current?.focus();
         }, 100);
-      } else if (!newState && !isTouch) {
+      } else {
         buttonRef.current?.focus();
       }
       return newState;
     });
-  }, [isTouch]);
+  }, []);
 
   const closeMenu = useCallback(() => {
     setIsMenuOpen(false);
-    if (!isTouch) {
-      buttonRef.current?.focus();
-    }
-  }, [isTouch]);
+    buttonRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -184,7 +167,7 @@ const Navigation = () => {
     <nav className="bg-white px-4 md:px-8 flex items-center justify-between z-50 relative h-20 xl:h-24" role="navigation">
       <Link 
         to="/" 
-        className={`flex items-center gap-1 sm:gap-2 md:gap-3 lg:gap-4 text-inherit h-full focus:outline-none rounded ${!isTouch ? 'focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2' : ''}`}
+        className="flex items-center gap-1 sm:gap-2 md:gap-3 lg:gap-4 text-inherit h-full focus:outline-none rounded supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2"
         aria-label="Cesty bez mapy - domovská stránka"
       >
         <ImageWithFallback 
@@ -202,7 +185,7 @@ const Navigation = () => {
       <button 
         ref={buttonRef}
         id="mobile-menu-button"
-        className="relative w-12 h-12 md:w-14 md:h-14 xl:hidden bg-white hover:bg-gray-50 active:bg-gray-100 rounded-lg transition-colors duration-200 motion-reduce:transition-none border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md motion-reduce:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 touch-manipulation"
+        className="relative w-12 h-12 md:w-14 md:h-14 xl:hidden bg-white hover:bg-gray-50 active:bg-gray-100 rounded-lg transition-colors duration-200 motion-reduce:transition-none border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md motion-reduce:shadow-sm focus:outline-none supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2 touch-manipulation"
         onClick={toggleMenu}
         aria-label={isMenuOpen ? 'Zavřít menu' : 'Otevřít menu'}
         aria-expanded={isMenuOpen}
@@ -221,7 +204,7 @@ const Navigation = () => {
             <li key={item.href} className="relative px-5">
               <Link 
                 to={item.href}
-                className={`text-black font-bold text-lg whitespace-nowrap hover:underline focus:outline-none rounded transition-colors duration-200 motion-reduce:transition-none ${!isTouch ? 'focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2' : ''}`}
+                className="text-black font-bold text-lg whitespace-nowrap hover:underline focus:outline-none rounded transition-colors duration-200 motion-reduce:transition-none supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2"
                 aria-current={location.pathname === item.href ? "page" : undefined}
               >
                 {item.text}
@@ -240,7 +223,7 @@ const Navigation = () => {
           target="_blank" 
           rel="noopener noreferrer"
           aria-label="Sleduj mě na Instagramu @cestybezmapy"
-          className={`focus:outline-none rounded touch-manipulation ${!isTouch ? 'focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2' : ''}`}
+          className="focus:outline-none rounded touch-manipulation supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2"
         >
           <ImageWithFallback 
             src="/cesty-bez-mapy/images/instagram.svg" 
@@ -275,7 +258,7 @@ const Navigation = () => {
                 <Link 
                   ref={index === 0 ? firstMenuItemRef : null}
                   to={item.href}
-                  className={`block px-6 py-4 text-black font-semibold text-base md:text-lg hover:bg-gray-50 active:bg-gray-100 hover:text-green-600 transition-colors duration-200 rounded-lg mx-2 focus:outline-none touch-manipulation ${!isTouch ? 'focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2' : ''}`}
+                  className="block px-6 py-4 text-black font-semibold text-base md:text-lg hover:bg-gray-50 active:bg-gray-100 hover:text-green-600 transition-colors duration-200 rounded-lg mx-2 focus:outline-none touch-manipulation supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2"
                   onClick={closeMenu}
                   onTouchStart={() => {}}
                   role="menuitem"
@@ -295,7 +278,7 @@ const Navigation = () => {
                 target="_blank" 
                 rel="noopener noreferrer"
                 aria-label="Sleduj mě na Instagramu @cestybezmapy"
-                className={`flex items-center gap-3 px-6 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors duration-200 rounded-lg mx-2 focus:outline-none touch-manipulation ${!isTouch ? 'focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2' : ''}`}
+                className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors duration-200 rounded-lg mx-2 focus:outline-none touch-manipulation supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2"
                 onClick={closeMenu}
                 onTouchStart={() => {}}
                 role="menuitem"

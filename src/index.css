@@ -1,16 +1,1 @@
 @import "tailwindcss";
-
-/* Hide focus rings on touch devices */
-@media (hover: none) and (pointer: coarse) {
-  *:focus,
-  *:focus-visible {
-    outline: none !important;
-    box-shadow: none !important;
-  }
-  
-  /* Specifically target Tailwind's focus-visible ring classes */
-  .focus-visible\:ring-2:focus-visible,
-  .focus-visible\:ring-green-600:focus-visible {
-    box-shadow: none !important;
-  }
-}
