@@ -10,6 +10,7 @@ const FONT_REGEX = /\.(woff2?|eot|ttf|otf)(\?.*)?$/i;
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/cesty-bez-mapy/', // GitHub Pages base path
   plugins: [
     react({
       // React optimization - babel config removed, using esbuild drop instead
