@@ -115,20 +115,6 @@ const PlanYourDreamTrip = () => {
 
   return (
     <main className={CLASSES.main}>
-      <title>Naplánuj si cestu snů | Cesty (bez) mapy</title>
-      <meta 
-        name="description" 
-        content="Na cestu nemusíš být profík. S dobrým plánem toho zvládneš víc – bez stresu, bloudění nebo promarněných dnů. Začni plánovat svou cestu snů." 
-      />
-      <meta property="og:title" content="Naplánuj si cestu snů | Cesty (bez) mapy" />
-      <meta 
-        property="og:description" 
-        content="Na cestu nemusíš být profík. S dobrým plánem toho zvládneš víc – bez stresu, bloudění nebo promarněných dnů. Začni plánovat svou cestu snů." 
-      />
-      <meta property="og:type" content="website" />
-      <meta property="og:image" content="/images/about-background.png" />
-      <link rel="canonical" href="https://cestybezmapy.cz/naplanuj-si-cestu-snu" />
-      
       <Navigation />
       
       {/* Hero Section */}

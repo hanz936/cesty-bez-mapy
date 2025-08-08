@@ -153,20 +153,6 @@ const Collaboration = () => {
 
   return (
     <main className={CLASSES.main}>
-      <title>Spolupráce | Cesty (bez) mapy</title>
-      <meta 
-        name="description" 
-        content="Spolupracuj se mnou jako UGC travel tvůrcem. Autentický obsah z reálného cestování - videa, fotky, recenze pro hotely, značky a destinace." 
-      />
-      <meta property="og:title" content="Spolupráce | Cesty (bez) mapy" />
-      <meta 
-        property="og:description" 
-        content="Spolupracuj se mnou jako UGC travel tvůrcem. Autentický obsah z reálného cestování - videa, fotky, recenze pro hotely, značky a destinace." 
-      />
-      <meta property="og:type" content="website" />
-      <meta property="og:image" content="/images/logo.png" />
-      <link rel="canonical" href="https://cestybezmapy.cz/spoluprace" />
-      
       <Navigation />
       
       <section 

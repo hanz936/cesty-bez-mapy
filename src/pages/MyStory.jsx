@@ -55,20 +55,6 @@ const MyStory = () => {
 
   return (
     <div>
-      <title>Můj příběh | Cesty (bez) mapy</title>
-      <meta 
-        name="description" 
-        content="Poznej Janu, zakladatelku Cesty bez mapy. Obyčejná holka s láskou k cestování, která navštívila přes 30 zemí a všechny si naplánovala sama." 
-      />
-      <meta property="og:title" content="Můj příběh | Cesty (bez) mapy" />
-      <meta 
-        property="og:description" 
-        content="Poznej Janu, zakladatelku Cesty bez mapy. Obyčejná holka s láskou k cestování, která navštívila přes 30 zemí a všechny si naplánovala sama." 
-      />
-      <meta property="og:type" content="website" />
-      <meta property="og:image" content="/images/jana.jpg" />
-      <link rel="canonical" href="https://cestybezmapy.cz/muj-pribeh" />
-      
       <Navigation />
       
       <section 
