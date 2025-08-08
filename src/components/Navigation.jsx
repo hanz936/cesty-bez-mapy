@@ -86,33 +86,46 @@ ImageWithFallback.displayName = 'ImageWithFallback';
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isTouch, setIsTouch] = useState(false);
   const location = useLocation();
   const menuRef = useRef(null);
   const buttonRef = useRef(null);
   const firstMenuItemRef = useRef(null);
 
-  const toggleMenu = useCallback((event) => {
-    const isKeyboardActivated = event?.detail === 0 || event?.key;
+  // Detekce touch vs mouse použití
+  useEffect(() => {
+    const handleTouchStart = () => setIsTouch(true);
+    const handleMouseDown = () => setIsTouch(false);
     
+    document.addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('mousedown', handleMouseDown);
+    
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('mousedown', handleMouseDown);
+    };
+  }, []);
+
+  const toggleMenu = useCallback(() => {
     setIsMenuOpen(prev => {
       const newState = !prev;
-      if (newState && isKeyboardActivated) {
+      if (newState && !isTouch) {
         setTimeout(() => {
           firstMenuItemRef.current?.focus();
         }, 100);
-      } else if (!newState && isKeyboardActivated) {
+      } else if (!newState && !isTouch) {
         buttonRef.current?.focus();
       }
       return newState;
     });
-  }, []);
+  }, [isTouch]);
 
-  const closeMenu = useCallback((shouldFocus = true) => {
+  const closeMenu = useCallback(() => {
     setIsMenuOpen(false);
-    if (shouldFocus && !('ontouchstart' in window)) {
+    if (!isTouch) {
       buttonRef.current?.focus();
     }
-  }, []);
+  }, [isTouch]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -242,8 +255,8 @@ const Navigation = () => {
       {isMenuOpen && (
         <div 
           className="xl:hidden fixed inset-0 z-40 opacity-0 top-20 xl:top-24"
-          onClick={() => closeMenu(false)}
-          onTouchStart={() => closeMenu(false)}
+          onClick={closeMenu}
+          onTouchStart={closeMenu}
           aria-hidden="true"
         />
       )}
@@ -263,7 +276,7 @@ const Navigation = () => {
                   ref={index === 0 ? firstMenuItemRef : null}
                   to={item.href}
                   className="block px-6 py-4 text-black font-semibold text-base md:text-lg hover:bg-gray-50 active:bg-gray-100 hover:text-green-600 transition-colors duration-200 rounded-lg mx-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 touch-manipulation"
-                  onClick={() => closeMenu(false)}
+                  onClick={closeMenu}
                   onTouchStart={() => {}}
                   role="menuitem"
                   aria-current={location.pathname === item.href ? "page" : undefined}
@@ -283,7 +296,7 @@ const Navigation = () => {
                 rel="noopener noreferrer"
                 aria-label="Sleduj mě na Instagramu @cestybezmapy"
                 className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors duration-200 rounded-lg mx-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 touch-manipulation"
-                onClick={() => closeMenu(false)}
+                onClick={closeMenu}
                 onTouchStart={() => {}}
                 role="menuitem"
               >
