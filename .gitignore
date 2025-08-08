@@ -22,6 +22,15 @@ dist-ssr
 config.json
 secrets.json
 
+# Supabase specific
+supabase/.env
+supabase/config.toml
+.supabase/
+supabase/.temp/
+supabase/temp/
+*_backup.sql
+schema_dump.sql
+
 # Security and certificates
 *.key
 *.pem
