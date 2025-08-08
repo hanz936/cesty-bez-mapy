@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
+import logger from '../utils/logger';
 
 const CLASSES = {
   main: 'min-h-screen bg-white',
@@ -50,7 +51,7 @@ class PlanYourDreamTripErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('PlanYourDreamTrip Error:', error, errorInfo);
+    logger.error('PlanYourDreamTrip Error:', error, errorInfo);
   }
 
   render() {

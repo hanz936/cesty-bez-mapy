@@ -25,12 +25,27 @@ export default defineConfig({
     hmr: {
       overlay: false, // Disable error overlay for better UX
     },
+    // Security headers for development
+    headers: {
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'X-XSS-Protection': '1; mode=block',
+    },
   },
 
   // Preview server configuration
   preview: {
     port: 4173,
     open: true,
+    // Security headers for preview
+    headers: {
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'X-XSS-Protection': '1; mode=block',
+      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+    },
   },
 
   // Build optimization

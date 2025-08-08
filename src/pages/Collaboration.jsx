@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
+import logger from '../utils/logger';
 
 const CLASSES = {
   main: 'min-h-screen bg-white',
@@ -39,7 +40,7 @@ class CollaborationErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('Collaboration Error:', error, errorInfo);
+    logger.error('Collaboration Error:', error, errorInfo);
   }
 
   render() {
@@ -143,7 +144,7 @@ const Collaboration = () => {
       setFormData({ name: '', email: '', message: '' });
       setFormErrors({});
     } catch (error) {
-      console.error('Form submission error:', error);
+      logger.error('Form submission error:', error, { formData: { email: formData.email } });
       setFormErrors({ submit: 'Při odesílání se vyskytla chyba. Zkuste to prosím znovu.' });
     } finally {
       setIsSubmitting(false);
