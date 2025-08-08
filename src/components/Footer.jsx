@@ -1,5 +1,6 @@
 import React, { useState, memo, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import logger from '../utils/logger';
 
 class FooterErrorBoundary extends React.Component {
   constructor(props) {
@@ -8,14 +9,12 @@ class FooterErrorBoundary extends React.Component {
   }
 
   static getDerivedStateFromError(_error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Footer render error:', _error);
-    }
+    logger.error('Footer render error:', _error);
     return { hasError: true };
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('Footer Error:', error, errorInfo);
+    logger.error('Footer Error:', error, errorInfo);
   }
 
   render() {

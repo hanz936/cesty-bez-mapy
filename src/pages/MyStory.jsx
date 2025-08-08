@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
+import logger from '../utils/logger';
 
 class MyStoryErrorBoundary extends React.Component {
   constructor(props) {
@@ -15,7 +16,7 @@ class MyStoryErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('MyStory Error:', error, errorInfo);
+    logger.error('MyStory Error:', error, errorInfo);
   }
 
   render() {

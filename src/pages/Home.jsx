@@ -2,6 +2,7 @@ import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import Navigation from '../components/Navigation';
 import Hero from '../components/Hero';
+import logger from '../utils/logger';
 
 class HomeErrorBoundary extends React.Component {
   constructor(props) {
@@ -14,7 +15,7 @@ class HomeErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('Home Error:', error, errorInfo);
+    logger.error('Home Error:', error, errorInfo);
   }
 
   render() {

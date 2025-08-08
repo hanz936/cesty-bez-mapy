@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import MyStory from './pages/MyStory';
 import Collaboration from './pages/Collaboration';
 import PlanYourDreamTrip from './pages/PlanYourDreamTrip';
+import logger from './utils/logger';
 
 // Error boundary for the entire application
 class AppErrorBoundary extends React.Component {
@@ -19,7 +20,7 @@ class AppErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     // Log error for monitoring in production
-    console.error('App Error:', error, errorInfo);
+    logger.error('App Error:', error, errorInfo);
   }
 
   render() {

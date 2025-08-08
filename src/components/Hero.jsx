@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import logger from '../utils/logger';
 
 const CLASSES = {
   section: "relative h-[calc(100vh-80px)] xl:h-[calc(100vh-96px)] overflow-hidden w-full",
@@ -19,7 +20,7 @@ class HeroErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('Hero Error:', error, errorInfo);
+    logger.error('Hero Error:', error, errorInfo);
   }
 
   render() {

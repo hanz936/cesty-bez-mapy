@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, memo, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import logger from '../utils/logger';
 
 const NAV_ITEMS = [
   { href: "/naplanuj-si-cestu-snu", text: "Naplánuj si cestu snů" },
@@ -20,7 +21,7 @@ class NavigationErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('Navigation Error:', error, errorInfo);
+    logger.error('Navigation Error:', error, errorInfo);
   }
 
   render() {
