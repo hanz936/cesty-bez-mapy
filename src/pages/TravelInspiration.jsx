@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
+import PageHero from '../components/PageHero';
 import logger from '../utils/logger';
 
 class TravelInspirationErrorBoundary extends React.Component {
@@ -137,7 +138,7 @@ const BlogCard = ({ post, onCardClick }) => {
             alt={post.alt}
             className="w-full h-full object-cover"
             onError={handleImageError}
-            loading="lazy"
+            loading="eager"
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center">
@@ -153,7 +154,7 @@ const BlogCard = ({ post, onCardClick }) => {
 
       {/* Content Section */}
       <div className="p-7 flex flex-col flex-grow">
-        <h3 className="text-lg font-medium text-gray-900 mb-2 leading-snug group-hover:text-green-800 transition-colors duration-200 overflow-hidden" 
+        <h3 className="text-lg font-medium text-black mb-2 leading-snug overflow-hidden" 
             style={{
               display: '-webkit-box',
               WebkitLineClamp: 3,
@@ -165,7 +166,7 @@ const BlogCard = ({ post, onCardClick }) => {
         {/* Separator */}
         <div className="w-[70px] h-0.5 bg-gradient-to-r from-green-800 to-green-600 mx-auto my-3 rounded-full group-hover:w-[100px] transition-all duration-300 ease-in-out"></div>
         
-        <p className="text-sm text-gray-600 leading-relaxed mt-2 flex-grow overflow-hidden" 
+        <p className="text-sm text-black leading-relaxed mt-2 flex-grow overflow-hidden" 
            style={{
              display: '-webkit-box',
              WebkitLineClamp: 8,
@@ -197,27 +198,16 @@ const TravelInspiration = () => {
       <Navigation />
       
       {/* Hero Section */}
-      <section 
-        className="relative text-center py-24 px-5 bg-cover bg-center bg-no-repeat text-white overflow-hidden"
-        style={{
-          backgroundImage: 'url(/cesty-bez-mapy/images/blog-hero.jpg)'
-        }}
-        aria-label="Hero sekce s názvem stránky"
-      >
-        {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-black/50 z-0"></div>
-        
-        {/* Content */}
-        <div className="relative z-10">
-          <h1 className="text-5xl font-bold mb-5">Inspirace na cesty</h1>
-          <p className="text-xl max-w-3xl mx-auto text-gray-200">
-            Hledáš tipy na víkend, útěk z města nebo malé dobrodružství? Tady najdeš články plné nápadů, pro cesty v Česku i Evropě.
-          </p>
-        </div>
-      </section>
+      <PageHero 
+        backgroundImage="/cesty-bez-mapy/images/blog-hero.jpg"
+        title="Inspirace na cesty"
+        subtitle="Hledáš tipy na víkend, útěk z města nebo malé dobrodružství? Tady najdeš články plné nápadů, pro cesty v Česku i Evropě."
+        overlayOpacity={0.5}
+        ariaLabel="Hero sekce s názvem stránky"
+      />
 
       {/* Blog Grid */}
-      <main className="py-16 px-5 max-w-6xl mx-auto" role="main" aria-label="Seznam článků o cestování">
+      <main className="py-16 px-5 max-w-6xl mx-auto" role="main" aria-label="Seznam článků o cestování" style={{ overflowAnchor: 'none' }}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
           {BLOG_POSTS.map((post) => (
             <BlogCard 

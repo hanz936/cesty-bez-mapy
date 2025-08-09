@@ -61,7 +61,7 @@ const Hero = () => {
     >
       {!imageError && (
         <img 
-          src="/cesty-bez-mapy/images/hero-background.jpg" 
+          src="/cesty-bez-mapy/images/hero-background.png" 
           alt="Cestování a objevování světa - pozadí s krásnými destinacemi" 
           className={CLASSES.backgroundImg}
           width="1920"
