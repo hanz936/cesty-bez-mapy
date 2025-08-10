@@ -1,6 +1,8 @@
-import React, { useState, memo, useEffect, useCallback } from 'react';
+import React, { useState, memo, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import logger from '../utils/logger';
+import { BASE_PATH } from '../../constants';
+import ImageWithFallback from '../common/ImageWithFallback';
+import logger from '../../utils/logger';
 
 class FooterErrorBoundary extends React.Component {
   constructor(props) {
@@ -91,60 +93,6 @@ const NavigationSection = memo(({ title, links, ariaLabel, className = "" }) => 
 
 NavigationSection.displayName = 'NavigationSection';
 
-const ImageWithFallback = memo(({ src, alt, className, fallback = null, loading = "lazy" }) => {
-  const [imageError, setImageError] = useState(false);
-  const [imageLoading, setImageLoading] = useState(true);
-
-  const handleLoad = useCallback(() => {
-    setImageLoading(false);
-  }, []);
-
-  const handleError = useCallback(() => {
-    setImageError(true);
-    setImageLoading(false);
-  }, []);
-
-  const fallbackClassName = React.useMemo(() => {
-    if (!className) return '';
-    return className
-      .replace(/opacity-\d+/g, '')
-      .replace(/grayscale/g, '')
-      .replace(/hover:grayscale-0/g, '')
-      .replace(/transition-(?:colors|opacity|all)/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }, [className]);
-
-  const imageClassName = React.useMemo(() => {
-    const loadingClass = imageLoading ? 'opacity-50' : 'opacity-100';
-    return `${className} ${loadingClass} transition-opacity duration-300 ease-in-out motion-reduce:transition-none`
-      .replace(/\s+/g, ' ')
-      .trim();
-  }, [className, imageLoading]);
-
-  if (imageError) {
-    return fallback || (
-      <div 
-        className={`${fallbackClassName} bg-gray-200 flex items-center justify-center text-gray-500 text-xs min-h-7 min-w-7`}
-      >
-        ?
-      </div>
-    );
-  }
-
-  return (
-    <img 
-      src={src}
-      alt={alt}
-      className={imageClassName}
-      loading={loading}
-      onLoad={handleLoad}
-      onError={handleError}
-    />
-  );
-});
-
-ImageWithFallback.displayName = 'ImageWithFallback';
 
 const Footer = () => {
   const [currentOrigin, setCurrentOrigin] = useState('');
@@ -173,7 +121,7 @@ const Footer = () => {
         <div className="flex flex-col md:flex-row items-center md:items-start">
           <div className="mb-12 md:mb-0">
             <ImageWithFallback 
-              src="/cesty-bez-mapy/images/logo-footer.png" 
+              src={`${BASE_PATH}/images/logo-footer.png`} 
               alt="Cesty bez mapy logo" 
               className="h-28 w-auto mx-auto"
               loading="eager"
@@ -205,7 +153,7 @@ const Footer = () => {
                   className="rounded focus:outline-none supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2"
                 >
                   <ImageWithFallback 
-                    src="/cesty-bez-mapy/images/instagram.svg" 
+                    src={`${BASE_PATH}/images/instagram.svg`} 
                     alt="Instagram" 
                     className="w-7 h-7 grayscale hover:grayscale-0 transition-all duration-300 motion-reduce:transition-none"
                     loading="eager"
@@ -277,7 +225,7 @@ const Footer = () => {
               "@type": "Organization",
               "name": "Cesty (bez) mapy",
               "url": currentOrigin,
-              "logo": currentOrigin + "/cesty-bez-mapy/images/logo-footer.png",
+              "logo": currentOrigin + `${BASE_PATH}/images/logo-footer.png`,
               "sameAs": [
                 "https://www.instagram.com/cestybezmapy"
               ],

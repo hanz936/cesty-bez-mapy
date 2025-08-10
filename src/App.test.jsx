@@ -6,8 +6,9 @@ describe('App', () => {
     render(<App />)
     
     // Test že se aplikace vyrendovala - navigace by měla být přítomna
-    const navigation = screen.getByRole('navigation')
-    expect(navigation).toBeInTheDocument()
+    // Použijeme getAllByRole protože máme main navigation + footer navigation
+    const navigations = screen.getAllByRole('navigation')
+    expect(navigations.length).toBeGreaterThan(0)
   })
 
   it('renders home route by default', () => {
@@ -21,7 +22,8 @@ describe('App', () => {
   it('applies correct CSS classes to root container', () => {
     render(<App />)
     
-    const rootDiv = screen.getByRole('navigation').closest('.min-h-screen')
+    // Najdeme Layout container přímo
+    const rootDiv = document.querySelector('.min-h-screen')
     expect(rootDiv).toHaveClass('min-h-screen')
   })
 })

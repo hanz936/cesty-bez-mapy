@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import logger from '../utils/logger';
+import { BASE_PATH } from '../../constants';
+import logger from '../../utils/logger';
 
 const CLASSES = {
   section: "relative h-[calc(100vh-80px)] xl:h-[calc(100vh-96px)] overflow-hidden w-full",
@@ -61,7 +62,7 @@ const Hero = () => {
     >
       {!imageError && (
         <img 
-          src="/cesty-bez-mapy/images/hero-background.png" 
+          src={`${BASE_PATH}/images/hero-background.png`} 
           alt="Cestování a objevování světa - pozadí s krásnými destinacemi" 
           className={CLASSES.backgroundImg}
           width="1920"
@@ -90,7 +91,7 @@ const Hero = () => {
           aria-hidden="true"
           onError={handleVideoError}
         >
-          <source src="/cesty-bez-mapy/video/background.mp4" type="video/mp4" />
+          <source src={`${BASE_PATH}/video/background.mp4`} type="video/mp4" />
           Váš prohlížeč nepodporuje video přehrávání.
         </video>
       )}

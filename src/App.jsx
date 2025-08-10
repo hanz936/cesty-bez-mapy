@@ -1,11 +1,14 @@
-import './App.css'
 import React from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { Button } from './components/ui';
+import { ROUTES } from './constants';
 import Home from './pages/Home';
 import MyStory from './pages/MyStory';
 import Collaboration from './pages/Collaboration';
 import PlanYourDreamTrip from './pages/PlanYourDreamTrip';
 import TravelInspiration from './pages/TravelInspiration';
+import TravelGuides from './pages/TravelGuides';
+import NotFound from './pages/NotFound';
 import logger from './utils/logger';
 
 // Error boundary for the entire application
@@ -39,12 +42,13 @@ class AppErrorBoundary extends React.Component {
               <p className="text-gray-600 mb-6">
                 Omlouváme se, ale aplikace narazila na neočekávanou chybu. Zkuste prosím obnovit stránku.
               </p>
-              <button
+              <Button
                 onClick={() => window.location.reload()}
-                className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
+                variant="primary"
+                size="md"
               >
                 Obnovit stránku
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -59,18 +63,15 @@ function App() {
   return (
     <AppErrorBoundary>
       <Router>
-        <div className="min-h-screen">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/MyStory" element={<MyStory />} />
-            <Route path="/muj-pribeh" element={<MyStory />} />
-            <Route path="/naplanuj-si-cestu-snu" element={<PlanYourDreamTrip />} />
-            <Route path="/plan-your-dream-trip" element={<PlanYourDreamTrip />} />
-            <Route path="/cestovni-pruvodci" element={<Home />} />
-            <Route path="/inspirace" element={<TravelInspiration />} />
-            <Route path="/spoluprace" element={<Collaboration />} />
-          </Routes>
-        </div>
+        <Routes>
+          <Route path={ROUTES.HOME} element={<Home />} />
+          <Route path={ROUTES.MY_STORY} element={<MyStory />} />
+          <Route path={ROUTES.PLAN_YOUR_DREAM_TRIP} element={<PlanYourDreamTrip />} />
+          <Route path={ROUTES.TRAVEL_GUIDES} element={<TravelGuides />} />
+          <Route path={ROUTES.INSPIRATION} element={<TravelInspiration />} />
+          <Route path={ROUTES.COLLABORATION} element={<Collaboration />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </Router>
     </AppErrorBoundary>
   )

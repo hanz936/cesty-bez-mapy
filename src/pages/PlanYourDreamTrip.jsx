@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Navigation from '../components/Navigation';
-import Footer from '../components/Footer';
-import logger from '../utils/logger';
+import Layout from '../components/layout/Layout';
+import { Button } from '../components/ui';
+import { BASE_PATH } from '../constants';
 
 const CLASSES = {
   main: 'min-h-screen bg-white',
@@ -17,7 +17,6 @@ const CLASSES = {
   list: 'list-none ml-0 space-y-4 mb-8',
   listItem: 'flex items-start text-black',
   listIcon: 'w-6 h-6 mr-3 mt-0.5 flex-shrink-0',
-  ctaButton: 'bg-green-800 hover:bg-green-900 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 text-lg inline-block',
   ctaParagraph: 'text-xl font-bold text-black mb-6',
   imageContainer: 'w-full lg:flex-1 lg:min-w-80 flex justify-center items-center',
   slideImage: 'w-full max-w-sm sm:max-w-md lg:max-w-lg mx-auto rounded-xl shadow-2xl object-contain',
@@ -26,64 +25,17 @@ const CLASSES = {
   quizContent: 'relative z-10 max-w-2xl mx-auto',
   quizTitle: 'text-4xl lg:text-5xl font-bold mb-4',
   quizDescription: 'text-xl lg:text-2xl mb-8',
-  quizButton: 'bg-green-800 hover:bg-green-900 text-white font-semibold py-4 px-8 rounded-lg transition-colors duration-200 text-xl'
 };
 
 const SLIDESHOW_IMAGES = [
-  '/cesty-bez-mapy/images/slide1.png',
-  '/cesty-bez-mapy/images/slide2.png', 
-  '/cesty-bez-mapy/images/slide3.png',
-  '/cesty-bez-mapy/images/slide4.png',
-  '/cesty-bez-mapy/images/slide5.png',
-  '/cesty-bez-mapy/images/slide6.png',
-  '/cesty-bez-mapy/images/slide7.png'
+  `${BASE_PATH}/images/slide1.png`,
+  `${BASE_PATH}/images/slide2.png`, 
+  `${BASE_PATH}/images/slide3.png`,
+  `${BASE_PATH}/images/slide4.png`,
+  `${BASE_PATH}/images/slide5.png`,
+  `${BASE_PATH}/images/slide6.png`,
+  `${BASE_PATH}/images/slide7.png`
 ];
-
-class PlanYourDreamTripErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    logger.error('PlanYourDreamTrip Error:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <main className={CLASSES.main}>
-          <Navigation />
-          <div className="flex items-center justify-center min-h-96 px-4">
-            <div className="max-w-md w-full text-center">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                Něco se pokazilo
-              </h1>
-              <p className="text-gray-600 mb-6">
-                Stránka se nedá načíst. Zkuste prosím obnovit stránku.
-              </p>
-              <button
-                onClick={() => window.location.reload()}
-                className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
-              >
-                Obnovit stránku
-              </button>
-            </div>
-          </div>
-          <Footer />
-        </main>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-PlanYourDreamTripErrorBoundary.displayName = 'PlanYourDreamTripErrorBoundary';
 
 const PlanYourDreamTrip = () => {
   const navigate = useNavigate();
@@ -109,19 +61,17 @@ const PlanYourDreamTrip = () => {
   }, [navigate]);
 
   const handleQuizClick = useCallback(() => {
-    // Navigate to quiz page (to be implemented later)
-    // TODO: Implement quiz page navigation
+    // Quiz functionality will be implemented in future version
+    alert('Kvíz bude brzy dostupný! 🚀');
   }, []);
 
   return (
-    <main className={CLASSES.main}>
-      <Navigation />
-      
+    <Layout>
       {/* Hero Section */}
       <section 
         className={CLASSES.heroSection}
         style={{
-          backgroundImage: 'url(/cesty-bez-mapy/images/about-background.png)',
+          backgroundImage: `url(${BASE_PATH}/images/about-background.png)`,
           backgroundSize: 'contain',
           backgroundPosition: 'center center',
           backgroundRepeat: 'no-repeat',
@@ -162,7 +112,7 @@ const PlanYourDreamTrip = () => {
               <ul className={CLASSES.list} role="list">
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/cesty-bez-mapy/images/pin.png" 
+                    src={`${BASE_PATH}/images/pin.png`} 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -171,7 +121,7 @@ const PlanYourDreamTrip = () => {
                 </li>
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/cesty-bez-mapy/images/pin.png" 
+                    src={`${BASE_PATH}/images/pin.png`} 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -180,7 +130,7 @@ const PlanYourDreamTrip = () => {
                 </li>
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/cesty-bez-mapy/images/pin.png" 
+                    src={`${BASE_PATH}/images/pin.png`} 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -189,7 +139,7 @@ const PlanYourDreamTrip = () => {
                 </li>
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/cesty-bez-mapy/images/pin.png" 
+                    src={`${BASE_PATH}/images/pin.png`} 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -198,7 +148,7 @@ const PlanYourDreamTrip = () => {
                 </li>
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/cesty-bez-mapy/images/pin.png" 
+                    src={`${BASE_PATH}/images/pin.png`} 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -215,7 +165,7 @@ const PlanYourDreamTrip = () => {
               <ul className={CLASSES.list} role="list">
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/cesty-bez-mapy/images/pin.png" 
+                    src={`${BASE_PATH}/images/pin.png`} 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -224,7 +174,7 @@ const PlanYourDreamTrip = () => {
                 </li>
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/cesty-bez-mapy/images/pin.png" 
+                    src={`${BASE_PATH}/images/pin.png`} 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -233,7 +183,7 @@ const PlanYourDreamTrip = () => {
                 </li>
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/cesty-bez-mapy/images/pin.png" 
+                    src={`${BASE_PATH}/images/pin.png`} 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -242,7 +192,7 @@ const PlanYourDreamTrip = () => {
                 </li>
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/cesty-bez-mapy/images/pin.png" 
+                    src={`${BASE_PATH}/images/pin.png`} 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -251,7 +201,7 @@ const PlanYourDreamTrip = () => {
                 </li>
                 <li className={CLASSES.listItem} role="listitem">
                   <img 
-                    src="/cesty-bez-mapy/images/pin.png" 
+                    src={`${BASE_PATH}/images/pin.png`} 
                     alt="" 
                     className={CLASSES.listIcon}
                     loading="lazy"
@@ -265,13 +215,14 @@ const PlanYourDreamTrip = () => {
               Plánuj chytře. Cestuj naplno.
             </p>
             <div className="text-center lg:text-left">
-              <button 
+              <Button 
                 onClick={handleCtaClick}
-                className={CLASSES.ctaButton}
+                variant="green"
+                size="lg"
                 aria-label="Přejít na výběr cestovních itinerářů"
               >
                 Vyber si cestu
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -300,7 +251,7 @@ const PlanYourDreamTrip = () => {
       <section 
         className={`${CLASSES.quizSection} mx-4 sm:mx-8 md:mx-16 lg:mx-32 xl:mx-48`}
         style={{
-          backgroundImage: 'url(/cesty-bez-mapy/images/quiz-background.png)',
+          backgroundImage: `url(${BASE_PATH}/images/quiz-background.png)`,
           backgroundSize: 'cover',
           backgroundPosition: 'center center',
           backgroundRepeat: 'no-repeat',
@@ -318,29 +269,21 @@ const PlanYourDreamTrip = () => {
           <p className={CLASSES.quizDescription}>
             Vyplň krátký kvíz a zjisti kam tě to táhne nejvíc.
           </p>
-          <button 
+          <Button 
             onClick={handleQuizClick}
-            className={CLASSES.quizButton}
+            variant="green"
+            size="xl"
             aria-label="Spustit cestovní kvíz"
           >
             Začít kvíz
-          </button>
+          </Button>
         </div>
       </section>
 
-      <Footer />
-    </main>
+    </Layout>
   );
 };
 
 PlanYourDreamTrip.displayName = 'PlanYourDreamTrip';
 
-const PlanYourDreamTripWithErrorBoundary = () => (
-  <PlanYourDreamTripErrorBoundary>
-    <PlanYourDreamTrip />
-  </PlanYourDreamTripErrorBoundary>
-);
-
-PlanYourDreamTripWithErrorBoundary.displayName = 'PlanYourDreamTripWithErrorBoundary';
-
-export default PlanYourDreamTripWithErrorBoundary;
+export default PlanYourDreamTrip;

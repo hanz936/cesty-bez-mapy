@@ -1,50 +1,6 @@
-import React from 'react';
 import { useState, useCallback } from 'react';
-import Navigation from '../components/Navigation';
-import Footer from '../components/Footer';
-import logger from '../utils/logger';
-
-class MyStoryErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    logger.error('MyStory Error:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-          <div className="max-w-md w-full text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Něco se pokazilo
-            </h1>
-            <p className="text-gray-600 mb-6">
-              Stránka se nedá načíst. Zkuste prosím obnovit stránku.
-            </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
-            >
-              Obnovit stránku
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-MyStoryErrorBoundary.displayName = 'MyStoryErrorBoundary';
+import Layout from '../components/layout/Layout';
+import { BASE_PATH } from '../constants';
 
 const MyStory = () => {
   const [imageError, setImageError] = useState(false);
@@ -54,9 +10,7 @@ const MyStory = () => {
   }, []);
 
   return (
-    <div>
-      <Navigation />
-      
+    <Layout>
       <section 
         className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8"
         role="main"
@@ -92,7 +46,7 @@ const MyStory = () => {
           <div className="flex-1 lg:min-w-80 text-center order-1 lg:order-2">
             {!imageError ? (
               <img 
-                src="/cesty-bez-mapy/images/jana.jpg" 
+                src={`${BASE_PATH}/images/jana.jpg`} 
                 alt="Fotka autorky itinerářů Jana - zakladatelka Cesty bez mapy" 
                 className="w-full max-w-sm sm:max-w-md rounded-xl shadow-2xl object-cover mx-auto"
                 width="384"
@@ -112,20 +66,10 @@ const MyStory = () => {
           </div>
         </div>
       </section>
-
-      <Footer />
-    </div>
+    </Layout>
   );
 };
 
 MyStory.displayName = 'MyStory';
 
-const MyStoryWithErrorBoundary = () => (
-  <MyStoryErrorBoundary>
-    <MyStory />
-  </MyStoryErrorBoundary>
-);
-
-MyStoryWithErrorBoundary.displayName = 'MyStoryWithErrorBoundary';
-
-export default MyStoryWithErrorBoundary;
+export default MyStory;

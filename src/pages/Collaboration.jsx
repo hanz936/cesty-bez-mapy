@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from 'react';
-import Navigation from '../components/Navigation';
-import Footer from '../components/Footer';
+import { useState, useCallback } from 'react';
+import Layout from '../components/layout/Layout';
+import { Button } from '../components/ui';
 import logger from '../utils/logger';
 
 const CLASSES = {
@@ -23,56 +23,10 @@ const CLASSES = {
   label: 'block text-sm font-semibold text-black',
   input: 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200 text-base',
   textarea: 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200 text-base min-h-32 resize-y',
-  button: 'bg-green-800 hover:bg-green-900 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 text-base',
   errorMessage: 'text-red-600 text-sm mt-1',
   successMessage: 'bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6'
 };
 
-class CollaborationErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    logger.error('Collaboration Error:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <main className={CLASSES.main}>
-          <Navigation />
-          <div className="flex items-center justify-center min-h-96 px-4">
-            <div className="max-w-md w-full text-center">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                Něco se pokazilo
-              </h1>
-              <p className="text-gray-600 mb-6">
-                Stránka se nedá načíst. Zkuste prosím obnovit stránku.
-              </p>
-              <button
-                onClick={() => window.location.reload()}
-                className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
-              >
-                Obnovit stránku
-              </button>
-            </div>
-          </div>
-          <Footer />
-        </main>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-CollaborationErrorBoundary.displayName = 'CollaborationErrorBoundary';
 
 const Collaboration = () => {
   const [formData, setFormData] = useState({
@@ -152,9 +106,7 @@ const Collaboration = () => {
 
 
   return (
-    <main className={CLASSES.main}>
-      <Navigation />
-      
+    <Layout>
       <section 
         className={CLASSES.section}
         role="main"
@@ -318,14 +270,16 @@ const Collaboration = () => {
               )}
               
               <div className="flex justify-center">
-                <button
+                <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className={CLASSES.button}
+                  variant="green"
+                  size="md"
+                  className="disabled:bg-gray-400 disabled:cursor-not-allowed"
                   aria-describedby="submit-button-help"
                 >
                   {isSubmitting ? 'Odesílám...' : 'Odeslat zprávu'}
-                </button>
+                </Button>
               </div>
               <p id="submit-button-help" className="sr-only">
                 Kliknutím odešlete kontaktní formulář
@@ -334,20 +288,10 @@ const Collaboration = () => {
           </div>
         </div>
       </section>
-      
-      <Footer />
-    </main>
+    </Layout>
   );
 };
 
 Collaboration.displayName = 'Collaboration';
 
-const CollaborationWithErrorBoundary = () => (
-  <CollaborationErrorBoundary>
-    <Collaboration />
-  </CollaborationErrorBoundary>
-);
-
-CollaborationWithErrorBoundary.displayName = 'CollaborationWithErrorBoundary';
-
-export default CollaborationWithErrorBoundary;
+export default Collaboration;

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import logger from '../utils/logger';
+import logger from '../../utils/logger';
 
 class PageHeroErrorBoundary extends React.Component {
   constructor(props) {
@@ -35,7 +35,7 @@ class PageHeroErrorBoundary extends React.Component {
 
 PageHeroErrorBoundary.displayName = 'PageHeroErrorBoundary';
 
-const PageHero = ({
+const PageHero = React.memo(({
   backgroundImage,
   title,
   subtitle,
@@ -60,7 +60,7 @@ const PageHero = ({
 
   return (
     <section 
-      className={`relative text-center py-24 px-5 bg-cover bg-center bg-no-repeat text-white overflow-hidden ${className}`.trim()}
+      className={`relative text-center h-80 md:h-96 lg:h-112 flex items-center justify-center px-5 bg-cover bg-center bg-no-repeat text-white overflow-hidden ${className}`.trim()}
       style={backgroundStyle}
       aria-label={ariaLabel}
     >
@@ -79,7 +79,7 @@ const PageHero = ({
       <div className="absolute inset-0 z-0" style={overlayStyle}></div>
       
       {/* Content */}
-      <div className="relative z-10">
+      <div className="relative z-10 w-full">
         <h1 className="text-5xl font-bold mb-5">{title}</h1>
         {subtitle && (
           <p className="text-xl max-w-3xl mx-auto text-gray-200">
@@ -89,15 +89,15 @@ const PageHero = ({
       </div>
     </section>
   );
-};
+});
 
 PageHero.displayName = 'PageHero';
 
-const PageHeroWithErrorBoundary = (props) => (
+const PageHeroWithErrorBoundary = React.memo((props) => (
   <PageHeroErrorBoundary>
     <PageHero {...props} />
   </PageHeroErrorBoundary>
-);
+));
 
 PageHeroWithErrorBoundary.displayName = 'PageHeroWithErrorBoundary';
 

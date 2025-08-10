@@ -29,7 +29,7 @@ export const logger = {
       const safeError = sanitizeError(error)
       console.error(message, safeError)
       
-      // TODO: Send to error monitoring service (Sentry, LogRocket, etc.)
+      // Error monitoring service integration point
       // errorMonitoring.captureException(safeError, { extra: additionalInfo })
     }
   },
