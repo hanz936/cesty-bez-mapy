@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui';
@@ -64,6 +64,11 @@ const ItalyRoadtripDetail = () => {
     navigate(ROUTES.TRAVEL_GUIDES);
   }, [navigate]);
 
+  // Automatické posčrollování na vrchol při načtení stránky
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
     <Layout>
       <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
@@ -90,18 +95,18 @@ const ItalyRoadtripDetail = () => {
                   ⭐ Nejprodávanější itinerář
                 </div>
                 
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 leading-tight mb-6">
-                  20 denní roadtrip <span className="text-green-700">Itálií</span> – kompletně naplánovaná cesta od severu až na jih
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-black leading-tight mb-6">
+                  20 denní roadtrip Itálií – kompletně naplánovaná cesta od severu až na jih
                 </h1>
                 
-                <div className="space-y-6 mb-10 text-lg text-slate-600 leading-relaxed">
+                <div className="space-y-6 mb-10 text-lg text-black leading-relaxed">
                   <p>
-                    <strong className="text-slate-900">Chceš projet celou Itálii bez hodin strávených nad mapou a plánováním?</strong><br />
+                    <strong className="text-black">Chceš projet celou Itálii bez hodin strávených nad mapou a plánováním?</strong><br />
                     Přesně pro tebe jsem připravila tento detailní itinerář – ověřený, projížděný, vyzkoušený.
                   </p>
                   
                   <p>
-                    <strong className="text-slate-900">Od jezer na severu až po moře v Kalábrii.</strong><br />
+                    <strong className="text-black">Od jezer na severu až po moře v Kalábrii.</strong><br />
                     Navštívíš slavná místa jako Benátky, Řím, Cinque Terre, Amalfi, ale taky méně známé perly, které turisté často míjejí. A vše máš přehledně den po dni.
                   </p>
                 </div>
@@ -110,10 +115,10 @@ const ItalyRoadtripDetail = () => {
                 <div className="flex flex-col sm:flex-row gap-4">
                   <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 flex-1">
                     <div className="flex items-baseline gap-2 mb-3">
-                      <span className="text-3xl font-bold text-slate-900">699 Kč</span>
+                      <span className="text-3xl font-bold text-black">699 Kč</span>
                       <span className="text-sm text-slate-500 line-through">999 Kč</span>
                     </div>
-                    <div className="text-sm text-slate-600 space-y-1 mb-4">
+                    <div className="text-sm text-black space-y-1 mb-4">
                       <div className="flex items-center">
                         <svg className="w-4 h-4 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -216,10 +221,10 @@ const ItalyRoadtripDetail = () => {
         <section className="py-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
-              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
+              <h2 className="text-3xl sm:text-4xl font-bold text-black mb-4">
                 Co získáš
               </h2>
-              <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+              <p className="text-xl text-black max-w-2xl mx-auto">
                 Vše potřebné pro perfektní cestu Itálií v jednom balíčku
               </p>
             </div>
@@ -233,7 +238,7 @@ const ItalyRoadtripDetail = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <p className="text-slate-700 leading-relaxed">
+                    <p className="text-black leading-relaxed">
                       {feature}
                     </p>
                   </div>
@@ -248,10 +253,10 @@ const ItalyRoadtripDetail = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-4xl mx-auto">
               <div className="text-center mb-16">
-                <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
+                <h2 className="text-3xl sm:text-4xl font-bold text-black mb-4">
                   Proč právě tento itinerář?
                 </h2>
-                <p className="text-xl text-slate-600">
+                <p className="text-xl text-black">
                   Založeno na reálných zkušenostech, navrženo pro maximální užitek
                 </p>
               </div>
@@ -263,7 +268,7 @@ const ItalyRoadtripDetail = () => {
                       <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-6 flex-shrink-0 mt-1">
                         <span className="text-green-600 font-bold text-sm">{index + 1}</span>
                       </div>
-                      <p className="text-lg text-slate-700 leading-relaxed">
+                      <p className="text-lg text-black leading-relaxed">
                         {reason}
                       </p>
                     </div>
@@ -282,7 +287,7 @@ const ItalyRoadtripDetail = () => {
                 Bonus pro tebe
               </h2>
               
-              <div className="space-y-6 text-lg text-slate-700 leading-relaxed">
+              <div className="space-y-6 text-lg text-black leading-relaxed">
                 <p>
                   Kupuješ víc než jen plán cesty. Kupuješ si klid v hlavě a zážitky bez zbytečných starostí.
                 </p>

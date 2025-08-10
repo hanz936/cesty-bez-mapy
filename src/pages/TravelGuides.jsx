@@ -173,6 +173,8 @@ const TravelGuides = () => {
     // Navigace na detail stránku podle ID průvodce
     if (guide.id === 1) {
       navigate(ROUTES.ITALY_ROADTRIP_DETAIL);
+      // Okamžité posčrollování na vrchol stránky
+      window.scrollTo(0, 0);
     }
     // Pro budoucí průvodce zde bude obecná logika
   }, [navigate]);
