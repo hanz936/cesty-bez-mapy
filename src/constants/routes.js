@@ -3,6 +3,7 @@ export const ROUTES = {
   MY_STORY: '/muj-pribeh',
   PLAN_YOUR_DREAM_TRIP: '/naplanuj-si-cestu-snu',
   TRAVEL_GUIDES: '/cestovni-pruvodci',
+  ITALY_ROADTRIP_DETAIL: '/cestovni-pruvodci/italie-roadtrip',
   INSPIRATION: '/inspirace',
   COLLABORATION: '/spoluprace'
 };

@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
 import { Button } from '../components/ui';
-import { BASE_PATH } from '../constants';
+import { BASE_PATH, ROUTES } from '../constants';
 
 
 // Cestovní průvodce (testovací data)
@@ -153,6 +154,7 @@ GuideCard.displayName = 'GuideCard';
 
 const TravelGuides = () => {
   const [activeSortOption, setActiveSortOption] = useState('Nejprodávanější');
+  const navigate = useNavigate();
 
   const sortOptions = [
     'Nejprodávanější',
@@ -168,10 +170,12 @@ const TravelGuides = () => {
   }, []);
 
   const handleCardClick = useCallback((guide) => {
-    // Pro teď prázdný handler, později zde bude routing k průvodci
-    // Například: navigate(`/pruvodce/${guide.id}`) nebo otevření modalu
-    void guide; // Prevent unused parameter warning
-  }, []);
+    // Navigace na detail stránku podle ID průvodce
+    if (guide.id === 1) {
+      navigate(ROUTES.ITALY_ROADTRIP_DETAIL);
+    }
+    // Pro budoucí průvodce zde bude obecná logika
+  }, [navigate]);
 
   return (
     <Layout>
