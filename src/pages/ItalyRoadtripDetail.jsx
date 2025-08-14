@@ -245,7 +245,7 @@ const ItalyRoadtripDetail = () => {
                     {/* Modern Navigation arrows */}
                     <button 
                       onClick={handlePrevImage}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/60 backdrop-blur-md hover:bg-white text-slate-700 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 flex items-center justify-center group/btn hover:scale-110 hover:bg-white/95"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/60 backdrop-blur-md text-slate-700 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 flex items-center justify-center group/btn hover:scale-110 hover:bg-white/95"
                       aria-label="Předchozí obrázek"
                     >
                       <svg className="w-6 h-6 group-hover/btn:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -254,7 +254,7 @@ const ItalyRoadtripDetail = () => {
                     </button>
                     <button 
                       onClick={handleNextImage}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/60 backdrop-blur-md hover:bg-white text-slate-700 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 flex items-center justify-center group/btn hover:scale-110 hover:bg-white/95"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/60 backdrop-blur-md text-slate-700 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 flex items-center justify-center group/btn hover:scale-110 hover:bg-white/95"
                       aria-label="Následující obrázek"
                     >
                       <svg className="w-6 h-6 group-hover/btn:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
