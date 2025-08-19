@@ -129,7 +129,7 @@ const ItalyRoadtripDetail = () => {
     <Layout>
       <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
         {/* Hero Section with Breadcrumb */}
-        <section className="relative pt-6 pb-20">
+        <section className="relative pt-6 pb-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Breadcrumb */}
             <nav className="mb-8">
@@ -158,19 +158,18 @@ const ItalyRoadtripDetail = () => {
                   Kompletně naplánovaná cesta od severu až na jih
                 </h2>
                 
-                <div className="space-y-6 mb-10">
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border-l-4 border-blue-400">
-                    <p className="text-lg text-slate-700 leading-relaxed font-medium">
-                      <span className="text-blue-600 font-bold">Chceš projet celou Itálii bez hodin strávených nad mapou a plánováním?</span><br />
-                      Přesně pro tebe jsem připravila tento detailní itinerář – ověřený, projížděný, vyzkoušený.
-                    </p>
-                  </div>
-                  
-                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 border-l-4 border-green-500">
-                    <p className="text-lg text-slate-800 leading-relaxed">
-                      <span className="text-green-600 font-semibold">Od jezer na severu až po moře v Kalábrii.</span><br />
-                      Navštívíš slavná místa jako Benátky, Řím, Cinque Terre, Amalfi, ale taky méně známé perly, které turisté často míjejí. A vše máš přehledně den po dni.
-                    </p>
+                <div className="mb-10">
+                  <div className="bg-gradient-to-br from-white via-green-50 to-emerald-50 rounded-2xl p-6 shadow-2xl border border-green-200/50 border-l-4 border-l-green-500 backdrop-blur-sm">
+                    <ul className="space-y-4">
+                      <li className="text-lg text-black leading-relaxed">
+                        <div className="font-bold mb-1">Chceš projet celou Itálii bez hodin strávených nad mapou a plánováním?</div>
+                        <div>Přesně pro tebe jsem připravila tento detailní itinerář – ověřený, projížděný, vyzkoušený.</div>
+                      </li>
+                      <li className="text-lg text-black leading-relaxed">
+                        <div className="font-bold mb-1">Od jezer na severu až po moře v Kalábrii.</div>
+                        <div>Navštívíš slavná místa jako Benátky, Řím, Cinque Terre, Amalfi, ale taky méně známé perly, které turisté často míjejí. A vše máš přehledně den po dni.</div>
+                      </li>
+                    </ul>
                   </div>
                 </div>
 
@@ -286,6 +285,28 @@ const ItalyRoadtripDetail = () => {
                       </svg>
                       4.9 hodnocení
                     </div>
+                  </div>
+                </div>
+                
+                {/* Budget and Season Indicators */}
+                <div className="mt-10 space-y-10">
+                  <div className="inline-flex items-center gap-2 bg-gradient-to-br from-white via-green-50 to-emerald-50 rounded-full px-6 py-3 shadow-2xl border border-green-200/50 backdrop-blur-sm">
+                    <span className="text-sm text-black font-medium">Rozpočtový kompas:</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-yellow-500 text-lg">$</span>
+                      <span className="text-yellow-500 text-lg">$</span>
+                      <span className="text-yellow-500 text-lg">$</span>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-br from-white via-green-50 to-emerald-50 rounded-2xl px-6 py-4 shadow-2xl border border-green-200/50 backdrop-blur-sm">
+                    <h3 className="text-sm text-black font-medium mb-3">Kdy vyrazit?</h3>
+                    <ul className="space-y-2">
+                      <li className="text-sm text-black">Jaro</li>
+                      <li className="text-sm text-black">Léto</li>
+                      <li className="text-sm text-black">Podzim</li>
+                      <li className="text-sm text-black">Zima</li>
+                    </ul>
                   </div>
                 </div>
               </div>
