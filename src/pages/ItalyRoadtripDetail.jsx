@@ -19,50 +19,34 @@ const GALLERY_IMAGES = [
   }
 ];
 
-const FEATURES = [
+const CARDS = [
   {
-    icon: '📅',
-    title: 'Kompletní plán',
-    description: 'Přesně rozplánovaných 20 dní – žádné zmatky, kam zítra.',
-    accent: 'from-blue-500 to-blue-600'
+    title: 'Co získáš',
+    items: [
+      'Kompletně připravený plán cesty',
+      'Tipy na parkování, ubytování a restaurace',
+      'Doporučená místa a zážitky, které opravdu stojí za to',
+      'Mapy, které otevřeš v mobilu'
+    ]
   },
   {
-    icon: '⏰',
-    title: 'Denní harmonogram',
-    description: 'Co kdy stihneš, kolik času kde strávit.',
-    accent: 'from-purple-500 to-purple-600'
+    title: 'Proč právě tento itinerář',
+    items: [
+      'Ověřený na vlastní kůži - žádná data z internetu, ale reálné zkušenosti.',
+      'Ušetří ti hodiny plánování a hledání',
+      'Logicky poskládané trasy bez zbytečných přejezdů',
+      'Vyhneš se turistickým pastím a zklamání'
+    ]
   },
   {
-    icon: '🛣️',
-    title: 'Trasy a navigace',
-    description: 'Trasy, vzdálenosti, časy přejezdů, parkování.',
-    accent: 'from-orange-500 to-orange-600'
-  },
-  {
-    icon: '💡',
-    title: 'Insider tipy',
-    description: 'Osobní tipy z reálné cesty – co fakt stojí za to a co klidně vynechat.',
-    accent: 'from-emerald-500 to-emerald-600'
-  },
-  {
-    icon: '🏨',
-    title: 'Ubytování & strava',
-    description: 'Tipy na ubytování, restaurace i koupání.',
-    accent: 'from-pink-500 to-pink-600'
-  },
-  {
-    icon: '🗺️',
-    title: 'Mapy a odkazy',
-    description: 'Mapy a odkazy, díky kterým se neztratíš.',
-    accent: 'from-cyan-500 to-cyan-600'
+    title: 'Podpora pro tebe',
+    items: [
+      'Konzultace k itineráři zdarma – zeptáš se na cokoliv',
+      'Podpora přes WhatsApp během tvé cesty',
+      'Vše připravené i offline - vezmeš s sebou do mobilu nebo vytiskneš',
+      'Okamžité stažení po zaplacení'
+    ]
   }
-];
-
-const WHY_REASONS = [
-  'Itálii jsme projeli na vlastní kůži – žádná data z internetu, ale reálné zkušenosti.',
-  'Nemusíš trávit hodiny na internetu a Google Maps. Itinerář je navržený tak, aby ti šetřil čas i nervy – a zároveň jsi toho viděl/a co nejvíc bez vyčerpání.',
-  'Každý den je logicky sestavený – žádné zbytečné kličky nebo zmatky s přejezdy.',
-  'Užiješ si to – bez chaosu a přehnaných očekávání. Víš, co tě čeká. A to je na cestě k nezaplacení.'
 ];
 
 const ItalyRoadtripDetail = () => {
@@ -135,7 +119,7 @@ const ItalyRoadtripDetail = () => {
             <nav className="mb-8">
               <button 
                 onClick={handleBackToGuides}
-                className="flex items-center text-sm text-gray-600 hover:text-green-700 transition-colors group"
+                className="flex items-center text-sm sm:text-base text-gray-600 hover:text-green-700 transition-colors group"
               >
                 <svg className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -147,30 +131,24 @@ const ItalyRoadtripDetail = () => {
             <div className="grid lg:grid-cols-2 gap-12 xl:gap-16 items-start">
               {/* Left Column - Content */}
               <div className="order-2 lg:order-1">
-                <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mb-6">
-                  ⭐ Nejprodávanější itinerář
-                </div>
-                
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-black leading-tight mb-4">
                   20 denní roadtrip Itálií
                 </h1>
-                <h2 className="text-xl sm:text-2xl text-slate-600 font-medium mb-8">
+                <h2 className="text-xl sm:text-2xl text-black font-medium mb-8">
                   Kompletně naplánovaná cesta od severu až na jih
                 </h2>
                 
                 <div className="mb-10">
-                  <div className="bg-gradient-to-br from-white via-green-50 to-emerald-50 rounded-2xl p-6 shadow-2xl border border-green-200/50 border-l-4 border-l-green-500 backdrop-blur-sm">
-                    <ul className="space-y-4">
-                      <li className="text-lg text-black leading-relaxed">
-                        <div className="font-bold mb-1">Chceš projet celou Itálii bez hodin strávených nad mapou a plánováním?</div>
-                        <div>Přesně pro tebe jsem připravila tento detailní itinerář – ověřený, projížděný, vyzkoušený.</div>
-                      </li>
-                      <li className="text-lg text-black leading-relaxed">
-                        <div className="font-bold mb-1">Od jezer na severu až po moře v Kalábrii.</div>
-                        <div>Navštívíš slavná místa jako Benátky, Řím, Cinque Terre, Amalfi, ale taky méně známé perly, které turisté často míjejí. A vše máš přehledně den po dni.</div>
-                      </li>
-                    </ul>
-                  </div>
+                  <ul className="space-y-4">
+                    <li className="text-base sm:text-lg text-black leading-relaxed">
+                      <div className="font-bold mb-1 text-green-800">Chceš projet celou Itálii bez hodin strávených nad mapou a plánováním?</div>
+                      <div>Přesně pro tebe jsem připravila tento detailní itinerář – ověřený, projížděný, vyzkoušený.</div>
+                    </li>
+                    <li className="text-base sm:text-lg text-black leading-relaxed">
+                      <div className="font-bold mb-1 text-green-800">Od jezer na severu až po moře v Kalábrii.</div>
+                      <div>Navštívíš slavná místa jako Benátky, Řím, Cinque Terre, Amalfi, ale taky méně známé perly, které turisté často míjejí. A vše máš přehledně den po dni.</div>
+                    </li>
+                  </ul>
                 </div>
 
                 {/* Premium CTA */}
@@ -215,7 +193,7 @@ const ItalyRoadtripDetail = () => {
               </div>
 
               {/* Right Column - Enhanced Gallery */}
-              <div className="order-1 lg:order-2 lg:mt-16">
+              <div className="order-1 lg:order-2 mt-3">
                 <div className="relative">
                   <div 
                     className="aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl bg-slate-100 ring-1 ring-black/5 touch-pan-x"
@@ -279,7 +257,7 @@ const ItalyRoadtripDetail = () => {
                   </div>
                   
                   <div className="absolute -bottom-4 -left-4 bg-green-600 text-white px-4 py-2 rounded-full shadow-lg">
-                    <div className="flex items-center gap-2 text-sm font-medium">
+                    <div className="flex items-center gap-2 text-sm sm:text-base font-medium">
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                       </svg>
@@ -289,23 +267,35 @@ const ItalyRoadtripDetail = () => {
                 </div>
                 
                 {/* Budget and Season Indicators */}
-                <div className="mt-10 space-y-10">
-                  <div className="inline-flex items-center gap-2 bg-gradient-to-br from-white via-green-50 to-emerald-50 rounded-full px-6 py-3 shadow-2xl border border-green-200/50 backdrop-blur-sm">
-                    <span className="text-sm text-black font-medium">Rozpočtový kompas:</span>
+                <div className="mt-10 space-y-6">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm sm:text-base text-black font-medium">Finanční náročnost:</span>
                     <div className="flex items-center gap-1">
-                      <span className="text-yellow-500 text-lg">$</span>
-                      <span className="text-yellow-500 text-lg">$</span>
-                      <span className="text-yellow-500 text-lg">$</span>
+                      <span className="text-yellow-500 text-base sm:text-lg">$</span>
+                      <span className="text-yellow-500 text-base sm:text-lg">$</span>
+                      <span className="text-yellow-500 text-base sm:text-lg">$</span>
                     </div>
                   </div>
                   
-                  <div className="bg-gradient-to-br from-white via-green-50 to-emerald-50 rounded-2xl px-6 py-4 shadow-2xl border border-green-200/50 backdrop-blur-sm">
-                    <h3 className="text-sm text-black font-medium mb-3">Kdy vyrazit?</h3>
-                    <ul className="space-y-2">
-                      <li className="text-sm text-black">Jaro</li>
-                      <li className="text-sm text-black">Léto</li>
-                      <li className="text-sm text-black">Podzim</li>
-                      <li className="text-sm text-black">Zima</li>
+                  <div>
+                    <h3 className="text-sm sm:text-base text-black font-medium mb-3">Nejlepší období pro cestu :</h3>
+                    <ul className="space-y-2 sm:space-y-3">
+                      <li className="text-sm sm:text-base text-black flex items-start gap-2">
+                        <span className="text-base sm:text-lg leading-none flex-shrink-0 mt-0.5 sm:mt-1">🌸</span>
+                        <span><strong>Jaro:</strong> Rozkvetlé Toskánsko, příjemné počasí v Římě i Cinque Terre, méně turistů.</span>
+                      </li>
+                      <li className="text-sm sm:text-base text-black flex items-start gap-2">
+                        <span className="text-base sm:text-lg leading-none flex-shrink-0 mt-0.5 sm:mt-1">☀️</span>
+                        <span><strong>Léto:</strong> Teplé moře u Amalfi a Kalábrie, živá města, ale davy a vyšší ceny.</span>
+                      </li>
+                      <li className="text-sm sm:text-base text-black flex items-start gap-2">
+                        <span className="text-base sm:text-lg leading-none flex-shrink-0 mt-0.5 sm:mt-1">🍂</span>
+                        <span><strong>Podzim:</strong> Víno v Toskánsku, klidnější památky v Římě, stále příjemné počasí na jihu.</span>
+                      </li>
+                      <li className="text-sm sm:text-base text-black flex items-start gap-2">
+                        <span className="text-base sm:text-lg leading-none flex-shrink-0 mt-0.5 sm:mt-1">❄️</span>
+                        <span><strong>Zima:</strong> Zasněžené hory, Benátky a Řím bez davů, Amalfi a jih mimo sezónu.</span>
+                      </li>
                     </ul>
                   </div>
                 </div>
@@ -314,113 +304,25 @@ const ItalyRoadtripDetail = () => {
           </div>
         </section>
 
-        {/* Features Section */}
-        <section className="py-20 bg-white">
+        {/* Cards Section */}
+        <section className="py-16 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl sm:text-4xl font-bold text-black mb-4">
-                Co získáš
-              </h2>
-              <p className="text-xl text-black max-w-2xl mx-auto">
-                Vše potřebné pro perfektní cestu Itálií v jednom balíčku
-              </p>
-            </div>
-            
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {FEATURES.map((feature, index) => (
-                <div key={index} className="group relative bg-white rounded-3xl p-8 border border-slate-200/50 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 overflow-hidden">
-                  {/* Gradient accent */}
-                  <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${feature.accent}`}></div>
-                  
-                  <div className="relative">
-                    <div className="flex items-center mb-6">
-                      <div className={`w-16 h-16 bg-gradient-to-r ${feature.accent} rounded-2xl flex items-center justify-center mr-4 text-2xl shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                        {feature.icon}
-                      </div>
-                      <h3 className="text-xl font-bold text-slate-900 group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:bg-clip-text group-hover:from-slate-700 group-hover:to-slate-900 transition-all duration-300">
-                        {feature.title}
-                      </h3>
-                    </div>
-                    
-                    <p className="text-slate-600 leading-relaxed text-base">
-                      {feature.description}
-                    </p>
-                  </div>
-                  
-                  {/* Subtle hover effect */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+            <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+              {CARDS.map((card, index) => (
+                <div key={index} className="bg-gradient-to-br from-white via-green-50 to-emerald-50 rounded-2xl p-6 sm:p-8 shadow-2xl border border-green-200/50 backdrop-blur-sm">
+                  <h3 className="text-lg sm:text-xl font-bold text-green-800 mb-4 sm:mb-6">
+                    {card.title}
+                  </h3>
+                  <ul className="space-y-3">
+                    {card.items.map((item, itemIndex) => (
+                      <li key={itemIndex} className="text-sm sm:text-base text-black flex items-start gap-3">
+                        <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Why Section */}
-        <section className="py-20 bg-gradient-to-br from-green-50 to-emerald-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="max-w-4xl mx-auto">
-              <div className="text-center mb-16">
-                <h2 className="text-3xl sm:text-4xl font-bold text-black mb-4">
-                  Proč právě tento itinerář?
-                </h2>
-                <p className="text-xl text-black">
-                  Založeno na reálných zkušenostech, navrženo pro maximální užitek
-                </p>
-              </div>
-              
-              <div className="grid gap-8">
-                {WHY_REASONS.map((reason, index) => (
-                  <div key={index} className="bg-white rounded-2xl p-8 shadow-sm border border-white/50">
-                    <div className="flex items-start">
-                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-6 flex-shrink-0 mt-1">
-                        <span className="text-green-600 font-bold text-sm">{index + 1}</span>
-                      </div>
-                      <p className="text-lg text-black leading-relaxed">
-                        {reason}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Enhanced Bonus Section */}
-        <section className="py-20 bg-white relative overflow-hidden">
-          {/* Background decoration */}
-          <div className="absolute inset-0 opacity-50">
-            <div className="w-full h-full bg-gradient-to-br from-slate-100/20 to-transparent"></div>
-          </div>
-          
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-            <div className="max-w-4xl mx-auto">
-              <div className="text-center mb-12">
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full mb-6 shadow-xl">
-                  <span className="text-3xl">🎁</span>
-                </div>
-                <h2 className="text-3xl sm:text-4xl font-bold text-black mb-4">
-                  Bonus pro tebe
-                </h2>
-                <div className="w-24 h-1 bg-gradient-to-r from-yellow-400 to-orange-500 mx-auto rounded-full"></div>
-              </div>
-              
-              <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-12 shadow-2xl border border-white/50 relative">
-                
-                <div className="space-y-8 text-center">
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8 border-l-4 border-blue-400">
-                    <p className="text-xl text-slate-700 leading-relaxed font-medium">
-                      💎 Kupuješ víc než jen plán cesty. Kupuješ si <span className="text-blue-600 font-bold">klid v hlavě</span> a <span className="text-blue-600 font-bold">zážitky bez zbytečných starostí</span>.
-                    </p>
-                  </div>
-                  
-                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-8 border-l-4 border-green-400">
-                    <p className="text-xl text-slate-700 leading-relaxed font-medium">
-                      🌟 Tento itinerář je ideální pro ty, co chtějí cestovat <span className="text-green-600 font-bold">efektivně, pohodlně a naplno</span> – a bez cestovky.
-                    </p>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </section>
