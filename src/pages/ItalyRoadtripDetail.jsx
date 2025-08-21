@@ -32,7 +32,7 @@ const CARDS = [
   {
     title: 'Proč právě tento itinerář',
     items: [
-      'Ověřený na vlastní kůži - žádná data z internetu, ale reálné zkušenosti.',
+      'Ověřené na vlastní kůži - žádná data z internetu, ale reálné zkušenosti.',
       'Ušetří ti hodiny plánování a hledání',
       'Logicky poskládané trasy bez zbytečných přejezdů',
       'Vyhneš se turistickým pastím a zklamání'
@@ -128,12 +128,16 @@ const ItalyRoadtripDetail = () => {
               </button>
             </nav>
 
+            {/* Title Section */}
+            <div className="text-center mb-5 pb-5 border-b border-gray-200">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-black leading-tight">
+                20 denní roadtrip Itálií
+              </h1>
+            </div>
+
             <div className="grid lg:grid-cols-2 gap-12 xl:gap-16 items-start">
               {/* Left Column - Content */}
               <div className="order-2 lg:order-1">
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-black leading-tight mb-4">
-                  20 denní roadtrip Itálií
-                </h1>
                 <h2 className="text-xl sm:text-2xl text-black font-medium mb-8">
                   Kompletně naplánovaná cesta od severu až na jih
                 </h2>
@@ -155,7 +159,7 @@ const ItalyRoadtripDetail = () => {
                 <div className="relative">
                   <div className="bg-gradient-to-br from-white via-green-50 to-emerald-50 rounded-3xl p-8 shadow-2xl border border-green-200/50 backdrop-blur-sm">
                     <div className="flex items-baseline gap-3 mb-6">
-                      <span className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                      <span className="text-4xl font-bold text-green-800">
                         699 Kč
                       </span>
                       <span className="text-lg text-slate-500 line-through">999 Kč</span>
@@ -184,7 +188,7 @@ const ItalyRoadtripDetail = () => {
                       onClick={handlePurchase}
                       variant="green"
                       size="xl"
-                      className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                      className="w-full"
                     >
                       Koupit itinerář
                     </Button>
@@ -193,7 +197,7 @@ const ItalyRoadtripDetail = () => {
               </div>
 
               {/* Right Column - Enhanced Gallery */}
-              <div className="order-1 lg:order-2 mt-3">
+              <div className="order-1 lg:order-2 mt-1">
                 <div className="relative">
                   <div 
                     className="aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl bg-slate-100 ring-1 ring-black/5 touch-pan-x"
@@ -256,7 +260,7 @@ const ItalyRoadtripDetail = () => {
                     </div>
                   </div>
                   
-                  <div className="absolute -bottom-4 -left-4 bg-green-600 text-white px-4 py-2 rounded-full shadow-lg">
+                  <div className="absolute -bottom-4 -left-4 bg-green-800 text-white px-4 py-2 rounded-full shadow-lg">
                     <div className="flex items-center gap-2 text-sm sm:text-base font-medium">
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
@@ -305,11 +309,11 @@ const ItalyRoadtripDetail = () => {
         </section>
 
         {/* Cards Section */}
-        <section className="py-16 bg-white">
+        <section className="py-6 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
               {CARDS.map((card, index) => (
-                <div key={index} className="bg-gradient-to-br from-white via-green-50 to-emerald-50 rounded-2xl p-6 sm:p-8 shadow-2xl border border-green-200/50 backdrop-blur-sm">
+                <div key={index} className="bg-white rounded-2xl p-6 sm:p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border border-gray-100">
                   <h3 className="text-lg sm:text-xl font-bold text-green-800 mb-4 sm:mb-6">
                     {card.title}
                   </h3>
@@ -317,7 +321,15 @@ const ItalyRoadtripDetail = () => {
                     {card.items.map((item, itemIndex) => (
                       <li key={itemIndex} className="text-sm sm:text-base text-black flex items-start gap-3">
                         <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
-                        <span>{item}</span>
+                        <span>
+                          {item.includes('Konzultace k itineráři zdarma') ? (
+                            <span><span className="font-bold">Konzultace k itineráři zdarma</span>{item.replace('Konzultace k itineráři zdarma', '')}</span>
+                          ) : item.includes('Podpora přes WhatsApp') ? (
+                            <span><span className="font-bold">Podpora přes WhatsApp</span>{item.replace('Podpora přes WhatsApp', '')}</span>
+                          ) : (
+                            item
+                          )}
+                        </span>
                       </li>
                     ))}
                   </ul>
