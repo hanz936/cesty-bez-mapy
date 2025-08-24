@@ -4,6 +4,45 @@ import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui';
 import { BASE_PATH, ROUTES } from '../constants';
 
+// Custom hook for cross-device scroll lock
+const useScrollLock = (isLocked) => {
+  useEffect(() => {
+    if (!isLocked) return;
+    
+    const scrollY = window.scrollY;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    
+    // CSS solution for desktop and Android
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    
+    // iOS Safari fix - prevent touch events
+    const preventTouch = (e) => {
+      e.preventDefault();
+    };
+    
+    if (isIOS) {
+      document.addEventListener('touchmove', preventTouch, { passive: false });
+    }
+    
+    // Cleanup function
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      
+      if (isIOS) {
+        document.removeEventListener('touchmove', preventTouch);
+      }
+      
+      window.scrollTo(0, scrollY);
+    };
+  }, [isLocked]);
+};
+
 const GALLERY_IMAGES = [
   {
     src: `${BASE_PATH}/images/italy-roadmap-slide-1.png`,
@@ -19,35 +58,6 @@ const GALLERY_IMAGES = [
   }
 ];
 
-const CARDS = [
-  {
-    title: 'Co získáš',
-    items: [
-      'Kompletně připravený plán cesty',
-      'Tipy na parkování, ubytování a restaurace',
-      'Doporučená místa a zážitky, které opravdu stojí za to',
-      'Mapy, které otevřeš v mobilu'
-    ]
-  },
-  {
-    title: 'Proč právě tento itinerář',
-    items: [
-      'Ověřené na vlastní kůži - žádná data z internetu, ale reálné zkušenosti.',
-      'Ušetří ti hodiny plánování a hledání',
-      'Logicky poskládané trasy bez zbytečných přejezdů',
-      'Vyhneš se turistickým pastím a zklamání'
-    ]
-  },
-  {
-    title: 'Podpora pro tebe',
-    items: [
-      'Konzultace k itineráři zdarma – zeptáš se na cokoliv',
-      'Podpora přes WhatsApp během tvé cesty',
-      'Vše připravené i offline - vezmeš s sebou do mobilu nebo vytiskneš',
-      'Okamžité stažení po zaplacení'
-    ]
-  }
-];
 
 const ItalyRoadtripDetail = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -56,6 +66,31 @@ const ItalyRoadtripDetail = () => {
   const navigate = useNavigate();
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
+  const modalTouchStartX = useRef(0);
+  const modalTouchEndX = useRef(0);
+  const previousFocusRef = useRef(null);
+  const [showArrows, setShowArrows] = useState(false);
+  const [useDesktopLayout, setUseDesktopLayout] = useState(false);
+
+  // Use custom scroll lock hook
+  useScrollLock(isModalOpen);
+
+  // Detect if device supports hover for arrows and layout
+  useEffect(() => {
+    const hasHover = window.matchMedia('(hover: hover)').matches;
+    // Desktop s myší = vždy zobrazit šipky + desktop layout
+    setShowArrows(hasHover);
+    setUseDesktopLayout(hasHover);
+    
+    const handleResize = () => {
+      const hasHover = window.matchMedia('(hover: hover)').matches;
+      setShowArrows(hasHover);
+      setUseDesktopLayout(hasHover);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleImageError = useCallback(() => {
     setImageError(true);
@@ -106,11 +141,16 @@ const ItalyRoadtripDetail = () => {
   }, [navigate]);
 
   const openModal = useCallback(() => {
+    previousFocusRef.current = document.activeElement;
     setIsModalOpen(true);
   }, []);
 
   const closeModal = useCallback(() => {
     setIsModalOpen(false);
+    // Restore focus
+    if (previousFocusRef.current) {
+      previousFocusRef.current.focus();
+    }
   }, []);
 
   const handleModalPrevImage = useCallback(() => {
@@ -125,22 +165,75 @@ const ItalyRoadtripDetail = () => {
     );
   }, []);
 
-  // Close modal on Escape key
+  // Modal touch handlers
+  const handleModalTouchStart = useCallback((e) => {
+    modalTouchStartX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleModalTouchMove = useCallback((e) => {
+    modalTouchEndX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleModalTouchEnd = useCallback(() => {
+    if (!modalTouchStartX.current || !modalTouchEndX.current) return;
+    
+    const distance = modalTouchStartX.current - modalTouchEndX.current;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe) {
+      handleModalNextImage();
+    } else if (isRightSwipe) {
+      handleModalPrevImage();
+    }
+    
+    modalTouchStartX.current = 0;
+    modalTouchEndX.current = 0;
+  }, [handleModalNextImage, handleModalPrevImage]);
+
+  // Modal keyboard and cleanup effects
   useEffect(() => {
+    if (!isModalOpen) return;
+
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isModalOpen) {
+      if (e.key === 'Escape') {
         closeModal();
       }
-      if (isModalOpen && e.key === 'ArrowLeft') {
+      if (e.key === 'ArrowLeft') {
         handleModalPrevImage();
       }
-      if (isModalOpen && e.key === 'ArrowRight') {
+      if (e.key === 'ArrowRight') {
         handleModalNextImage();
+      }
+      // Focus trap - prevent tabbing outside modal
+      if (e.key === 'Tab') {
+        const modal = document.querySelector('[role="dialog"]');
+        if (modal) {
+          const focusableElements = modal.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          );
+          const firstElement = focusableElements[0];
+          const lastElement = focusableElements[focusableElements.length - 1];
+
+          if (e.shiftKey && document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          } else if (!e.shiftKey && document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    
+    // Cleanup on unmount
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      // Modern cleanup
+      document.documentElement.classList.remove('modal-open');
+    };
   }, [isModalOpen, closeModal, handleModalPrevImage, handleModalNextImage]);
 
   // Automatické posčrollování na vrchol při načtení stránky
@@ -264,35 +357,39 @@ const ItalyRoadtripDetail = () => {
                     )}
                     
                     
-                    {/* Modern Navigation arrows */}
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); handlePrevImage(); }}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-14 h-14 text-white transition-all duration-300 flex items-center justify-center group/btn hover:scale-110 z-10"
-                      aria-label="Předchozí obrázek"
-                      style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
-                    >
-                      <svg className="w-12 h-12 group-hover/btn:-translate-x-0.5 transition-transform duration-200" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/>
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); handleNextImage(); }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 w-14 h-14 text-white transition-all duration-300 flex items-center justify-center group/btn hover:scale-110 z-10"
-                      aria-label="Následující obrázek"
-                      style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
-                    >
-                      <svg className="w-12 h-12 group-hover/btn:translate-x-0.5 transition-transform duration-200" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-                      </svg>
-                    </button>
+                    {/* Navigation arrows - Smart device detection */}
+                    {showArrows && (
+                      <>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handlePrevImage(); }}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 w-16 h-16 text-white transition-all duration-300 flex items-center justify-center group/btn hover:scale-110 z-10 opacity-0 group-hover:opacity-100"
+                          aria-label="Předchozí obrázek"
+                          style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
+                        >
+                          <svg className="w-14 h-14 group-hover/btn:-translate-x-0.5 transition-transform duration-200" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/>
+                          </svg>
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleNextImage(); }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-16 h-16 text-white transition-all duration-300 flex items-center justify-center group/btn hover:scale-110 z-10 opacity-0 group-hover:opacity-100"
+                          aria-label="Následující obrázek"
+                          style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
+                        >
+                          <svg className="w-14 h-14 group-hover/btn:translate-x-0.5 transition-transform duration-200" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                          </svg>
+                        </button>
+                      </>
+                    )}
                     
                     {/* Enhanced Dots indicator */}
-                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 bg-black/20 backdrop-blur-md px-4 py-2 rounded-full">
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-full">
                       {GALLERY_IMAGES.map((_, index) => (
                         <button
                           key={index}
                           onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(index); }}
-                          className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                          className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
                             index === currentImageIndex 
                               ? 'bg-white scale-125 shadow-lg' 
                               : 'bg-white/60 hover:bg-white/90 hover:scale-110'
@@ -303,14 +400,6 @@ const ItalyRoadtripDetail = () => {
                     </div>
                   </div>
                   
-                  <div className="absolute -bottom-4 -left-4 bg-green-800 text-white px-4 py-2 rounded-full shadow-lg">
-                    <div className="flex items-center gap-2 text-sm sm:text-base font-medium">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                      </svg>
-                      4.9 hodnocení
-                    </div>
-                  </div>
                 </div>
                 
                 {/* Budget and Season Indicators */}
@@ -355,125 +444,197 @@ const ItalyRoadtripDetail = () => {
         <section className="py-6 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-              {CARDS.map((card, index) => (
-                <div key={index} className="bg-white rounded-2xl p-6 sm:p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border border-gray-100">
-                  <h3 className="text-lg sm:text-xl font-bold text-green-800 mb-4 sm:mb-6">
-                    {card.title}
-                  </h3>
-                  <ul className="space-y-3">
-                    {card.items.map((item, itemIndex) => (
-                      <li key={itemIndex} className="text-sm sm:text-base text-black flex items-start gap-3">
-                        <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
-                        <span>
-                          {item.includes('Kompletně připravený plán cesty') ? (
-                            <span className="font-bold">Kompletně připravený plán cesty</span>
-                          ) : item.includes('Tipy na parkování, ubytování a restaurace') ? (
-                            <span className="font-bold">Tipy na parkování, ubytování a restaurace</span>
-                          ) : item.includes('Doporučená místa a zážitky') ? (
-                            <span className="font-bold">Doporučená místa a zážitky, které opravdu stojí za to</span>
-                          ) : item.includes('Mapy, které otevřeš v mobilu') ? (
-                            <span className="font-bold">Mapy, které otevřeš v mobilu</span>
-                          ) : item.includes('Ověřené na vlastní kůži') ? (
-                            <span><span className="font-bold">Ověřené na vlastní kůži</span> - žádná data z internetu, ale <span className="font-bold">reálné zkušenosti</span>.</span>
-                          ) : item.includes('Ušetří ti hodiny plánování') ? (
-                            <span className="font-bold">Ušetří ti hodiny plánování a hledání</span>
-                          ) : item.includes('Logicky poskládané trasy') ? (
-                            <span><span className="font-bold">Logicky poskládané trasy</span> bez zbytečných přejezdů</span>
-                          ) : item.includes('Vyhneš se turistickým pastím') ? (
-                            <span><span className="font-bold">Vyhneš se turistickým pastím</span> a zklamání</span>
-                          ) : item.includes('Konzultace k itineráři zdarma') ? (
-                            <span><span className="font-bold">Konzultace k itineráři zdarma</span>{item.replace('Konzultace k itineráři zdarma', '')}</span>
-                          ) : item.includes('Podpora přes WhatsApp') ? (
-                            <span><span className="font-bold">Podpora přes WhatsApp během tvé cesty</span></span>
-                          ) : item.includes('Vše připravené i offline') ? (
-                            <span><span className="font-bold">Vše připravené i offline</span> - vezmeš s sebou do mobilu nebo vytiskneš</span>
-                          ) : item.includes('Okamžité stažení po zaplacení') ? (
-                            <span className="font-bold">Okamžité stažení po zaplacení</span>
-                          ) : (
-                            item
-                          )}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+              
+              {/* Co získáš */}
+              <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border border-gray-100">
+                <h3 className="text-lg sm:text-xl font-bold text-green-800 mb-4 sm:mb-6">
+                  Co získáš
+                </h3>
+                <ul className="space-y-3">
+                  <li className="text-sm sm:text-base text-black flex items-start gap-3">
+                    <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
+                    <span><span className="font-bold">Kompletně</span> připravený plán cesty</span>
+                  </li>
+                  <li className="text-sm sm:text-base text-black flex items-start gap-3">
+                    <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
+                    <span><span className="font-bold">Tipy</span> na parkování, ubytování a restaurace</span>
+                  </li>
+                  <li className="text-sm sm:text-base text-black flex items-start gap-3">
+                    <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
+                    <span><span className="font-bold">Doporučená místa a zážitky</span>, které opravdu stojí za to</span>
+                  </li>
+                  <li className="text-sm sm:text-base text-black flex items-start gap-3">
+                    <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
+                    <span><span className="font-bold">Mapy</span>, které otevřeš v mobilu</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Proč právě tento itinerář */}
+              <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border border-gray-100">
+                <h3 className="text-lg sm:text-xl font-bold text-green-800 mb-4 sm:mb-6">
+                  Proč právě tento itinerář
+                </h3>
+                <ul className="space-y-3">
+                  <li className="text-sm sm:text-base text-black flex items-start gap-3">
+                    <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
+                    <span><span className="font-bold">Ověřené na vlastní kůži</span> - žádná data z internetu, ale reálné zkušenosti.</span>
+                  </li>
+                  <li className="text-sm sm:text-base text-black flex items-start gap-3">
+                    <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
+                    <span><span className="font-bold">Ušetří</span> ti hodiny plánování a hledání</span>
+                  </li>
+                  <li className="text-sm sm:text-base text-black flex items-start gap-3">
+                    <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
+                    <span><span className="font-bold">Logicky</span> poskládané trasy bez zbytečných přejezdů</span>
+                  </li>
+                  <li className="text-sm sm:text-base text-black flex items-start gap-3">
+                    <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
+                    <span><span className="font-bold">Vyhneš</span> se turistickým pastím a zklamání</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Podpora pro tebe */}
+              <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border border-gray-100">
+                <h3 className="text-lg sm:text-xl font-bold text-green-800 mb-4 sm:mb-6">
+                  Podpora pro tebe
+                </h3>
+                <ul className="space-y-3">
+                  <li className="text-sm sm:text-base text-black flex items-start gap-3">
+                    <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
+                    <span><span className="font-bold">Konzultace k itineráři zdarma</span> – zeptáš se na cokoliv</span>
+                  </li>
+                  <li className="text-sm sm:text-base text-black flex items-start gap-3">
+                    <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
+                    <span><span className="font-bold">Podpora přes WhatsApp</span> během tvé cesty</span>
+                  </li>
+                  <li className="text-sm sm:text-base text-black flex items-start gap-3">
+                    <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
+                    <span><span className="font-bold">Vše připravené i offline</span> - vezmeš s sebou do mobilu nebo vytiskneš</span>
+                  </li>
+                  <li className="text-sm sm:text-base text-black flex items-start gap-3">
+                    <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
+                    <span>Okamžité stažení po zaplacení</span>
+                  </li>
+                </ul>
+              </div>
+
             </div>
           </div>
         </section>
 
         {/* Fullscreen Modal */}
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="relative w-full h-full max-w-7xl max-h-[90vh] flex items-center justify-center">
-              {/* Close button */}
-              <button
-                onClick={closeModal}
-                className="absolute top-4 right-4 z-10 w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110"
-                aria-label="Zavřít galerii"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+          <div 
+            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4"
+            role="dialog" 
+            aria-modal="true" 
+            aria-labelledby="modal-title"
+            onClick={closeModal}
+            onTouchMove={(e) => e.preventDefault()}
+            style={{touchAction: 'none'}}
+          >
+            {/* Close button - absolute to modal, true top-right corner */}
+            <button
+              onClick={closeModal}
+              className="absolute top-2 right-2 w-16 h-16 text-white transition-all duration-300 hover:scale-110 flex items-center justify-center z-50"
+              aria-label="Zavřít galerii"
+              style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
 
-              {/* Image */}
-              <div className="relative w-full h-full flex items-center justify-center">
-                {!imageError ? (
-                  <img
-                    src={GALLERY_IMAGES[currentImageIndex].src}
-                    alt={GALLERY_IMAGES[currentImageIndex].alt}
-                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                    draggable={false}
-                  />
-                ) : (
-                  <div className="w-96 h-64 bg-gradient-to-br from-green-100 to-emerald-200 rounded-lg flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="text-6xl mb-4">🇮🇹</div>
-                      <div className="text-green-800 font-semibold text-xl">Itálie Gallery</div>
+            {/* CSS Grid Modal Layout - Clean & Simple */}
+            <div 
+              className={`relative w-full h-full max-w-7xl grid gap-0 ${
+                useDesktopLayout 
+                  ? 'grid-rows-[auto_1fr_auto_auto] p-4' 
+                  : 'grid-rows-[auto_1fr_auto] p-1'
+              }`}
+              onTouchStart={handleModalTouchStart}
+              onTouchMove={handleModalTouchMove}
+              onTouchEnd={handleModalTouchEnd}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* 1. Top spacer area - maintains grid structure */}
+              <div className="h-16"></div>
+
+
+              {/* 2. Mobile: Combined Image+Description area / Desktop: Image only */}
+              <div className="flex items-center justify-center min-h-0">
+                {/* Mobile: Image + Description together */}
+                <div className={`flex flex-col items-center justify-center gap-3 w-full ${
+                  useDesktopLayout ? 'hidden' : 'flex'
+                }`}>
+                  {!imageError ? (
+                    <img
+                      src={GALLERY_IMAGES[currentImageIndex].src}
+                      alt={GALLERY_IMAGES[currentImageIndex].alt}
+                      className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                      draggable={false}
+                    />
+                  ) : (
+                    <div className="w-96 h-64 bg-gradient-to-br from-green-100 to-emerald-200 rounded-lg flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="text-6xl mb-4">🇮🇹</div>
+                        <div className="text-green-800 font-semibold text-xl">Itálie Gallery</div>
+                      </div>
                     </div>
+                  )}
+                  {/* Description on mobile/tablet */}
+                  <div className="text-white px-4 py-2 max-w-2xl text-center">
+                    <p id="modal-title" className="text-sm font-medium leading-tight">{GALLERY_IMAGES[currentImageIndex].alt}</p>
                   </div>
-                )}
-
-                {/* Navigation arrows */}
-                {GALLERY_IMAGES.length > 1 && (
-                  <>
-                    <button
-                      onClick={handleModalPrevImage}
-                      className="absolute left-6 top-1/2 -translate-y-1/2 w-14 h-14 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center group/btn hover:scale-110"
-                      aria-label="Předchozí obrázek"
-                    >
-                      <svg className="w-7 h-7 group-hover/btn:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={handleModalNextImage}
-                      className="absolute right-6 top-1/2 -translate-y-1/2 w-14 h-14 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center group/btn hover:scale-110"
-                      aria-label="Následující obrázek"
-                    >
-                      <svg className="w-7 h-7 group-hover/btn:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  </>
-                )}
+                </div>
+                
+                {/* Desktop: Image only */}
+                <div className={`items-center justify-center w-full h-full ${
+                  useDesktopLayout ? 'flex' : 'hidden'
+                }`}>
+                  {!imageError ? (
+                    <img
+                      src={GALLERY_IMAGES[currentImageIndex].src}
+                      alt={GALLERY_IMAGES[currentImageIndex].alt}
+                      className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                      draggable={false}
+                    />
+                  ) : (
+                    <div className="w-96 h-64 bg-gradient-to-br from-green-100 to-emerald-200 rounded-lg flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="text-6xl mb-4">🇮🇹</div>
+                        <div className="text-green-800 font-semibold text-xl">Itálie Gallery</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Image counter and dots */}
-              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
-                <div className="text-white/80 text-sm font-medium bg-black/30 backdrop-blur-md px-3 py-1 rounded-full">
+              {/* 3. Desktop: Description area (hidden on mobile/tablet) */}
+              <div className={`h-16 items-center justify-center px-4 ${
+                useDesktopLayout ? 'flex' : 'hidden'
+              }`}>
+                <div className="text-white px-4 py-2 max-w-2xl text-center">
+                  <p id="modal-title" className="text-sm font-medium leading-tight">{GALLERY_IMAGES[currentImageIndex].alt}</p>
+                </div>
+              </div>
+
+              {/* 4. Dots area - fixed height */}
+              <div className="h-12 flex flex-col items-center justify-center gap-2">
+                <div className="text-white/80 text-xs font-medium">
                   {currentImageIndex + 1} / {GALLERY_IMAGES.length}
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-2 bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-full">
                   {GALLERY_IMAGES.map((_, index) => (
                     <button
                       key={index}
                       onClick={() => setCurrentImageIndex(index)}
-                      className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                      className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
                         index === currentImageIndex
                           ? 'bg-white scale-125 shadow-lg'
-                          : 'bg-white/40 hover:bg-white/70 hover:scale-110'
+                          : 'bg-white/60 hover:bg-white/90 hover:scale-110'
                       }`}
                       aria-label={`Zobrazit obrázek ${index + 1}`}
                     />
@@ -481,10 +642,31 @@ const ItalyRoadtripDetail = () => {
                 </div>
               </div>
 
-              {/* Image title */}
-              <div className="absolute bottom-8 right-8 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-lg max-w-md">
-                <p className="text-sm font-medium">{GALLERY_IMAGES[currentImageIndex].alt}</p>
-              </div>
+              {/* Navigation arrows - positioned over the grid */}
+              {showArrows && GALLERY_IMAGES.length > 1 && (
+                <>
+                  <button
+                    onClick={handleModalPrevImage}
+                    className="absolute -left-8 xl:-left-12 top-1/2 -translate-y-1/2 w-16 h-16 text-white transition-all duration-300 flex items-center justify-center group/btn hover:scale-110 z-10"
+                    aria-label="Předchozí obrázek"
+                    style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
+                  >
+                    <svg className="w-14 h-14 group-hover/btn:-translate-x-0.5 transition-transform duration-200" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/>
+                    </svg>
+                  </button>
+                  <button
+                    onClick={handleModalNextImage}
+                    className="absolute -right-8 xl:-right-12 top-1/2 -translate-y-1/2 w-16 h-16 text-white transition-all duration-300 flex items-center justify-center group/btn hover:scale-110 z-10"
+                    aria-label="Následující obrázek"
+                    style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
+                  >
+                    <svg className="w-14 h-14 group-hover/btn:translate-x-0.5 transition-transform duration-200" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                    </svg>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
