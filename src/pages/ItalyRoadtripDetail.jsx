@@ -64,8 +64,6 @@ const ItalyRoadtripDetail = () => {
   const [imageError, setImageError] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
   const modalTouchStartX = useRef(0);
   const modalTouchEndX = useRef(0);
   const previousFocusRef = useRef(null);
@@ -108,53 +106,6 @@ const ItalyRoadtripDetail = () => {
     );
   }, []);
 
-  // Touch handlers for swipe functionality
-  const touchStartY = useRef(null);
-  const touchEndY = useRef(null);
-
-  const handleTouchStart = useCallback((e) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  }, []);
-
-  const handleTouchMove = useCallback((e) => {
-    touchEndX.current = e.touches[0].clientX;
-    touchEndY.current = e.touches[0].clientY;
-    
-    // Zjistíme směr pohybu
-    if (touchStartX.current !== null && touchStartY.current !== null) {
-      const deltaX = Math.abs(touchStartX.current - touchEndX.current);
-      const deltaY = Math.abs(touchStartY.current - touchEndY.current);
-      
-      // Zabráníme default chování pouze při horizontálním swipe
-      if (deltaX > deltaY && deltaX > 10) {
-        e.preventDefault();
-      }
-      // Pro vertikální pohyb necháme projít normální scroll
-    }
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    if (!touchStartX.current || !touchEndX.current || !touchStartY.current || !touchEndY.current) return;
-    
-    const deltaX = Math.abs(touchStartX.current - touchEndX.current);
-    const deltaY = Math.abs(touchStartY.current - touchEndY.current);
-    
-    // Pouze pokud je horizontální pohyb výrazně větší než vertikální
-    if (deltaX > deltaY && deltaX > 50) {
-      const distance = touchStartX.current - touchEndX.current;
-      const isLeftSwipe = distance > 50;
-      const isRightSwipe = distance < -50;
-
-      if (isLeftSwipe) {
-        handleNextImage();
-      }
-      if (isRightSwipe) {
-        handlePrevImage();
-      }
-    }
-    // Jinak necháme projít normální scroll
-  }, [handleNextImage, handlePrevImage]);
 
   const handlePurchase = useCallback(() => {
     alert('Přesměrování na platební bránu 💳');
@@ -357,9 +308,6 @@ const ItalyRoadtripDetail = () => {
                 <div className="relative group">
                   <div 
                     className="aspect-[4/3] rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.25)] bg-gradient-to-br from-slate-50 to-slate-100 touch-pan-x cursor-pointer"
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
                     onClick={openModal}
                   >
                     {!imageError ? (
