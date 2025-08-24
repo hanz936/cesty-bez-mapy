@@ -109,27 +109,39 @@ const ItalyRoadtripDetail = () => {
   }, []);
 
   // Touch handlers for swipe functionality
+  const touchStartY = useRef(null);
+  const touchEndY = useRef(null);
+
   const handleTouchStart = useCallback((e) => {
     touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
   }, []);
 
   const handleTouchMove = useCallback((e) => {
     touchEndX.current = e.touches[0].clientX;
+    touchEndY.current = e.touches[0].clientY;
   }, []);
 
   const handleTouchEnd = useCallback(() => {
-    if (!touchStartX.current || !touchEndX.current) return;
+    if (!touchStartX.current || !touchEndX.current || !touchStartY.current || !touchEndY.current) return;
     
-    const distance = touchStartX.current - touchEndX.current;
-    const isLeftSwipe = distance > 50;
-    const isRightSwipe = distance < -50;
+    const deltaX = Math.abs(touchStartX.current - touchEndX.current);
+    const deltaY = Math.abs(touchStartY.current - touchEndY.current);
+    
+    // Pouze pokud je horizontální pohyb výrazně větší než vertikální
+    if (deltaX > deltaY && deltaX > 50) {
+      const distance = touchStartX.current - touchEndX.current;
+      const isLeftSwipe = distance > 50;
+      const isRightSwipe = distance < -50;
 
-    if (isLeftSwipe) {
-      handleNextImage();
+      if (isLeftSwipe) {
+        handleNextImage();
+      }
+      if (isRightSwipe) {
+        handlePrevImage();
+      }
     }
-    if (isRightSwipe) {
-      handlePrevImage();
-    }
+    // Jinak necháme projít normální scroll
   }, [handleNextImage, handlePrevImage]);
 
   const handlePurchase = useCallback(() => {
