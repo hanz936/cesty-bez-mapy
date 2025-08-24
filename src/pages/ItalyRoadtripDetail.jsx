@@ -120,6 +120,18 @@ const ItalyRoadtripDetail = () => {
   const handleTouchMove = useCallback((e) => {
     touchEndX.current = e.touches[0].clientX;
     touchEndY.current = e.touches[0].clientY;
+    
+    // Zjistíme směr pohybu
+    if (touchStartX.current !== null && touchStartY.current !== null) {
+      const deltaX = Math.abs(touchStartX.current - touchEndX.current);
+      const deltaY = Math.abs(touchStartY.current - touchEndY.current);
+      
+      // Zabráníme default chování pouze při horizontálním swipe
+      if (deltaX > deltaY && deltaX > 10) {
+        e.preventDefault();
+      }
+      // Pro vertikální pohyb necháme projít normální scroll
+    }
   }, []);
 
   const handleTouchEnd = useCallback(() => {
