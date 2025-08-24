@@ -10,7 +10,7 @@ import { BASE_PATH, ROUTES } from '../constants';
 const TOP_ITINERARIES = [
   {
     id: 1,
-    title: '20 denní roadtrip Itálií – kompletně naplánovaná cesta od severu až na jih',
+    title: 'Roadtrip po Itálii na 20 dní – kompletně naplánovaná cesta od severu až na jih',
     description: 'Od jezer na severu až po moře v Kalábrii. Navštívíš slavná místa jako Benátky, Řím, Cinque Terre, Amalfi, ale taky méně známé perly, které turisté často míjejí. A vše máš přehledně den po dni.',
     price: '699 Kč',
     duration: '20 dní',
