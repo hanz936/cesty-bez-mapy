@@ -60,54 +60,122 @@ const GALLERY_IMAGES = [
 
 
 const ItalyRoadtripDetail = () => {
-  const [imageError, setImageError] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const navigate = useNavigate();
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [modalCurrentImageIndex, setModalCurrentImageIndex] = useState(0);
+  const galleryRef = useRef(null);
   const modalTouchStartX = useRef(0);
   const modalTouchEndX = useRef(0);
+  const modalGalleryRef = useRef(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const navigate = useNavigate();
   const previousFocusRef = useRef(null);
-  const [showArrows, setShowArrows] = useState(false);
-  const [useDesktopLayout, setUseDesktopLayout] = useState(false);
 
   // Use custom scroll lock hook
   useScrollLock(isModalOpen);
 
-  // Detect if device supports hover for arrows and layout
-  useEffect(() => {
-    const hasHover = window.matchMedia('(hover: hover)').matches;
-    // Desktop s myší = vždy zobrazit šipky + desktop layout
-    setShowArrows(hasHover);
-    setUseDesktopLayout(hasHover);
-    
-    const handleResize = () => {
-      const hasHover = window.matchMedia('(hover: hover)').matches;
-      setShowArrows(hasHover);
-      setUseDesktopLayout(hasHover);
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+  const handleImageError = useCallback((e) => {
+    // Fallback to a placeholder or hide the broken image
+    e.target.style.display = 'none';
   }, []);
 
-  const handleImageError = useCallback(() => {
-    setImageError(true);
+  // Scroll to specific image when dot is clicked
+  const scrollToImage = useCallback((index) => {
+    if (!galleryRef.current) return;
+    const container = galleryRef.current;
+    const scrollAmount = container.clientWidth * index;
+    container.scrollTo({ left: scrollAmount, behavior: 'smooth' });
   }, []);
 
-  const galleryRef = useRef(null);
-
-  const handlePrevImage = useCallback(() => {
+  const scrollPrev = useCallback(() => {
     if (!galleryRef.current) return;
     const container = galleryRef.current;
     const scrollAmount = container.clientWidth;
     container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
   }, []);
 
-  const handleNextImage = useCallback(() => {
+  const scrollNext = useCallback(() => {
     if (!galleryRef.current) return;
     const container = galleryRef.current;
     const scrollAmount = container.clientWidth;
     container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
   }, []);
+
+  // Simple modal navigation functions
+  const scrollModalPrev = useCallback(() => {
+    setModalCurrentImageIndex(prev => prev === 0 ? GALLERY_IMAGES.length - 1 : prev - 1);
+  }, []);
+
+  const scrollModalNext = useCallback(() => {
+    setModalCurrentImageIndex(prev => prev === GALLERY_IMAGES.length - 1 ? 0 : prev + 1);
+  }, []);
+
+  const scrollModalToImage = useCallback((index) => {
+    setModalCurrentImageIndex(index);
+  }, []);
+
+
+  // Track scroll position to update active dot
+  useEffect(() => {
+    const gallery = galleryRef.current;
+    if (!gallery) return;
+
+    const handleScroll = () => {
+      const scrollLeft = gallery.scrollLeft;
+      const itemWidth = gallery.clientWidth;
+      const newIndex = Math.round(scrollLeft / itemWidth);
+      const clampedIndex = Math.max(0, Math.min(newIndex, GALLERY_IMAGES.length - 1));
+      
+      
+      setCurrentImageIndex(clampedIndex);
+    };
+
+    // Přidáme i scrollend event pro lepší detekci
+    const handleScrollEnd = () => {
+      const scrollLeft = gallery.scrollLeft;
+      const itemWidth = gallery.clientWidth;
+      const newIndex = Math.round(scrollLeft / itemWidth);
+      const clampedIndex = Math.max(0, Math.min(newIndex, GALLERY_IMAGES.length - 1));
+      setCurrentImageIndex(clampedIndex);
+    };
+
+    gallery.addEventListener('scroll', handleScroll);
+    gallery.addEventListener('scrollend', handleScrollEnd);
+    return () => {
+      gallery.removeEventListener('scroll', handleScroll);
+      gallery.removeEventListener('scrollend', handleScrollEnd);
+    };
+  }, []);
+
+  // Track modal gallery scroll position
+  useEffect(() => {
+    if (!isModalOpen || !modalGalleryRef.current) return;
+    
+    const modalGallery = modalGalleryRef.current;
+
+    const handleModalScroll = () => {
+      const scrollLeft = modalGallery.scrollLeft;
+      const itemWidth = modalGallery.clientWidth;
+      const newIndex = Math.round(scrollLeft / itemWidth);
+      const clampedIndex = Math.max(0, Math.min(newIndex, GALLERY_IMAGES.length - 1));
+      setModalCurrentImageIndex(clampedIndex);
+    };
+
+    const handleModalScrollEnd = () => {
+      const scrollLeft = modalGallery.scrollLeft;
+      const itemWidth = modalGallery.clientWidth;
+      const newIndex = Math.round(scrollLeft / itemWidth);
+      const clampedIndex = Math.max(0, Math.min(newIndex, GALLERY_IMAGES.length - 1));
+      setModalCurrentImageIndex(clampedIndex);
+    };
+
+    modalGallery.addEventListener('scroll', handleModalScroll);
+    modalGallery.addEventListener('scrollend', handleModalScrollEnd);
+    return () => {
+      modalGallery.removeEventListener('scroll', handleModalScroll);
+      modalGallery.removeEventListener('scrollend', handleModalScrollEnd);
+    };
+  }, [isModalOpen]);
+
 
 
   const handlePurchase = useCallback(() => {
@@ -120,8 +188,9 @@ const ItalyRoadtripDetail = () => {
 
   const openModal = useCallback(() => {
     previousFocusRef.current = document.activeElement;
+    setModalCurrentImageIndex(currentImageIndex);
     setIsModalOpen(true);
-  }, []);
+  }, [currentImageIndex]);
 
   const closeModal = useCallback(() => {
     setIsModalOpen(false);
@@ -131,43 +200,7 @@ const ItalyRoadtripDetail = () => {
     }
   }, []);
 
-  const handleModalPrevImage = useCallback(() => {
-    setCurrentImageIndex(prev => 
-      prev === 0 ? GALLERY_IMAGES.length - 1 : prev - 1
-    );
-  }, []);
 
-  const handleModalNextImage = useCallback(() => {
-    setCurrentImageIndex(prev => 
-      prev === GALLERY_IMAGES.length - 1 ? 0 : prev + 1
-    );
-  }, []);
-
-  // Modal touch handlers
-  const handleModalTouchStart = useCallback((e) => {
-    modalTouchStartX.current = e.touches[0].clientX;
-  }, []);
-
-  const handleModalTouchMove = useCallback((e) => {
-    modalTouchEndX.current = e.touches[0].clientX;
-  }, []);
-
-  const handleModalTouchEnd = useCallback(() => {
-    if (!modalTouchStartX.current || !modalTouchEndX.current) return;
-    
-    const distance = modalTouchStartX.current - modalTouchEndX.current;
-    const isLeftSwipe = distance > 50;
-    const isRightSwipe = distance < -50;
-
-    if (isLeftSwipe) {
-      handleModalNextImage();
-    } else if (isRightSwipe) {
-      handleModalPrevImage();
-    }
-    
-    modalTouchStartX.current = 0;
-    modalTouchEndX.current = 0;
-  }, [handleModalNextImage, handleModalPrevImage]);
 
   // Modal keyboard and cleanup effects
   useEffect(() => {
@@ -178,10 +211,10 @@ const ItalyRoadtripDetail = () => {
         closeModal();
       }
       if (e.key === 'ArrowLeft') {
-        handleModalPrevImage();
+        scrollModalPrev();
       }
       if (e.key === 'ArrowRight') {
-        handleModalNextImage();
+        scrollModalNext();
       }
       // Focus trap - prevent tabbing outside modal
       if (e.key === 'Tab') {
@@ -212,7 +245,7 @@ const ItalyRoadtripDetail = () => {
       // Modern cleanup
       document.documentElement.classList.remove('modal-open');
     };
-  }, [isModalOpen, closeModal, handleModalPrevImage, handleModalNextImage]);
+  }, [isModalOpen, closeModal, scrollModalPrev, scrollModalNext]);
 
   // Automatické posčrollování na vrchol při načtení stránky
   useEffect(() => {
@@ -310,63 +343,67 @@ const ItalyRoadtripDetail = () => {
               <div className="order-1 lg:order-2 mt-1">
                 <div className="relative group">
                   <div 
-                    className="aspect-[4/3] rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.25)] bg-gradient-to-br from-slate-50 to-slate-100 cursor-pointer"
-                    onClick={openModal}
+                    className="aspect-[4/3] rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.25)] bg-gradient-to-br from-slate-50 to-slate-100"
                   >
                     <div 
                       ref={galleryRef}
-                      className="flex h-full overflow-x-auto snap-x snap-mandatory touch-pan-x scrollbar-hide"
+                      className="flex h-full overflow-x-auto snap-x snap-mandatory touch-auto scrollbar-hide"
                     >
                       {GALLERY_IMAGES.map((image, index) => (
                         <img 
                           key={index}
                           src={image.src}
                           alt={image.alt}
-                          className="w-full h-full object-cover select-none flex-shrink-0 snap-center"
+                          className="w-full h-full object-cover select-none flex-shrink-0 snap-center cursor-pointer"
                           onError={handleImageError}
+                          onClick={openModal}
                           loading="lazy"
                           draggable={false}
                         />
                       ))}
                     </div>
                     
+                    {/* Desktop navigation arrows - only visible on hover */}
+                    <div className="hidden lg:block">
+                      <button
+                        onClick={scrollPrev}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-white hover:scale-110 shadow-md z-10"
+                        aria-label="Předchozí obrázek"
+                      >
+                        <svg className="w-4 h-4 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/>
+                        </svg>
+                      </button>
+                      <button
+                        onClick={scrollNext}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-white hover:scale-110 shadow-md z-10"
+                        aria-label="Následující obrázek"
+                      >
+                        <svg className="w-4 h-4 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                        </svg>
+                      </button>
+                    </div>
                     
-                    {/* Navigation arrows - Smart device detection */}
-                    {showArrows && (
-                      <>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handlePrevImage(); }}
-                          className="absolute left-2 top-1/2 -translate-y-1/2 w-16 h-16 text-white transition-all duration-300 flex items-center justify-center group/btn hover:scale-110 z-10 opacity-0 group-hover:opacity-100"
-                          aria-label="Předchozí obrázek"
-                          style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
-                        >
-                          <svg className="w-14 h-14 group-hover/btn:-translate-x-0.5 transition-transform duration-200" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/>
-                          </svg>
-                        </button>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleNextImage(); }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 w-16 h-16 text-white transition-all duration-300 flex items-center justify-center group/btn hover:scale-110 z-10 opacity-0 group-hover:opacity-100"
-                          aria-label="Následující obrázek"
-                          style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
-                        >
-                          <svg className="w-14 h-14 group-hover/btn:translate-x-0.5 transition-transform duration-200" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-                          </svg>
-                        </button>
-                      </>
-                    )}
-                    
-                    {/* Enhanced Dots indicator */}
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-full">
+                    {/* Interactive dots indicator */}
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
                       {GALLERY_IMAGES.map((_, index) => (
-                        <div
+                        <button
                           key={index}
-                          className="w-2.5 h-2.5 rounded-full bg-white/60"
-                          aria-label={`Obrázek ${index + 1}`}
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            scrollToImage(index); 
+                          }}
+                          className={`w-2 h-2 rounded-full transition-all duration-300 cursor-pointer hover:scale-125 ${
+                            index === currentImageIndex 
+                              ? 'bg-white shadow-md' 
+                              : 'bg-white/40 hover:bg-white/70'
+                          }`}
+                          aria-label={`Přejít na obrázek ${index + 1}`}
                         />
                       ))}
                     </div>
+                    
                   </div>
                   
                 </div>
@@ -496,18 +533,16 @@ const ItalyRoadtripDetail = () => {
         {/* Fullscreen Modal */}
         {isModalOpen && (
           <div 
-            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center"
             role="dialog" 
             aria-modal="true" 
             aria-labelledby="modal-title"
             onClick={closeModal}
-            onTouchMove={(e) => e.preventDefault()}
-            style={{touchAction: 'none'}}
           >
-            {/* Close button - absolute to modal, true top-right corner */}
+            {/* Close button */}
             <button
               onClick={closeModal}
-              className="absolute top-2 right-2 w-16 h-16 text-white transition-all duration-300 hover:scale-110 flex items-center justify-center z-50"
+              className="absolute top-4 right-4 w-12 h-12 text-white transition-all duration-300 hover:scale-110 flex items-center justify-center z-50"
               aria-label="Zavřít galerii"
               style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
             >
@@ -516,126 +551,103 @@ const ItalyRoadtripDetail = () => {
               </svg>
             </button>
 
-            {/* CSS Grid Modal Layout - Clean & Simple */}
+            {/* Modal Gallery - CSS Scroll Snap like main gallery */}
             <div 
-              className={`relative w-full h-full max-w-7xl grid gap-0 ${
-                useDesktopLayout 
-                  ? 'grid-rows-[auto_1fr_auto_auto] p-4' 
-                  : 'grid-rows-[auto_1fr_auto] p-1'
-              }`}
-              onTouchStart={handleModalTouchStart}
-              onTouchMove={handleModalTouchMove}
-              onTouchEnd={handleModalTouchEnd}
+              className="absolute inset-0 max-w-6xl mx-auto grid grid-rows-[1fr_auto] gap-4 sm:gap-6 p-2 sm:p-4 lg:p-6"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* 1. Top spacer area - maintains grid structure */}
-              <div className="h-16"></div>
-
-
-              {/* 2. Mobile: Combined Image+Description area / Desktop: Image only */}
-              <div className="flex items-center justify-center min-h-0">
-                {/* Mobile: Image + Description together */}
-                <div className={`flex flex-col items-center justify-center gap-3 w-full ${
-                  useDesktopLayout ? 'hidden' : 'flex'
-                }`}>
-                  {!imageError ? (
-                    <img
-                      src={GALLERY_IMAGES[currentImageIndex].src}
-                      alt={GALLERY_IMAGES[currentImageIndex].alt}
-                      className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                      draggable={false}
-                    />
-                  ) : (
-                    <div className="w-96 h-64 bg-gradient-to-br from-green-100 to-emerald-200 rounded-lg flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="text-6xl mb-4">🇮🇹</div>
-                        <div className="text-green-800 font-semibold text-xl">Itálie Gallery</div>
-                      </div>
-                    </div>
-                  )}
-                  {/* Description on mobile/tablet */}
-                  <div className="text-white px-4 py-2 max-w-2xl text-center">
-                    <p id="modal-title" className="text-sm font-medium leading-tight">{GALLERY_IMAGES[currentImageIndex].alt}</p>
-                  </div>
-                </div>
-                
-                {/* Desktop: Image only */}
-                <div className={`items-center justify-center w-full h-full ${
-                  useDesktopLayout ? 'flex' : 'hidden'
-                }`}>
-                  {!imageError ? (
-                    <img
-                      src={GALLERY_IMAGES[currentImageIndex].src}
-                      alt={GALLERY_IMAGES[currentImageIndex].alt}
-                      className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                      draggable={false}
-                    />
-                  ) : (
-                    <div className="w-96 h-64 bg-gradient-to-br from-green-100 to-emerald-200 rounded-lg flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="text-6xl mb-4">🇮🇹</div>
-                        <div className="text-green-800 font-semibold text-xl">Itálie Gallery</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 3. Desktop: Description area (hidden on mobile/tablet) */}
-              <div className={`h-16 items-center justify-center px-4 ${
-                useDesktopLayout ? 'flex' : 'hidden'
-              }`}>
-                <div className="text-white px-4 py-2 max-w-2xl text-center">
-                  <p id="modal-title" className="text-sm font-medium leading-tight">{GALLERY_IMAGES[currentImageIndex].alt}</p>
-                </div>
-              </div>
-
-              {/* 4. Dots area - fixed height */}
-              <div className="h-12 flex flex-col items-center justify-center gap-2">
-                <div className="text-white/80 text-xs font-medium">
-                  {currentImageIndex + 1} / {GALLERY_IMAGES.length}
-                </div>
-                <div className="flex gap-2 bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-full">
-                  {GALLERY_IMAGES.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentImageIndex(index)}
-                      className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                        index === currentImageIndex
-                          ? 'bg-white scale-125 shadow-lg'
-                          : 'bg-white/60 hover:bg-white/90 hover:scale-110'
-                      }`}
-                      aria-label={`Zobrazit obrázek ${index + 1}`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Navigation arrows - positioned over the grid */}
-              {showArrows && GALLERY_IMAGES.length > 1 && (
-                <>
+              {/* Gallery container - Grid row 1 */}
+              <div className="relative grid place-items-center group min-h-0">
+                {/* Navigation arrows - desktop only */}
+                <div className="hidden lg:block">
                   <button
-                    onClick={handleModalPrevImage}
-                    className="absolute -left-8 xl:-left-12 top-1/2 -translate-y-1/2 w-16 h-16 text-white transition-all duration-300 flex items-center justify-center group/btn hover:scale-110 z-10"
+                    onClick={scrollModalPrev}
+                    className="absolute -left-16 xl:-left-20 top-1/2 -translate-y-1/2 w-12 h-12 text-white/80 hover:text-white transition-all duration-300 flex items-center justify-center hover:scale-110 z-10"
                     aria-label="Předchozí obrázek"
                     style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
                   >
-                    <svg className="w-14 h-14 group-hover/btn:-translate-x-0.5 transition-transform duration-200" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/>
                     </svg>
                   </button>
                   <button
-                    onClick={handleModalNextImage}
-                    className="absolute -right-8 xl:-right-12 top-1/2 -translate-y-1/2 w-16 h-16 text-white transition-all duration-300 flex items-center justify-center group/btn hover:scale-110 z-10"
+                    onClick={scrollModalNext}
+                    className="absolute -right-16 xl:-right-20 top-1/2 -translate-y-1/2 w-12 h-12 text-white/80 hover:text-white transition-all duration-300 flex items-center justify-center hover:scale-110 z-10"
                     aria-label="Následující obrázek"
                     style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
                   >
-                    <svg className="w-14 h-14 group-hover/btn:translate-x-0.5 transition-transform duration-200" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
                     </svg>
                   </button>
-                </>
-              )}
+                </div>
+                
+                <div className="w-full max-w-6xl max-h-[70vh] sm:max-h-[75vh] lg:max-h-[80vh] rounded-xl sm:rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative">
+                  <div 
+                    className="grid grid-cols-[repeat(3,100%)] h-full transition-transform duration-300 ease-in-out touch-auto"
+                    style={{ transform: `translateX(-${modalCurrentImageIndex * 100}%)` }}
+                    onTouchStart={(e) => {
+                      modalTouchStartX.current = e.touches[0].clientX;
+                    }}
+                    onTouchMove={(e) => {
+                      modalTouchEndX.current = e.touches[0].clientX;
+                    }}
+                    onTouchEnd={() => {
+                      if (!modalTouchStartX.current || !modalTouchEndX.current) return;
+                      const distance = modalTouchStartX.current - modalTouchEndX.current;
+                      const isLeftSwipe = distance > 50;
+                      const isRightSwipe = distance < -50;
+                      if (isLeftSwipe) scrollModalNext();
+                      if (isRightSwipe) scrollModalPrev();
+                      modalTouchStartX.current = 0;
+                      modalTouchEndX.current = 0;
+                    }}
+                  >
+                    {GALLERY_IMAGES.map((image, index) => (
+                      <div key={index} className="grid place-items-center p-2">
+                        <img 
+                          src={image.src}
+                          alt={image.alt}
+                          className="max-w-full max-h-full object-contain select-none rounded-xl sm:rounded-2xl"
+                          onError={handleImageError}
+                          loading="lazy"
+                          draggable={false}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  
+                </div>
+              </div>
+              
+              {/* Image description and navigation - Grid row 2 */}
+              <div className="text-center px-2 h-24 sm:h-28 lg:h-32 flex flex-col justify-center">
+                <p id="modal-title" className="text-white text-sm sm:text-base font-medium leading-relaxed max-w-2xl mx-auto">
+                  {GALLERY_IMAGES[modalCurrentImageIndex]?.alt}
+                </p>
+                <div className="text-white/60 text-xs sm:text-sm mt-2">
+                  {modalCurrentImageIndex + 1} / {GALLERY_IMAGES.length}
+                </div>
+                
+                {/* Interactive dots indicator */}
+                <div className="flex justify-center gap-2 sm:gap-1.5 mt-3 sm:mt-4">
+                  {GALLERY_IMAGES.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        scrollModalToImage(index); 
+                      }}
+                      className={`w-3 h-3 sm:w-2.5 sm:h-2.5 lg:w-2 lg:h-2 rounded-full transition-all duration-300 cursor-pointer hover:scale-125 active:scale-110 ${
+                        index === modalCurrentImageIndex 
+                          ? 'bg-white shadow-md' 
+                          : 'bg-white/40 hover:bg-white/70'
+                      }`}
+                      aria-label={`Přejít na obrázek ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}

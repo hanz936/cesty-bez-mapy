@@ -29,6 +29,16 @@
   }
 }
 
+/* Tailwind v4 utility for hiding scrollbars */
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* Component layer utilities */
 @layer components {
   .card-base {
