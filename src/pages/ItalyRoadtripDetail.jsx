@@ -60,7 +60,6 @@ const GALLERY_IMAGES = [
 
 
 const ItalyRoadtripDetail = () => {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
@@ -94,16 +93,20 @@ const ItalyRoadtripDetail = () => {
     setImageError(true);
   }, []);
 
+  const galleryRef = useRef(null);
+
   const handlePrevImage = useCallback(() => {
-    setCurrentImageIndex(prev => 
-      prev === 0 ? GALLERY_IMAGES.length - 1 : prev - 1
-    );
+    if (!galleryRef.current) return;
+    const container = galleryRef.current;
+    const scrollAmount = container.clientWidth;
+    container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
   }, []);
 
   const handleNextImage = useCallback(() => {
-    setCurrentImageIndex(prev => 
-      prev === GALLERY_IMAGES.length - 1 ? 0 : prev + 1
-    );
+    if (!galleryRef.current) return;
+    const container = galleryRef.current;
+    const scrollAmount = container.clientWidth;
+    container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
   }, []);
 
 
@@ -307,26 +310,25 @@ const ItalyRoadtripDetail = () => {
               <div className="order-1 lg:order-2 mt-1">
                 <div className="relative group">
                   <div 
-                    className="aspect-[4/3] rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.25)] bg-gradient-to-br from-slate-50 to-slate-100 touch-pan-x cursor-pointer"
+                    className="aspect-[4/3] rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.25)] bg-gradient-to-br from-slate-50 to-slate-100 cursor-pointer"
                     onClick={openModal}
                   >
-                    {!imageError ? (
-                      <img 
-                        src={GALLERY_IMAGES[currentImageIndex].src}
-                        alt={GALLERY_IMAGES[currentImageIndex].alt}
-                        className="w-full h-full object-cover select-none transition-transform duration-700"
-                        onError={handleImageError}
-                        loading="lazy"
-                        draggable={false}
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-green-100 to-emerald-200 flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="text-4xl mb-2">🇮🇹</div>
-                          <div className="text-green-800 font-semibold">Itálie Gallery</div>
-                        </div>
-                      </div>
-                    )}
+                    <div 
+                      ref={galleryRef}
+                      className="flex h-full overflow-x-auto snap-x snap-mandatory touch-pan-x scrollbar-hide"
+                    >
+                      {GALLERY_IMAGES.map((image, index) => (
+                        <img 
+                          key={index}
+                          src={image.src}
+                          alt={image.alt}
+                          className="w-full h-full object-cover select-none flex-shrink-0 snap-center"
+                          onError={handleImageError}
+                          loading="lazy"
+                          draggable={false}
+                        />
+                      ))}
+                    </div>
                     
                     
                     {/* Navigation arrows - Smart device detection */}
@@ -358,15 +360,10 @@ const ItalyRoadtripDetail = () => {
                     {/* Enhanced Dots indicator */}
                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-full">
                       {GALLERY_IMAGES.map((_, index) => (
-                        <button
+                        <div
                           key={index}
-                          onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(index); }}
-                          className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                            index === currentImageIndex 
-                              ? 'bg-white scale-125 shadow-lg' 
-                              : 'bg-white/60 hover:bg-white/90 hover:scale-110'
-                          }`}
-                          aria-label={`Zobrazit obrázek ${index + 1}`}
+                          className="w-2.5 h-2.5 rounded-full bg-white/60"
+                          aria-label={`Obrázek ${index + 1}`}
                         />
                       ))}
                     </div>
