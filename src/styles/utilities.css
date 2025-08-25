@@ -1,35 +1,66 @@
-/* Custom Tailwind utilities for repeated patterns */
-@layer utilities {
-  /* Focus ring utility - používá se 20+ krát */
-  .focus-ring {
-    @apply focus:outline-none supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2;
-  }
+/* Tailwind CSS v4 Custom Utilities */
+
+/* Focus ring utility - používá se 20+ krát */
+@utility focus-ring {
+  outline: none;
   
-  /* Card hover effect - používá se 8+ krát */
-  .card-hover {
-    @apply transition-all duration-300 hover:transform hover:-translate-y-1.5 hover:shadow-2xl;
-  }
-  
-  /* Responsive heading sizes */
-  .text-responsive-title {
-    @apply text-2xl sm:text-3xl lg:text-4xl font-bold;
-  }
-  
-  .text-responsive-heading {
-    @apply text-xl sm:text-2xl lg:text-3xl font-bold;
-  }
-  
-  /* Common gradient backgrounds */
-  .bg-gradient-green {
-    @apply bg-gradient-to-br from-green-800 via-green-600 to-green-800;
-  }
-  
-  .bg-gradient-fallback {
-    @apply bg-gradient-to-br from-green-100 to-green-200;
+  &:focus-visible {
+    @media (hover: hover) {
+      ring: 2px solid theme(colors.green.600);
+      ring-offset: 2px;
+    }
   }
 }
 
-/* Tailwind v4 utility for hiding scrollbars */
+/* Card hover effect - používá se 8+ krát */
+@utility card-hover {
+  transition: all 300ms ease;
+  
+  &:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+}
+
+/* Responsive heading sizes */
+@utility text-responsive-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  
+  @media (min-width: 640px) {
+    font-size: 1.875rem;
+  }
+  
+  @media (min-width: 1024px) {
+    font-size: 2.25rem;
+  }
+}
+
+@utility text-responsive-heading {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  
+  @media (min-width: 640px) {
+    font-size: 1.5rem;
+  }
+  
+  @media (min-width: 1024px) {
+    font-size: 1.875rem;
+  }
+}
+
+/* Common gradient backgrounds */
+@utility bg-gradient-green {
+  background: linear-gradient(to bottom right, theme(colors.green.800), theme(colors.green.600), theme(colors.green.800));
+}
+
+@utility bg-gradient-fallback {
+  background: linear-gradient(to bottom right, theme(colors.green.100), theme(colors.green.200));
+}
+
+/* Scrollbar hiding utility */
 @utility scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -39,13 +70,24 @@
   }
 }
 
-/* Component layer utilities */
-@layer components {
-  .card-base {
-    @apply bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100;
-  }
+/* Card base component */
+@utility card-base {
+  background-color: white;
+  border-radius: 1rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  border: 1px solid theme(colors.gray.100);
+}
+
+/* Input base component */
+@utility input-base {
+  border: 1px solid theme(colors.gray.300);
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  outline: none;
   
-  .input-base {
-    @apply border border-gray-300 rounded-lg px-4 py-2 focus:border-green-500 focus:ring-1 focus:ring-green-500 focus:outline-none;
+  &:focus {
+    border-color: theme(colors.green.500);
+    box-shadow: 0 0 0 1px theme(colors.green.500);
   }
 }

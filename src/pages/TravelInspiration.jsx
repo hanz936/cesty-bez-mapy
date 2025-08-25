@@ -113,24 +113,14 @@ const BlogCard = ({ post, onCardClick }) => {
 
       {/* Content Section */}
       <div className="p-7 flex flex-col flex-grow">
-        <h3 className="text-lg font-medium text-black mb-2 leading-snug overflow-hidden" 
-            style={{
-              display: '-webkit-box',
-              WebkitLineClamp: 3,
-              WebkitBoxOrient: 'vertical'
-            }}>
+        <h3 className="text-lg font-medium text-black mb-2 leading-snug line-clamp-3">
           {post.title}
         </h3>
         
         {/* Separator */}
         <div className="w-[70px] h-0.5 bg-gradient-to-r from-green-800 to-green-600 mx-auto my-3 rounded-full group-hover:w-[100px] transition-all duration-300 ease-in-out"></div>
         
-        <p className="text-sm text-black leading-relaxed mt-2 flex-grow overflow-hidden" 
-           style={{
-             display: '-webkit-box',
-             WebkitLineClamp: 8,
-             WebkitBoxOrient: 'vertical'
-           }}>
+        <p className="text-sm text-black leading-relaxed mt-2 flex-grow line-clamp-8">
           {post.excerpt}
         </p>
         

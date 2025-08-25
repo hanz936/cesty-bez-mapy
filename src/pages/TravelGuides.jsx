@@ -18,6 +18,66 @@ const TOP_ITINERARIES = [
     image: `${BASE_PATH}/images/guide-italy-roadtrip.png`,
     alt: 'Malebná italská krajina s cestou vedoucí mezi kopci',
     badge: 'Roadtrip',
+    category: 'Dlouhodobé cesty'
+  },
+  {
+    id: 2,
+    title: 'Backpacking Dolomity – túry s noclehy v rifugio',
+    description: 'Týdenní trek s batohem přes nejkrásnější vrcholy Dolomit. Tre Cime di Lavaredo, Seceda, Alpe di Siusi, nocleh v horských rifugio, mapy tras a tipy na balení. Pro milovníky hor a aktivního cestování.',
+    price: '649 Kč',
+    duration: '7 dní',
+    rating: 4.8,
+    image: `${BASE_PATH}/images/dolomity-dest.png`,
+    alt: 'Horské vrcholy Dolomit s alpskými loukami',
+    badge: 'Backpacking',
+    category: 'Dobrodružné cesty'
+  },
+  {
+    id: 3,
+    title: 'Týden v Paříži – od Eiffelovky po skryté perličky',
+    description: 'Celý týden v městě lásky a světel. Navštívíte všechna slavná místa, ale také objevíte autentické kavárny, skryté galerie a místní trhy. S tipy na nejlepší restaurace a večerní program.',
+    price: '549 Kč',
+    duration: '7 dní',
+    rating: 4.8,
+    image: `${BASE_PATH}/images/montmartre-vyhled.png`,
+    alt: 'Výhled z Montmartru na Paříž při západu slunce',
+    badge: 'Městský',
+    category: 'Městské pobyty'
+  },
+  {
+    id: 4,
+    title: 'Dobrodružství v Jeseníkách – adrenalin v českých horách',
+    description: 'Víkendový adrenalinový program v adventure paradise ČR. Nejdelší koloběžková trasa v ČR (17km), mountain biking, zip line, vysoké lanovky, jeskyně Špičák (350 mil. let), nejvyšší vodopád Jeseníků a výstup na Praděd. Pro milovníky adrenalinu.',
+    price: '399 Kč',
+    duration: '3 dny',
+    rating: 4.7,
+    image: `${BASE_PATH}/images/jeseniky.png`,
+    alt: 'Horské vrcholy Jeseníků s výhledem a adventure aktivitami',
+    badge: 'Dobrodružný',
+    category: 'Dobrodružné cesty'
+  },
+  {
+    id: 5,
+    title: 'Gastronomický Milán – od osteria po Michelin',
+    description: 'Pětidenní cesta světem milánské gastronomie. Enrico Bartolini, Cracco, tradiční Trattoria Milanese, místní trhy, cookingová workshop a degustace v oblasti Navigli. Kompletní průvodce food scénou.',
+    price: '899 Kč',
+    duration: '5 dní',
+    rating: 4.9,
+    image: `${BASE_PATH}/images/milan.png`,
+    alt: 'Milánské Duomo s elegantními uličkami plnými kaváren',
+    badge: 'Gastro',
+    category: 'Gastronomické zážitky'
+  },
+  {
+    id: 6,
+    title: 'Víkend v Krakov – historie, kultura a gastro',
+    description: 'Dvoudenní intenzivní program v jednom z nejkrásnějších měst Evropy. Wawelský hrad, Stare Miasto, Kazimierz, tradiční pierogi a kielbasa, židovská čtvrť a underground bary. Kompaktní městský zážitek.',
+    price: '349 Kč',
+    duration: '2 dny',
+    rating: 4.5,
+    image: `${BASE_PATH}/images/krakov.png`,
+    alt: 'Historické centrum Krakova s barevnými budovami',
+    badge: 'Městský',
     category: 'Víkendové výlety'
   }
 ];
@@ -72,12 +132,7 @@ const GuideCard = ({ guide, onCardClick }) => {
 
       {/* Content Section */}
       <div className="p-7 flex flex-col flex-grow">
-        <h3 className="text-lg font-medium text-black mb-2 leading-snug overflow-hidden" 
-            style={{
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical'
-            }}>
+        <h3 className="text-lg font-medium text-black mb-2 leading-snug line-clamp-2">
           {guide.title}
         </h3>
         
@@ -115,12 +170,7 @@ const GuideCard = ({ guide, onCardClick }) => {
         {/* Separator */}
         <div className="w-[70px] h-0.5 bg-gradient-to-r from-green-800 to-green-600 mx-auto my-3 rounded-full group-hover:w-[100px] transition-all duration-300 ease-in-out"></div>
         
-        <p className="text-sm text-black leading-relaxed mt-2 flex-grow overflow-hidden" 
-           style={{
-             display: '-webkit-box',
-             WebkitLineClamp: 6,
-             WebkitBoxOrient: 'vertical'
-           }}>
+        <p className="text-sm text-black leading-relaxed mt-2 flex-grow line-clamp-6">
           {guide.description}
         </p>
         
@@ -194,8 +244,25 @@ const TravelGuides = () => {
       {/* Guides Section */}
       <main className="py-16 px-5 max-w-7xl mx-auto" role="main" aria-label="Seznam cestovních průvodců" style={{ overflowAnchor: 'none' }}>
 
-        {/* Sorting Bar */}
+        {/* Search & Sorting Bar */}
         <div className="mb-12 p-6 bg-white rounded-xl border border-gray-100 shadow-sm">
+          {/* Search Bar */}
+          <div className="mb-6">
+            <div className="relative max-w-md mx-auto">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Vyhledat průvodce..."
+                className="input-base w-full pl-9 pr-4 py-2 text-sm"
+              />
+            </div>
+          </div>
+          
+          {/* Sorting Options */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <span className="text-sm font-medium text-black mb-2 sm:mb-0 sm:mr-4">
               Seřadit podle
