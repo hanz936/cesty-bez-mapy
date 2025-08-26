@@ -87,7 +87,7 @@
   outline: none;
   
   &:focus {
-    border-color: theme(colors.green.500);
-    box-shadow: 0 0 0 1px theme(colors.green.500);
+    border-color: theme(colors.gray.600);
+    box-shadow: 0 0 0 1px theme(colors.gray.500);
   }
 }

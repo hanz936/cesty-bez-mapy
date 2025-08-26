@@ -204,6 +204,8 @@ GuideCard.displayName = 'GuideCard';
 
 const TravelGuides = () => {
   const [activeSortOption, setActiveSortOption] = useState('Nejprodávanější');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
   const navigate = useNavigate();
 
   const sortOptions = [
@@ -216,6 +218,7 @@ const TravelGuides = () => {
 
   const handleSortChange = useCallback((option) => {
     setActiveSortOption(option);
+    setShowSortDropdown(false);
     // Zde bude později sorting logika
   }, []);
 
@@ -244,44 +247,195 @@ const TravelGuides = () => {
       {/* Guides Section */}
       <main className="py-16 px-5 max-w-7xl mx-auto" role="main" aria-label="Seznam cestovních průvodců" style={{ overflowAnchor: 'none' }}>
 
-        {/* Search & Sorting Bar */}
-        <div className="mb-12 p-6 bg-white rounded-xl border border-gray-100 shadow-sm">
-          {/* Search Bar */}
-          <div className="mb-6">
-            <div className="relative max-w-md mx-auto">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              <input
-                type="text"
-                placeholder="Vyhledat průvodce..."
-                className="input-base w-full pl-9 pr-4 py-2 text-sm"
-              />
-            </div>
-          </div>
+        {/* Search & Filter Card */}
+        <div className="mb-12 card-base overflow-hidden">
           
-          {/* Sorting Options */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <span className="text-sm font-medium text-black mb-2 sm:mb-0 sm:mr-4">
-              Seřadit podle
-            </span>
-            
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {sortOptions.map((option) => (
-                <Button
-                  key={option}
-                  onClick={() => handleSortChange(option)}
-                  variant={activeSortOption === option ? "green" : "secondary"}
-                  size="sm"
-                  className={activeSortOption === option ? "" : "hover:text-green-800"}
-                >
-                  {option}
-                </Button>
-              ))}
+          {/* Main search bar section */}
+          <div className="p-6">
+            <div className="flex flex-col lg:flex-row lg:justify-between items-center gap-6">
+              
+              {/* Search Bar - left side */}
+              <div className="relative w-full lg:max-w-md">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Hledat průvodce..."
+                  className="input-base w-full pl-12 pr-4 py-3 text-base focus:ring-gray-500 focus:border-gray-600"
+                />
+              </div>
+
+              {/* Filter Toggle - right side */}
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="flex items-center gap-2"
+                aria-label={showAdvancedFilters ? 'Sbalit filtry' : 'Rozbalit filtry'}
+              >
+                <img 
+                  src={`${BASE_PATH}/images/filter.svg`} 
+                  alt="Filter" 
+                  className="w-4 h-4"
+                />
+                <svg className={`h-4 w-4 transition-transform duration-300 ${showAdvancedFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </Button>
             </div>
           </div>
+
+          {/* Expanded Advanced Filters */}
+          <div className={`transition-all duration-300 ease-in-out ${showAdvancedFilters ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
+            <div className="border-t border-gray-200 bg-gray-50 p-6 space-y-6">
+              
+              {/* Sorting Section - Top */}
+              <div className="pb-4 border-b border-gray-200">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium text-black">Seřadit podle:</span>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowSortDropdown(!showSortDropdown)}
+                      className="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm font-medium text-black cursor-pointer hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent transition-all duration-200 shadow-sm min-w-[160px]"
+                    >
+                      <span>{activeSortOption}</span>
+                      <svg 
+                        className={`ml-2 h-4 w-4 text-gray-400 transition-transform duration-200 ${showSortDropdown ? 'rotate-180' : ''}`} 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    
+                    {/* Dropdown Menu */}
+                    {showSortDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 overflow-hidden">
+                        {sortOptions.map((option) => (
+                          <button
+                            key={option}
+                            onClick={() => handleSortChange(option)}
+                            className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${
+                              activeSortOption === option 
+                                ? 'bg-green-50 text-green-800 font-medium' 
+                                : 'text-black'
+                            }`}
+                          >
+                            {option}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Backdrop to close dropdown */}
+                    {showSortDropdown && (
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setShowSortDropdown(false)}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  
+                  {/* Typ zážitku */}
+                  <div>
+                    <h4 className="font-medium text-black mb-3">Typ zážitku</h4>
+                    <div className="space-y-2">
+                      {[
+                        { label: 'Roadtrip', count: 1 },
+                        { label: 'Městský', count: 2 },
+                        { label: 'Dobrodružný', count: 2 },
+                        { label: 'Gastro', count: 1 },
+                        { label: 'Backpacking', count: 1 }
+                      ].map(type => (
+                        <label key={type.label} className="flex items-center justify-between text-sm cursor-pointer hover:text-green-800 transition-colors">
+                          <div className="flex items-center gap-2">
+                            <input type="checkbox" className="rounded text-green-600 focus:ring-green-500" />
+                            <span>{type.label}</span>
+                          </div>
+                          <span className="text-gray-500">({type.count})</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Cenové rozpětí */}
+                  <div>
+                    <h4 className="font-medium text-black mb-3">Cena</h4>
+                    <div className="space-y-2">
+                      {[
+                        { label: 'Do 400 Kč', count: 2 },
+                        { label: '400-600 Kč', count: 2 },
+                        { label: '600-800 Kč', count: 1 },
+                        { label: 'Nad 800 Kč', count: 1 }
+                      ].map(price => (
+                        <label key={price.label} className="flex items-center justify-between text-sm cursor-pointer hover:text-green-800 transition-colors">
+                          <div className="flex items-center gap-2">
+                            <input type="checkbox" className="rounded text-green-600 focus:ring-green-500" />
+                            <span>{price.label}</span>
+                          </div>
+                          <span className="text-gray-500">({price.count})</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Délka cesty */}
+                  <div>
+                    <h4 className="font-medium text-black mb-3">Délka</h4>
+                    <div className="space-y-2">
+                      {[
+                        { label: 'Víkend (1-3 dny)', count: 2 },
+                        { label: 'Týden (4-10 dní)', count: 3 },
+                        { label: 'Dlouhodobé (11+ dní)', count: 1 }
+                      ].map(duration => (
+                        <label key={duration.label} className="flex items-center justify-between text-sm cursor-pointer hover:text-green-800 transition-colors">
+                          <div className="flex items-center gap-2">
+                            <input type="checkbox" className="rounded text-green-600 focus:ring-green-500" />
+                            <span>{duration.label}</span>
+                          </div>
+                          <span className="text-gray-500">({duration.count})</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Hodnocení */}
+                  <div>
+                    <h4 className="font-medium text-black mb-3">Hodnocení</h4>
+                    <div className="space-y-2">
+                      {[
+                        { label: '5 hvězdiček', count: 0 },
+                        { label: '4.5+ hvězdiček', count: 6 }
+                      ].map(rating => (
+                        <label key={rating.label} className="flex items-center justify-between text-sm cursor-pointer hover:text-green-800 transition-colors">
+                          <div className="flex items-center gap-2">
+                            <input type="checkbox" className="rounded text-green-600 focus:ring-green-500" />
+                            <span>{rating.label}</span>
+                          </div>
+                          <span className="text-gray-500">({rating.count})</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Clear filters */}
+                <div className="flex justify-center pt-4 border-t border-gray-200">
+                  <Button variant="secondary" size="sm" className="hover:text-green-800">
+                    Vymazat filtry
+                  </Button>
+                </div>
+              </div>
+            </div>
         </div>
 
         {/* Guides Grid */}
