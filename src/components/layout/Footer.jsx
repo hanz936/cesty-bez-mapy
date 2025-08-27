@@ -1,6 +1,6 @@
 import React, { useState, memo, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { BASE_PATH } from '../../constants';
+import { BASE_PATH, ROUTES } from '../../constants';
 import ImageWithFallback from '../common/ImageWithFallback';
 import logger from '../../utils/logger';
 
@@ -46,7 +46,7 @@ const aboutLinks = [
   { href: "/muj-pribeh", text: "Můj příběh" },
   { href: "/spoluprace", text: "Spolupráce" },
   { href: "#kontakt", text: "Kontakt" },
-  { href: "#faq", text: "Často kladené otázky" },
+  { href: ROUTES.FAQ, text: "Často kladené otázky" },
   { href: "/inspirace", text: "Blog" }
 ];
 

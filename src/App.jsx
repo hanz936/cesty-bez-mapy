@@ -9,6 +9,7 @@ import PlanYourDreamTrip from './pages/PlanYourDreamTrip';
 import TravelInspiration from './pages/TravelInspiration';
 import TravelGuides from './pages/TravelGuides';
 import ItalyRoadtripDetail from './pages/ItalyRoadtripDetail';
+import FAQ from './pages/FAQ';
 import NotFound from './pages/NotFound';
 import logger from './utils/logger';
 
@@ -72,6 +73,7 @@ function App() {
           <Route path={ROUTES.ITALY_ROADTRIP_DETAIL} element={<ItalyRoadtripDetail />} />
           <Route path={ROUTES.INSPIRATION} element={<TravelInspiration />} />
           <Route path={ROUTES.COLLABORATION} element={<Collaboration />} />
+          <Route path={ROUTES.FAQ} element={<FAQ />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>
