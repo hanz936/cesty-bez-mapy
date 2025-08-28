@@ -51,7 +51,7 @@ const FAQ_DATA = [
   },
   {
     id: 10,
-    question: 'Co když nemám auto – využiju itinerář i bez něj?',
+    question: 'Co když nemám auto - využiji itinerář i bez něj?',
     answer: 'Většina itinerářů je stavěná na auto, ale pokud je varianta bez auta, vždy ji zmiňuji. Když si nejsi jistý, napiš mi.'
   },
   {
@@ -62,7 +62,7 @@ const FAQ_DATA = [
   {
     id: 12,
     question: 'Můžu se na něco doptat i po nákupu?',
-    answer: 'Jasně! Pokud potřebuješ doladit detaily nebo si s něčím nevíš rady, napiš mi – ráda poradím.'
+    answer: 'Jasně! S nákupem získáváš konzultaci zdarma. Takže pokud potřebuješ doladit detaily nebo si  s něčím nevíš rady, napiš mi - ráda poradím.'
   },
   {
     id: 13,
