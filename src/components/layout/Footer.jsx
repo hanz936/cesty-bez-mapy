@@ -44,15 +44,14 @@ const BLUR_CIRCLES = [
 
 const aboutLinks = [
   { href: "/muj-pribeh", text: "Můj příběh" },
-  { href: "/spoluprace", text: "Spolupráce" },
   { href: "#kontakt", text: "Kontakt" },
-  { href: ROUTES.FAQ, text: "Často kladené otázky" },
-  { href: "/inspirace", text: "Blog" }
+  { href: "/inspirace", text: "Recenze" }
 ];
 
 const planningLinks = [
-  { href: "/naplanuj-si-cestu-snu", text: "Jak to funguje" },
-  { href: "/inspirace", text: "Recenze" }
+  { href: "/inspirace", text: "Blog" },
+  { href: ROUTES.FAQ, text: "Často kladené otázky" },
+  { href: "/spoluprace", text: "Spolupráce" }
 ];
 
 const NavigationSection = memo(({ title, links, ariaLabel, className = "" }) => {
@@ -175,7 +174,7 @@ const Footer = () => {
             title="Cestovní plánování"
             links={planningLinks}
             ariaLabel="Cestovní plánování"
-            className="md:ml-8"
+            className="md:ml-20"
           />
         </div>
       </div>
