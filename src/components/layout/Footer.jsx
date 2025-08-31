@@ -44,7 +44,7 @@ const BLUR_CIRCLES = [
 
 const aboutLinks = [
   { href: "/muj-pribeh", text: "Můj příběh" },
-  { href: "#kontakt", text: "Kontakt" },
+  { href: ROUTES.CONTACT, text: "Kontakt" },
   { href: "/inspirace", text: "Recenze" }
 ];
 

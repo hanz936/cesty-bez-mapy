@@ -6,7 +6,8 @@ export const ROUTES = {
   ITALY_ROADTRIP_DETAIL: '/cestovni-pruvodci/italie-roadtrip',
   INSPIRATION: '/inspirace',
   COLLABORATION: '/spoluprace',
-  FAQ: '/caste-dotazy'
+  FAQ: '/caste-dotazy',
+  CONTACT: '/kontakt'
 };
 
 export const ROUTE_LABELS = {
@@ -16,7 +17,8 @@ export const ROUTE_LABELS = {
   [ROUTES.TRAVEL_GUIDES]: 'Cestovní průvodci',
   [ROUTES.INSPIRATION]: 'Inspirace na cesty',
   [ROUTES.COLLABORATION]: 'Spolupráce',
-  [ROUTES.FAQ]: 'Časté dotazy'
+  [ROUTES.FAQ]: 'Časté dotazy',
+  [ROUTES.CONTACT]: 'Kontakt'
 };
 
 export const NAV_ITEMS = [

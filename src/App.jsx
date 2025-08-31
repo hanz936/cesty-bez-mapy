@@ -2,6 +2,7 @@ import React from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { Button } from './components/ui';
 import { ROUTES } from './constants';
+import ScrollToTop from './components/common/ScrollToTop';
 import Home from './pages/Home';
 import MyStory from './pages/MyStory';
 import Collaboration from './pages/Collaboration';
@@ -10,6 +11,7 @@ import TravelInspiration from './pages/TravelInspiration';
 import TravelGuides from './pages/TravelGuides';
 import ItalyRoadtripDetail from './pages/ItalyRoadtripDetail';
 import FAQ from './pages/FAQ';
+import Contact from './pages/Contact';
 import NotFound from './pages/NotFound';
 import logger from './utils/logger';
 
@@ -65,6 +67,7 @@ function App() {
   return (
     <AppErrorBoundary>
       <Router>
+        <ScrollToTop />
         <Routes>
           <Route path={ROUTES.HOME} element={<Home />} />
           <Route path={ROUTES.MY_STORY} element={<MyStory />} />
@@ -74,6 +77,7 @@ function App() {
           <Route path={ROUTES.INSPIRATION} element={<TravelInspiration />} />
           <Route path={ROUTES.COLLABORATION} element={<Collaboration />} />
           <Route path={ROUTES.FAQ} element={<FAQ />} />
+          <Route path={ROUTES.CONTACT} element={<Contact />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>

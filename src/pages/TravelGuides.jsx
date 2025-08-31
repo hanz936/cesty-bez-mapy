@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
-import { Button } from '../components/ui';
+import { Button, Dropdown } from '../components/ui';
 import { BASE_PATH, ROUTES } from '../constants';
 
 
@@ -205,7 +205,6 @@ GuideCard.displayName = 'GuideCard';
 const TravelGuides = () => {
   const [activeSortOption, setActiveSortOption] = useState('Nejprodávanější');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [showSortDropdown, setShowSortDropdown] = useState(false);
   const navigate = useNavigate();
 
   const sortOptions = [
@@ -216,10 +215,10 @@ const TravelGuides = () => {
     'Nejnovější'
   ];
 
-  const handleSortChange = useCallback((option) => {
-    setActiveSortOption(option);
-    setShowSortDropdown(false);
+  const handleSortChange = useCallback((e) => {
+    setActiveSortOption(e.target.value);
     // Zde bude později sorting logika
+    console.log('Sorting by:', e.target.value);
   }, []);
 
   const handleCardClick = useCallback((guide) => {
@@ -271,15 +270,15 @@ const TravelGuides = () => {
               {/* Filter Toggle - right side */}
               <Button 
                 variant="secondary" 
-                size="sm" 
+                size="md" 
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 px-3 py-2"
                 aria-label={showAdvancedFilters ? 'Sbalit filtry' : 'Rozbalit filtry'}
               >
                 <img 
                   src={`${BASE_PATH}/images/filter.svg`} 
                   alt="Filter" 
-                  className="w-4 h-4"
+                  className="w-5 h-5"
                 />
                 <svg className={`h-4 w-4 transition-transform duration-300 ${showAdvancedFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -296,49 +295,15 @@ const TravelGuides = () => {
               <div className="pb-4 border-b border-gray-200">
                 <div className="flex items-center gap-4">
                   <span className="text-sm font-medium text-black">Seřadit podle:</span>
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowSortDropdown(!showSortDropdown)}
-                      className="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm font-medium text-black cursor-pointer hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent transition-all duration-200 shadow-sm min-w-[160px]"
-                    >
-                      <span>{activeSortOption}</span>
-                      <svg 
-                        className={`ml-2 h-4 w-4 text-gray-400 transition-transform duration-200 ${showSortDropdown ? 'rotate-180' : ''}`} 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    
-                    {/* Dropdown Menu */}
-                    {showSortDropdown && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 overflow-hidden">
-                        {sortOptions.map((option) => (
-                          <button
-                            key={option}
-                            onClick={() => handleSortChange(option)}
-                            className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${
-                              activeSortOption === option 
-                                ? 'bg-green-50 text-green-800 font-medium' 
-                                : 'text-black'
-                            }`}
-                          >
-                            {option}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {/* Backdrop to close dropdown */}
-                    {showSortDropdown && (
-                      <div 
-                        className="fixed inset-0 z-10" 
-                        onClick={() => setShowSortDropdown(false)}
-                      />
-                    )}
-                  </div>
+                  <Dropdown
+                    size="sm"
+                    value={activeSortOption}
+                    onChange={handleSortChange}
+                    options={sortOptions}
+                    showLabel={false}
+                    fullWidth={false}
+                    minWidth="160px"
+                  />
                 </div>
               </div>
 
