@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import Layout from '../components/layout/Layout';
-import { Button } from '../components/ui';
+import { Button, Form, Input, TextArea } from '../components/ui';
 import logger from '../utils/logger';
 
 const CLASSES = {
@@ -16,13 +16,8 @@ const CLASSES = {
   sampleImageInner: 'w-full max-w-sm sm:max-w-md rounded-xl shadow-2xl bg-gray-100 mx-auto flex items-center justify-center text-black text-lg border border-gray-200 aspect-[4/5]',
   contactSection: 'bg-white py-12 lg:py-16 mt-16',
   contactContainer: 'max-w-2xl mx-auto px-4 sm:px-6 lg:px-8',
-  contactCard: 'bg-white rounded-xl shadow-lg p-6 lg:p-8',
-  contactHeading: 'text-2xl lg:text-3xl font-bold text-black mb-6 text-center',
-  form: 'space-y-6',
-  formGroup: 'space-y-2',
-  label: 'block text-sm font-semibold text-black',
-  input: 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200 text-base',
-  textarea: 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200 text-base min-h-32 resize-y',
+  contactCard: 'bg-gradient-to-br from-gray-50 to-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6 md:p-8',
+  contactHeading: 'text-lg sm:text-xl font-bold text-black mb-3 sm:mb-4',
   errorMessage: 'text-red-600 text-sm mt-1',
   successMessage: 'bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6'
 };
@@ -187,7 +182,7 @@ const Collaboration = () => {
         <div className={CLASSES.contactContainer}>
           <div className={CLASSES.contactCard}>
             <h2 id="contact-form" className={CLASSES.contactHeading}>
-              Kontaktuj mě
+              Napiš mi
             </h2>
             
             {submitSuccess && (
@@ -196,72 +191,39 @@ const Collaboration = () => {
               </div>
             )}
             
-            <form onSubmit={handleSubmit} className={CLASSES.form} noValidate>
-              <div className={CLASSES.formGroup}>
-                <label htmlFor="name" className={CLASSES.label}>
-                  Jméno *
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  className={CLASSES.input}
-                  required
-                  aria-describedby={formErrors.name ? 'name-error' : undefined}
-                  aria-invalid={formErrors.name ? 'true' : 'false'}
-                />
-                {formErrors.name && (
-                  <p id="name-error" className={CLASSES.errorMessage} role="alert">
-                    {formErrors.name}
-                  </p>
-                )}
-              </div>
+            <Form onSubmit={handleSubmit} spacing="lg" noValidate>
+              <Input
+                label="Jméno"
+                required
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                error={formErrors.name}
+              />
               
-              <div className={CLASSES.formGroup}>
-                <label htmlFor="email" className={CLASSES.label}>
-                  E-mail *
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className={CLASSES.input}
-                  required
-                  aria-describedby={formErrors.email ? 'email-error' : undefined}
-                  aria-invalid={formErrors.email ? 'true' : 'false'}
-                />
-                {formErrors.email && (
-                  <p id="email-error" className={CLASSES.errorMessage} role="alert">
-                    {formErrors.email}
-                  </p>
-                )}
-              </div>
+              <Input
+                label="E-mail"
+                required
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                error={formErrors.email}
+              />
               
-              <div className={CLASSES.formGroup}>
-                <label htmlFor="message" className={CLASSES.label}>
-                  Zpráva *
-                </label>
-                <textarea
-                  id="message"
-                  name="message"
-                  value={formData.message}
-                  onChange={handleInputChange}
-                  className={CLASSES.textarea}
-                  rows={6}
-                  required
-                  aria-describedby={formErrors.message ? 'message-error' : undefined}
-                  aria-invalid={formErrors.message ? 'true' : 'false'}
-                />
-                {formErrors.message && (
-                  <p id="message-error" className={CLASSES.errorMessage} role="alert">
-                    {formErrors.message}
-                  </p>
-                )}
-              </div>
+              <TextArea
+                label="Zpráva"
+                required
+                id="message"
+                name="message"
+                value={formData.message}
+                onChange={handleInputChange}
+                rows={6}
+                error={formErrors.message}
+              />
               
               {formErrors.submit && (
                 <div className={CLASSES.errorMessage} role="alert">
@@ -284,7 +246,7 @@ const Collaboration = () => {
               <p id="submit-button-help" className="sr-only">
                 Kliknutím odešlete kontaktní formulář
               </p>
-            </form>
+            </Form>
           </div>
         </div>
       </section>

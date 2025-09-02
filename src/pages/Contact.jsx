@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
-import { Button, Input, TextArea, Dropdown } from '../components/ui';
+import { Button, Form, Input, TextArea, Dropdown } from '../components/ui';
 import { BASE_PATH } from '../constants';
 
 const Contact = () => {
@@ -19,11 +19,10 @@ const Contact = () => {
     'Obecný dotaz',
     'Dotaz k průvodci',
     'Technický problém',
-    'Spolupráce',
     'Jiné'
   ];
 
-  const validateForm = () => {
+  const validateForm = useCallback(() => {
     const newErrors = {};
     
     if (!formData.name.trim()) {
@@ -43,7 +42,7 @@ const Contact = () => {
     }
     
     return newErrors;
-  };
+  }, [formData]);
 
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
@@ -62,12 +61,12 @@ const Contact = () => {
       await new Promise(resolve => setTimeout(resolve, 1500));
       setIsSubmitted(true);
       setFormData({ name: '', email: '', subject: 'Obecný dotaz', message: '' });
-    } catch (error) {
-      setErrors({ submit: 'Něco se pokazilo. Zkuste to znovu.' });
+    } catch {
+      setErrors({ submit: 'Něco se pokazilo. Zkus to znovu.' });
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData]);
+  }, [validateForm]);
 
   const handleInputChange = useCallback((field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -79,21 +78,21 @@ const Contact = () => {
   if (isSubmitted) {
     return (
       <Layout>
-        <div className="min-h-[80vh] flex items-center justify-center px-5">
-          <div className="text-center max-w-md">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="min-h-[70vh] sm:min-h-[80vh] flex items-center justify-center px-4 sm:px-5">
+          <div className="text-center max-w-sm sm:max-w-md mx-auto">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-7 h-7 sm:w-8 sm:h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-black mb-4">Zpráva odeslána!</h1>
-            <p className="text-gray-600 mb-8 leading-relaxed">
-              Děkuji za váš dotaz. Odpovím vám do 24 hodin na uvedený e-mail.
+            <h1 className="text-xl sm:text-2xl font-bold text-black mb-4">Zpráva odeslána!</h1>
+            <p className="text-sm sm:text-base text-gray-600 mb-6 sm:mb-8 leading-relaxed">
+              Děkuji za tvůj dotaz. Odpovím ti do 24 hodin na uvedený e-mail.
             </p>
             <Button 
               variant="green" 
               onClick={() => setIsSubmitted(false)}
-              className="px-6 py-3"
+              className="w-full sm:w-auto"
             >
               Odeslat další zprávu
             </Button>
@@ -108,29 +107,29 @@ const Contact = () => {
       <PageHero 
         backgroundImage={`${BASE_PATH}/images/hero-background.png`}
         title="Kontakt"
-        subtitle="Máte dotaz nebo potřebujete poradit? Rád vám pomůžu."
+        subtitle="Máš dotaz nebo potřebuješ poradit? Ráda ti pomůžu."
         overlayOpacity={0.6}
         ariaLabel="Hero sekce kontaktní stránky"
       />
 
-      <main className="py-16 px-5" role="main">
+      <main className="py-4 sm:py-6 md:py-8 px-4 sm:px-5" role="main">
         <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-[45%_55%] gap-12 lg:gap-16">
+          <div className="grid lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-12">
             
             {/* Levá strana - Osobní informace */}
             <div className="space-y-8">
               <div>
-                <h2 className="text-2xl font-bold text-black mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-black mb-4 sm:mb-6">
                   Napište mi
                 </h2>
-                <p className="text-gray-700 leading-relaxed mb-8">
-                  Jsem Janča a rád odpovím na vaše dotazy. Pokud potřebujete poradit s cestováním, 
-                  máte technický problém nebo nápad na spolupráci, neváhejte se ozvat.
+                <p className="text-sm sm:text-base text-gray-700 leading-relaxed mb-6 sm:mb-8">
+                  Jsem Janča a ráda odpovím na tvé dotazy. Pokud potřebuješ poradit s cestováním 
+                  nebo máš technický problém, neváhej se ozvat.
                 </p>
               </div>
 
               {/* Kontaktní údaje */}
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <svg className="w-5 h-5 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -160,7 +159,7 @@ const Contact = () => {
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <svg className="w-5 h-5 text-green-700" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12.017 1.101c6.04 0 10.935 4.906 10.935 10.952 0 1.854-.462 3.607-1.277 5.136l.788 6.811-6.811-.788c-1.529.815-3.282 1.277-5.136 1.277-6.046 0-10.952-4.895-10.952-10.935 0-6.046 4.906-10.952 10.952-10.952h.501zm5.167 14.695c-.184-.306-.678-.612-1.007-.715-.329-.102-1.906-.941-2.201-1.049-.295-.108-.51-.162-.725.162-.215.324-.836 1.049-1.025 1.267-.189.218-.377.245-.7.081-.323-.164-1.365-.503-2.599-1.603-.96-.857-1.609-1.914-1.798-2.237-.189-.323-.02-.498.142-.659.146-.146.323-.378.485-.567.162-.189.216-.324.324-.54.108-.216.054-.405-.027-.567-.081-.162-.725-1.747-.994-2.393-.262-.629-.532-.543-.725-.551-.189-.008-.405-.008-.621-.008-.216 0-.567.081-.864.405-.295.324-1.127 1.101-1.127 2.686s1.154 3.117 1.316 3.333c.162.216 2.279 3.479 5.52 4.879.771.324 1.374.518 1.845.664.775.246 1.479.211 2.037.128.622-.094 1.906-.779 2.174-1.531.268-.752.268-1.396.189-1.531z"/>
+                      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
                     </svg>
                   </div>
                   <div>
@@ -179,10 +178,10 @@ const Contact = () => {
             </div>
 
             {/* Pravá strana - Kontaktní formulář */}
-            <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl shadow-lg border border-gray-100 p-8">
-              <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6 md:p-8">
+              <Form onSubmit={handleSubmit} spacing="md">
                 <div>
-                  <h3 className="text-xl font-bold text-black mb-6">Napište mi</h3>
+                  <h3 className="text-lg sm:text-xl font-bold text-black mb-3 sm:mb-4">Napište mi</h3>
                 </div>
 
                 <Input
@@ -191,7 +190,7 @@ const Contact = () => {
                   type="text"
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="Vaše jméno"
+                  placeholder="Tvé jméno"
                   error={errors.name}
                 />
 
@@ -201,7 +200,7 @@ const Contact = () => {
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
-                  placeholder="vas@email.cz"
+                  placeholder="tvuj@email.cz"
                   error={errors.email}
                 />
 
@@ -220,18 +219,18 @@ const Contact = () => {
                   rows={6}
                   value={formData.message}
                   onChange={(e) => handleInputChange('message', e.target.value)}
-                  placeholder="Napište mi svůj dotaz..."
+                  placeholder="Napiš mi svůj dotaz..."
                   error={errors.message}
                 />
 
                 {/* Odeslat */}
-                <div className="pt-4">
+                <div className="pt-2 sm:pt-4">
                   <Button 
                     type="submit" 
                     variant="green" 
                     size="lg"
+                    fullWidth
                     disabled={isSubmitting}
-                    className="w-full justify-center"
                   >
                     {isSubmitting ? (
                       <div className="flex items-center gap-2">
@@ -247,7 +246,7 @@ const Contact = () => {
                 {errors.submit && (
                   <p className="text-red-600 text-sm text-center">{errors.submit}</p>
                 )}
-              </form>
+              </Form>
             </div>
           </div>
         </div>

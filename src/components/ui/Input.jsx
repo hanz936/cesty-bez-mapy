@@ -23,7 +23,7 @@ const Input = forwardRef(({
       <input
         ref={ref}
         id={inputId}
-        className={`input-base w-full px-4 py-3 text-base focus:ring-gray-500 focus:border-gray-600 transition-colors ${
+        className={`input-base bg-white w-full px-3 py-2 sm:px-4 sm:py-3 text-sm sm:text-base focus:ring-gray-500 focus:border-gray-600 transition-colors min-h-[44px] sm:min-h-[48px] ${
           error ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''
         } ${className}`.trim()}
         {...props}

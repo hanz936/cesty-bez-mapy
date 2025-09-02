@@ -263,16 +263,16 @@ const TravelGuides = () => {
                 <input
                   type="text"
                   placeholder="Hledat průvodce..."
-                  className="input-base w-full pl-12 pr-4 py-3 text-base focus:ring-gray-500 focus:border-gray-600"
+                  className="input-base w-full pl-12 py-3 text-base"
                 />
               </div>
 
               {/* Filter Toggle - right side */}
               <Button 
                 variant="secondary" 
-                size="md" 
+                size="sm" 
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                className="flex items-center gap-2 px-3 py-2"
+                className="flex items-center gap-2"
                 aria-label={showAdvancedFilters ? 'Sbalit filtry' : 'Rozbalit filtry'}
               >
                 <img 

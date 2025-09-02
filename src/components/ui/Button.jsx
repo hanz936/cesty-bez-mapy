@@ -3,6 +3,7 @@ import React from 'react';
 const Button = React.memo(({ 
   variant = 'primary', 
   size = 'md', 
+  fullWidth = false,
   children, 
   className = '',
   ...props 
@@ -22,7 +23,8 @@ const Button = React.memo(({
     xl: "py-4 px-8 text-xl"
   };
   
-  const classes = `${baseClasses} ${variants[variant]} ${sizes[size]} ${className}`.trim();
+  const widthClass = fullWidth ? 'w-full justify-center' : '';
+  const classes = `${baseClasses} ${variants[variant]} ${sizes[size]} ${widthClass} ${className}`.trim();
   
   return (
     <button className={classes} {...props}>
