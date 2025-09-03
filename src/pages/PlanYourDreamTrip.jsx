@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui';
-import { BASE_PATH } from '../constants';
+import { BASE_PATH, ROUTES } from '../constants';
 
 const CLASSES = {
   main: 'min-h-screen bg-white',
@@ -57,7 +57,7 @@ const PlanYourDreamTrip = () => {
   }, []);
 
   const handleCtaClick = useCallback(() => {
-    navigate('/inspirace');
+    navigate(ROUTES.INSPIRATION);
   }, [navigate]);
 
   const handleQuizClick = useCallback(() => {

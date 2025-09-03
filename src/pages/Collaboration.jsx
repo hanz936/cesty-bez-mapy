@@ -17,7 +17,6 @@ const CLASSES = {
   contactSection: 'bg-white py-12 lg:py-16 mt-16',
   contactContainer: 'max-w-2xl mx-auto px-4 sm:px-6 lg:px-8',
   contactCard: 'bg-gradient-to-br from-gray-50 to-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6 md:p-8',
-  contactHeading: 'text-lg sm:text-xl font-bold text-black mb-3 sm:mb-4',
   errorMessage: 'text-red-600 text-sm mt-1',
   successMessage: 'bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6'
 };
@@ -181,9 +180,6 @@ const Collaboration = () => {
       <section className={CLASSES.contactSection} aria-labelledby="contact-form">
         <div className={CLASSES.contactContainer}>
           <div className={CLASSES.contactCard}>
-            <h2 id="contact-form" className={CLASSES.contactHeading}>
-              Napiš mi
-            </h2>
             
             {submitSuccess && (
               <div className={CLASSES.successMessage} role="alert">
@@ -200,6 +196,7 @@ const Collaboration = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
+                placeholder="Tvé jméno"
                 error={formErrors.name}
               />
               
@@ -211,6 +208,7 @@ const Collaboration = () => {
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
+                placeholder="tvuj@email.cz"
                 error={formErrors.email}
               />
               
@@ -221,6 +219,7 @@ const Collaboration = () => {
                 name="message"
                 value={formData.message}
                 onChange={handleInputChange}
+                placeholder="Napiš mi, na čem by jsi chtěl spolupracovat..."
                 rows={6}
                 error={formErrors.message}
               />

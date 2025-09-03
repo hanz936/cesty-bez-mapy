@@ -120,7 +120,7 @@ const Contact = () => {
             <div className="space-y-8">
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-black mb-4 sm:mb-6">
-                  Napište mi
+                  Napiš mi
                 </h2>
                 <p className="text-sm sm:text-base text-gray-700 leading-relaxed mb-6 sm:mb-8">
                   Jsem Janča a ráda odpovím na tvé dotazy. Pokud potřebuješ poradit s cestováním 
@@ -180,9 +180,6 @@ const Contact = () => {
             {/* Pravá strana - Kontaktní formulář */}
             <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6 md:p-8">
               <Form onSubmit={handleSubmit} spacing="md">
-                <div>
-                  <h3 className="text-lg sm:text-xl font-bold text-black mb-3 sm:mb-4">Napište mi</h3>
-                </div>
 
                 <Input
                   label="Jméno"

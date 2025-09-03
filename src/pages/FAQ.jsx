@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
-import { BASE_PATH } from '../constants';
+import { BASE_PATH, ROUTES } from '../constants';
 
 const FAQ_DATA = [
   {
@@ -177,14 +178,11 @@ const FAQ = () => {
             <div className="absolute -top-2 -right-2 w-16 h-16 bg-green-100 rounded-full blur-xl opacity-60" aria-hidden="true"></div>
             <div className="absolute -bottom-2 -left-2 w-12 h-12 bg-green-200 rounded-full blur-lg opacity-40" aria-hidden="true"></div>
             
-            <h2 className="text-2xl font-bold text-green-800 mb-4">
-              Nenašli jste odpověď?
+            <h2 className="text-2xl font-bold text-green-800 mb-6">
+              Nevidíš zde odpověď na svůj problém?
             </h2>
-            <p className="text-gray-600 mb-6 max-w-2xl mx-auto leading-relaxed">
-              Pokud máte další otázky, neváhejte mě kontaktovat. Ráda vám pomůžu!
-            </p>
-            <a 
-              href="mailto:info@cestybezmapy.cz" 
+            <Link 
+              to={ROUTES.CONTACT} 
               className="inline-flex items-center gap-3 bg-gradient-to-r from-green-700 to-green-800 hover:from-green-800 hover:to-green-900 text-white font-medium py-3 px-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             >
               <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
@@ -192,8 +190,8 @@ const FAQ = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
-              Kontaktujte mě
-            </a>
+              Napiš mi
+            </Link>
           </div>
         </div>
 

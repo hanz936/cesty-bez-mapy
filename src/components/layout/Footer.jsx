@@ -43,15 +43,15 @@ const BLUR_CIRCLES = [
 ];
 
 const aboutLinks = [
-  { href: "/muj-pribeh", text: "Můj příběh" },
+  { href: ROUTES.MY_STORY, text: "Můj příběh" },
   { href: ROUTES.CONTACT, text: "Kontakt" },
-  { href: "/inspirace", text: "Recenze" }
+  { href: "/recenze", text: "Recenze" }
 ];
 
 const planningLinks = [
-  { href: "/inspirace", text: "Blog" },
+  { href: ROUTES.INSPIRATION, text: "Inspirace na cesty" },
   { href: ROUTES.FAQ, text: "Často kladené otázky" },
-  { href: "/spoluprace", text: "Spolupráce" }
+  { href: ROUTES.COLLABORATION, text: "Spolupráce" }
 ];
 
 const NavigationSection = memo(({ title, links, ariaLabel, className = "" }) => {
@@ -171,9 +171,9 @@ const Footer = () => {
           />
 
           <NavigationSection 
-            title="Cestovní plánování"
+            title="Plánování cest"
             links={planningLinks}
-            ariaLabel="Cestovní plánování"
+            ariaLabel="Plánování cest"
             className="md:ml-20"
           />
         </div>
