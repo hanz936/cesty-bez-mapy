@@ -105,7 +105,7 @@ const Contact = () => {
   return (
     <Layout>
       <PageHero 
-        backgroundImage={`${BASE_PATH}/images/hero-background.png`}
+        backgroundImage={`${BASE_PATH}/images/hero-background-contact.png`}
         title="Kontakt"
         subtitle="Máš dotaz nebo potřebuješ poradit? Ráda ti pomůžu."
         overlayOpacity={0.6}

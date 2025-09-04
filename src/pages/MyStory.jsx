@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import Layout from '../components/layout/Layout';
+import PageHero from '../components/common/PageHero';
 import { BASE_PATH } from '../constants';
 
 const MyStory = () => {
@@ -11,13 +12,21 @@ const MyStory = () => {
 
   return (
     <Layout>
+      <PageHero 
+        backgroundImage={`${BASE_PATH}/images/hero-background-mystory.png`}
+        title="Můj příběh"
+        subtitle="Jak obyčejná holka z korporátu objevila radost z cestování na vlastní pěst."
+        overlayOpacity={0.6}
+        ariaLabel="Hero sekce stránky Můj příběh"
+      />
+      
       <section 
         className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8"
         role="main"
         aria-labelledby="mystory-heading"
       >
-        <div className="flex flex-col lg:flex-row lg:flex-wrap justify-center items-center max-w-6xl mx-auto gap-8 lg:gap-10">
-          <div className="flex-1 lg:min-w-80 text-sm sm:text-base lg:text-lg text-black leading-relaxed text-left order-2 lg:order-1">
+        <div className="flex flex-col lg:flex-row lg:flex-wrap justify-center items-start max-w-6xl mx-auto gap-8 lg:gap-10">
+          <div className="flex-1 lg:min-w-80 text-sm sm:text-base lg:text-lg text-black leading-relaxed text-left order-1">
             <div id="mystory-heading" className="sr-only">Můj příběh - Jana, zakladatelka Cesty bez mapy</div>
             <p className="mb-6">
               Jmenuju se Jana a jsem obyčejná holka, která miluje svět s otevřenýma očima a s batohem na zádech. Už jako malá jsem s rodiči vyrážela na cesty po Evropě — vždy na vlastní pěst, žádné cestovky, žádní delegáti.
@@ -43,12 +52,12 @@ const MyStory = () => {
             </p>
           </div>
           
-          <div className="flex-1 lg:min-w-80 text-center order-1 lg:order-2">
+          <div className="flex-1 lg:min-w-80 flex justify-center items-start order-2 w-full">
             {!imageError ? (
               <img 
                 src={`${BASE_PATH}/images/jana.jpg`} 
                 alt="Fotka autorky itinerářů Jana - zakladatelka Cesty bez mapy" 
-                className="w-full max-w-sm sm:max-w-md rounded-xl shadow-2xl object-cover mx-auto"
+                className="w-full max-w-sm sm:max-w-md mx-auto rounded-xl shadow-2xl object-cover"
                 width="384"
                 height="480"
                 onError={handleImageError}
@@ -56,7 +65,7 @@ const MyStory = () => {
               />
             ) : (
               <div 
-                className="w-full max-w-sm sm:max-w-md rounded-xl shadow-2xl bg-gradient-to-br from-green-100 to-green-200 mx-auto flex items-center justify-center text-green-800 text-5xl sm:text-6xl font-bold aspect-[4/5]"
+                className="w-full max-w-sm sm:max-w-md mx-auto rounded-xl shadow-2xl bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center text-green-800 text-5xl sm:text-6xl font-bold aspect-[4/5]"
                 aria-label="Avatar s písmenem J - zástupný obrázek pro Janu"
                 role="img"
               >

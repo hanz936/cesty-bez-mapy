@@ -148,7 +148,7 @@ const FAQ = () => {
       
       {/* Hero Section */}
       <PageHero 
-        backgroundImage={`${BASE_PATH}/images/hero-background.png`}
+        backgroundImage={`${BASE_PATH}/images/hero-background-faq.png`}
         title="Časté dotazy"
         subtitle="Odpovědi na nejčastější otázky o cestování a mých službách."
         overlayOpacity={0.6}

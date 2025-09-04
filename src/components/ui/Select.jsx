@@ -6,12 +6,10 @@ const Select = forwardRef(({
   required = false, 
   className = "", 
   id,
-  children,
   options = [],
   value,
   onChange,
-  placeholder = "Vybrat...",
-  ...props 
+  placeholder = "Vybrat..."
 }, ref) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedValue, setSelectedValue] = useState(value || '');
@@ -74,6 +72,7 @@ const Select = forwardRef(({
       
       <div className="relative" ref={dropdownRef}>
         <button
+          ref={ref}
           type="button"
           onClick={toggleDropdown}
           className={`flex items-center justify-between bg-white border rounded-lg px-4 py-3 text-base cursor-pointer transition-all duration-200 shadow-sm w-full text-left ${

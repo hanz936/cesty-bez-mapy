@@ -288,8 +288,8 @@ const TravelGuides = () => {
           </div>
 
           {/* Expanded Advanced Filters */}
-          <div className={`transition-all duration-300 ease-in-out ${showAdvancedFilters ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
-            <div className="border-t border-gray-200 bg-gray-50 p-6 space-y-6">
+          <div className={`transition-all duration-300 ease-in-out ${showAdvancedFilters ? 'max-h-[800px] sm:max-h-[500px] opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
+            <div className="border-t border-gray-200 bg-gray-50 p-4 sm:p-6 space-y-4 sm:space-y-6">
               
               {/* Sorting Section - Top */}
               <div className="pb-4 border-b border-gray-200">
@@ -308,7 +308,7 @@ const TravelGuides = () => {
               </div>
 
               {/* Filter Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                   
                   {/* Typ zážitku */}
                   <div>

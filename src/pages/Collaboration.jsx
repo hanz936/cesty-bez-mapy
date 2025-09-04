@@ -1,18 +1,20 @@
 import { useState, useCallback } from 'react';
 import Layout from '../components/layout/Layout';
+import PageHero from '../components/common/PageHero';
 import { Button, Form, Input, TextArea } from '../components/ui';
+import { BASE_PATH } from '../constants';
 import logger from '../utils/logger';
 
 const CLASSES = {
   main: 'min-h-screen bg-white',
   section: 'py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8',
   grid: 'flex flex-col lg:flex-row lg:flex-wrap justify-center items-center max-w-6xl mx-auto gap-8 lg:gap-10',
-  textContent: 'flex-1 lg:min-w-80 text-sm sm:text-base lg:text-lg text-black leading-relaxed text-left order-2 lg:order-1',
+  textContent: 'flex-1 lg:min-w-80 text-sm sm:text-base lg:text-lg text-black leading-relaxed text-left order-1',
   heading: 'text-3xl lg:text-4xl font-bold text-black mb-6',
   subheading: 'text-xl lg:text-2xl font-semibold text-black mt-8 mb-4',
   paragraph: 'mb-6',
   list: 'list-disc ml-6 space-y-3 marker:text-green-800 marker:text-lg',
-  sampleImage: 'flex-1 lg:min-w-80 text-center order-1 lg:order-2',
+  sampleImage: 'flex-1 lg:min-w-80 text-center order-2',
   sampleImageInner: 'w-full max-w-sm sm:max-w-md rounded-xl shadow-2xl bg-gray-100 mx-auto flex items-center justify-center text-black text-lg border border-gray-200 aspect-[4/5]',
   contactSection: 'bg-white py-12 lg:py-16 mt-16',
   contactContainer: 'max-w-2xl mx-auto px-4 sm:px-6 lg:px-8',
@@ -101,6 +103,14 @@ const Collaboration = () => {
 
   return (
     <Layout>
+      <PageHero 
+        backgroundImage={`${BASE_PATH}/images/hero-background-collaboration.png`}
+        title="Spolupráce"
+        subtitle="UGC obsah z reálného cestování – uvěřitelný, použitelný a účinný."
+        overlayOpacity={0.6}
+        ariaLabel="Hero sekce stránky Spolupráce"
+      />
+      
       <section 
         className={CLASSES.section}
         role="main"
@@ -219,7 +229,7 @@ const Collaboration = () => {
                 name="message"
                 value={formData.message}
                 onChange={handleInputChange}
-                placeholder="Napiš mi, na čem by jsi chtěl spolupracovat..."
+                placeholder="Napiš mi, na čem bychom spolupracovali..."
                 rows={6}
                 error={formErrors.message}
               />
