@@ -254,7 +254,7 @@ const ItalyRoadtripDetail = () => {
 
   return (
     <Layout>
-      <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      <main className="min-h-screen bg-white">
         {/* Hero Section with Breadcrumb */}
         <section className="relative pt-6 pb-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -7,7 +7,19 @@ import { BASE_PATH, ROUTES } from '../constants';
 
 
 // Cestovní průvodce (testovací data)
-const TOP_ITINERARIES = [
+const ALL_ITINERARIES = [
+  {
+    id: 0,
+    title: 'Itinerář na míru – cesta šitá přímo pro tebe',
+    description: 'Potřebuješ cestu přesně podle svých představ? Naplánuju ti jedinečný itinerář na míru podle tvých preferencí, rozpočtu a času. Osobní konzultace, detailní průvodce a podpora během celé cesty.',
+    price: '999 Kč',
+    duration: 'Dle potřeb',
+    rating: 5.0,
+    image: `${BASE_PATH}/images/custom-itinerary.png`,
+    alt: 'Otevřená mapa s tužkou a poznámkami pro plánování cesty na míru',
+    badge: 'Na míru',
+    category: 'Individuální plánování'
+  },
   {
     id: 1,
     title: 'Roadtrip po Itálii na 20 dní – kompletně naplánovaná cesta od severu až na jih',
@@ -223,7 +235,11 @@ const TravelGuides = () => {
 
   const handleCardClick = useCallback((guide) => {
     // Navigace na detail stránku podle ID průvodce
-    if (guide.id === 1) {
+    if (guide.id === 0) {
+      navigate(ROUTES.CUSTOM_ITINERARY_DETAIL);
+      // Okamžité posčrollování na vrchol stránky
+      window.scrollTo(0, 0);
+    } else if (guide.id === 1) {
       navigate(ROUTES.ITALY_ROADTRIP_DETAIL);
       // Okamžité posčrollování na vrchol stránky
       window.scrollTo(0, 0);
@@ -405,7 +421,7 @@ const TravelGuides = () => {
 
         {/* Guides Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {TOP_ITINERARIES.map((guide) => (
+          {ALL_ITINERARIES.map((guide) => (
             <GuideCard 
               key={guide.id} 
               guide={guide} 

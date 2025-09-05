@@ -4,6 +4,8 @@ export const ROUTES = {
   PLAN_YOUR_DREAM_TRIP: '/naplanuj-si-cestu-snu',
   TRAVEL_GUIDES: '/cestovni-pruvodci',
   ITALY_ROADTRIP_DETAIL: '/cestovni-pruvodci/italie-roadtrip',
+  CUSTOM_ITINERARY_DETAIL: '/cestovni-pruvodci/itinerar-na-miru',
+  CUSTOM_ITINERARY_FORM: '/cestovni-pruvodci/itinerar-na-miru/dotaznik',
   INSPIRATION: '/inspirace',
   COLLABORATION: '/spoluprace',
   FAQ: '/caste-dotazy',

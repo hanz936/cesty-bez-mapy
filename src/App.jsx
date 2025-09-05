@@ -10,6 +10,8 @@ import PlanYourDreamTrip from './pages/PlanYourDreamTrip';
 import TravelInspiration from './pages/TravelInspiration';
 import TravelGuides from './pages/TravelGuides';
 import ItalyRoadtripDetail from './pages/ItalyRoadtripDetail';
+import CustomItineraryDetail from './pages/CustomItineraryDetail';
+import CustomItineraryForm from './pages/CustomItineraryForm';
 import FAQ from './pages/FAQ';
 import Contact from './pages/Contact';
 import NotFound from './pages/NotFound';
@@ -74,6 +76,8 @@ function App() {
           <Route path={ROUTES.PLAN_YOUR_DREAM_TRIP} element={<PlanYourDreamTrip />} />
           <Route path={ROUTES.TRAVEL_GUIDES} element={<TravelGuides />} />
           <Route path={ROUTES.ITALY_ROADTRIP_DETAIL} element={<ItalyRoadtripDetail />} />
+          <Route path={ROUTES.CUSTOM_ITINERARY_DETAIL} element={<CustomItineraryDetail />} />
+          <Route path={ROUTES.CUSTOM_ITINERARY_FORM} element={<CustomItineraryForm />} />
           <Route path={ROUTES.INSPIRATION} element={<TravelInspiration />} />
           <Route path={ROUTES.COLLABORATION} element={<Collaboration />} />
           <Route path={ROUTES.FAQ} element={<FAQ />} />

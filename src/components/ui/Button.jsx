@@ -8,7 +8,7 @@ const Button = React.memo(({
   className = '',
   ...props 
 }) => {
-  const baseClasses = "font-medium rounded-lg transition-colors duration-200 focus:outline-none supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-offset-2";
+  const baseClasses = "font-medium rounded-lg transition-colors duration-200 focus:outline-none supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-offset-2 cursor-pointer";
   
   const variants = {
     primary: "bg-green-600 hover:bg-green-700 text-white supports-hover:focus-visible:ring-green-500",
