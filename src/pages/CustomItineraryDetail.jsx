@@ -407,44 +407,36 @@ const CustomItineraryDetail = React.memo(() => {
                 {/* How it works section */}
                 <div className="mt-10 pl-6 border-l border-gray-200 space-y-4">
                   <div>
-                    <h3 className="text-base sm:text-lg font-bold text-green-800 mb-4">Jak to funguje?</h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-green-800 rounded-full flex items-center justify-center flex-shrink-0">
-                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                          </svg>
-                        </div>
-                        <span className="text-sm sm:text-base text-black">Vyplň formulář</span>
-                      </div>
+                    <h3 className="text-base sm:text-lg font-bold text-green-800 mb-6">Jak to funguje?</h3>
+                    <ol className="relative border-s border-gray-800">
+                      <li className="mb-8 ms-6 flex items-center">
+                        <span className="absolute flex items-center justify-center w-8 h-8 bg-green-800 rounded-full -start-4 ring-4 ring-white text-white font-bold text-sm">
+                          1
+                        </span>
+                        <span className="text-sm sm:text-base text-black font-medium">Vyplň formulář</span>
+                      </li>
                       
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-green-800 rounded-full flex items-center justify-center flex-shrink-0">
-                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                        </div>
-                        <span className="text-sm sm:text-base text-black">Naplánuju tvou cestu</span>
-                      </div>
+                      <li className="mb-8 ms-6 flex items-center">
+                        <span className="absolute flex items-center justify-center w-8 h-8 bg-green-800 rounded-full -start-4 ring-4 ring-white text-white font-bold text-sm">
+                          2
+                        </span>
+                        <span className="text-sm sm:text-base text-black font-medium">Naplánuju tvou cestu</span>
+                      </li>
                       
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-green-800 rounded-full flex items-center justify-center flex-shrink-0">
-                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          </svg>
-                        </div>
-                        <span className="text-sm sm:text-base text-black">Itinerář ti přijde na email</span>
-                      </div>
+                      <li className="mb-8 ms-6 flex items-center">
+                        <span className="absolute flex items-center justify-center w-8 h-8 bg-green-800 rounded-full -start-4 ring-4 ring-white text-white font-bold text-sm">
+                          3
+                        </span>
+                        <span className="text-sm sm:text-base text-black font-medium">Itinerář ti přijde na email</span>
+                      </li>
                       
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-green-800 rounded-full flex items-center justify-center flex-shrink-0">
-                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                          </svg>
-                        </div>
-                        <span className="text-sm sm:text-base text-black">Užij si dovolenou</span>
-                      </div>
-                    </div>
+                      <li className="ms-6 flex items-center">
+                        <span className="absolute flex items-center justify-center w-8 h-8 bg-green-800 rounded-full -start-4 ring-4 ring-white text-white font-bold text-sm">
+                          4
+                        </span>
+                        <span className="text-sm sm:text-base text-black font-medium">Užij si dovolenou</span>
+                      </li>
+                    </ol>
                   </div>
                 </div>
               </div>
