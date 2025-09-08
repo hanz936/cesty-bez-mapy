@@ -10,8 +10,8 @@ import { BASE_PATH, ROUTES } from '../constants';
 const ALL_ITINERARIES = [
   {
     id: 0,
-    title: 'Itinerář na míru – cesta šitá přímo pro tebe',
-    description: 'Potřebuješ cestu přesně podle svých představ? Naplánuju ti jedinečný itinerář na míru podle tvých preferencí, rozpočtu a času. Osobní konzultace, detailní průvodce a podpora během celé cesty.',
+    title: 'Itinerář na míru – cesta šitá jen pro tebe',
+    description: 'Chceš cestovat bez kompromisů? Připravím ti jedinečný plán podle tvých přání, rozpočtu i času. Získáš osobní konzultaci, detailní průvodce a podporu během celé cesty – aby tvé dobrodružství bylo naprosto bez starostí.',
     price: '999 Kč',
     duration: 'Dle potřeb',
     rating: 5.0,

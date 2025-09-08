@@ -276,22 +276,25 @@ const CustomItineraryDetail = React.memo(() => {
               {/* Left Column - Content */}
               <div className="order-2 lg:order-1">
                 <h2 className="text-xl sm:text-2xl text-black font-medium mb-8">
-                  Cesta šitá přímo pro tebe podle tvých představ
+                  Cesta šitá jen pro tebe.
                 </h2>
                 
                 <div className="mb-10">
                   <ul className="space-y-4">
                     <li className="text-base sm:text-lg text-black leading-relaxed">
-                      <div className="font-bold mb-1 text-green-800">Potřebuješ cestu přesně podle svých představ?</div>
-                      <div>Naplánuju ti jedinečný itinerář na míru podle tvých preferencí, rozpočtu a časových možností. Žádné kompromisy – jen cesta, která ti bude dokonale sedět.</div>
+                      <div className="font-bold mb-1 text-green-800">Chceš vyrazit na cestu bez stresu a zbytečných kompromisů?</div>
                     </li>
                     <li className="text-base sm:text-lg text-black leading-relaxed">
-                      <div className="font-bold mb-1 text-green-800">Osobní přístup a detailní plánování.</div>
-                      <div>Vyplníš formulář s tvými představami a požadavky. Na základě toho ti vytvořím detailní průvodce s mapami, tipy na ubytování, restaurace i skrytá místa. Po dokončení máš možnost konzultace k doplnění detailů.</div>
+                      <div>Přesně pro tebe připravím detailní itinerář na míru – originální, přehledný a přizpůsobený tvým přáním, rozpočtu i času.</div>
                     </li>
                     <li className="text-base sm:text-lg text-black leading-relaxed">
-                      <div className="font-bold mb-1 text-green-800">Podpora během cesty.</div>
-                      <div>Když se během cestování vyskytne problém nebo potřebuješ poradit, můžeš se na mě obrátit. Jsem tu pro tebe, když věci nejdou podle plánu.</div>
+                      <div>Ať už tě láká poznávání měst, příroda nebo kombinace obojího, naplánuju ti cestu den po dni.</div>
+                    </li>
+                    <li className="text-base sm:text-lg text-black leading-relaxed">
+                      <div>Dostaneš tipy na ubytování, restaurace i skrytá místa, která běžní turisté často minou.</div>
+                    </li>
+                    <li className="text-base sm:text-lg text-black leading-relaxed">
+                      <div>Stačí jen vyplnit formulář – a tvá vysněná dovolená může začít.</div>
                     </li>
                   </ul>
                 </div>
@@ -407,34 +410,43 @@ const CustomItineraryDetail = React.memo(() => {
                 {/* How it works section */}
                 <div className="mt-10 pl-6 border-l border-gray-200 space-y-4">
                   <div>
-                    <h3 className="text-base sm:text-lg font-bold text-green-800 mb-6">Jak to funguje?</h3>
-                    <ol className="relative border-s border-gray-800">
-                      <li className="mb-8 ms-6 flex items-center">
-                        <span className="absolute flex items-center justify-center w-8 h-8 bg-green-800 rounded-full -start-4 ring-4 ring-white text-white font-bold text-sm">
+                    <h3 className="text-base sm:text-lg font-bold text-green-800 mb-2">Jak to funguje?</h3>
+                    <p className="text-sm sm:text-base text-black mb-6">Je to jednoduché – během pár kroků máš v ruce vlastní cestu na míru:</p>
+                    
+                    <ol className="relative">
+                      <li className="mb-6 ms-12 relative">
+                        <div className="absolute w-px h-full bg-gray-800 -left-8 top-8"></div>
+                        <div className="absolute flex items-center justify-center w-8 h-8 bg-green-800 rounded-full -left-12 top-1/2 -translate-y-1/2 ring-4 ring-white text-white font-bold text-sm">
                           1
-                        </span>
-                        <span className="text-sm sm:text-base text-black font-medium">Vyplň formulář</span>
+                        </div>
+                        <h4 className="text-sm sm:text-base text-black font-semibold mb-1">Vyplníš krátký formulář</h4>
+                        <p className="text-xs sm:text-sm text-black">Povíš mi, kam chceš jet a co tě baví.</p>
                       </li>
                       
-                      <li className="mb-8 ms-6 flex items-center">
-                        <span className="absolute flex items-center justify-center w-8 h-8 bg-green-800 rounded-full -start-4 ring-4 ring-white text-white font-bold text-sm">
+                      <li className="mb-6 ms-12 relative">
+                        <div className="absolute w-px h-full bg-gray-800 -left-8 top-8"></div>
+                        <div className="absolute flex items-center justify-center w-8 h-8 bg-green-800 rounded-full -left-12 top-1/2 -translate-y-1/2 ring-4 ring-white text-white font-bold text-sm">
                           2
-                        </span>
-                        <span className="text-sm sm:text-base text-black font-medium">Naplánuju tvou cestu</span>
+                        </div>
+                        <h4 className="text-sm sm:text-base text-black font-semibold mb-1">Já ti naplánuju cestu</h4>
+                        <p className="text-xs sm:text-sm text-black">Den po dni, podle tvých přání, rozpočtu i času.</p>
                       </li>
                       
-                      <li className="mb-8 ms-6 flex items-center">
-                        <span className="absolute flex items-center justify-center w-8 h-8 bg-green-800 rounded-full -start-4 ring-4 ring-white text-white font-bold text-sm">
+                      <li className="mb-6 ms-12 relative">
+                        <div className="absolute w-px h-full bg-gray-800 -left-8 top-8"></div>
+                        <div className="absolute flex items-center justify-center w-8 h-8 bg-green-800 rounded-full -left-12 top-1/2 -translate-y-1/2 ring-4 ring-white text-white font-bold text-sm">
                           3
-                        </span>
-                        <span className="text-sm sm:text-base text-black font-medium">Itinerář ti přijde na email</span>
+                        </div>
+                        <h4 className="text-sm sm:text-base text-black font-semibold mb-1">Hotový itinerář ti přijde na e-mail</h4>
+                        <p className="text-xs sm:text-sm text-black">Přehledný průvodce s mapami a tipy.</p>
                       </li>
                       
-                      <li className="ms-6 flex items-center">
-                        <span className="absolute flex items-center justify-center w-8 h-8 bg-green-800 rounded-full -start-4 ring-4 ring-white text-white font-bold text-sm">
+                      <li className="ms-12 relative">
+                        <div className="absolute flex items-center justify-center w-8 h-8 bg-green-800 rounded-full -left-12 top-1/2 -translate-y-1/2 ring-4 ring-white text-white font-bold text-sm">
                           4
-                        </span>
-                        <span className="text-sm sm:text-base text-black font-medium">Užij si dovolenou</span>
+                        </div>
+                        <h4 className="text-sm sm:text-base text-black font-semibold mb-1">Stačí vyrazit a užít si dovolenou</h4>
+                        <p className="text-xs sm:text-sm text-black">Bez stresu, bez zbytečných kompromisů.</p>
                       </li>
                     </ol>
                   </div>
@@ -445,13 +457,13 @@ const CustomItineraryDetail = React.memo(() => {
         </section>
 
         {/* Feature Cards Section - stejné jako v ItalyRoadtripDetail.jsx */}
-        <section className="py-20 bg-white">
+        <section className="py-6 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
               <h2 className="text-3xl sm:text-4xl font-bold text-black mb-4">
                 Proč si nechat naplánovat cestu na míru?
               </h2>
-              <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+              <p className="text-lg text-black max-w-3xl mx-auto">
                 Každá cesta je jedinečná, stejně jako ty. Přesně proto ti vytvořím itinerář šitý na míru tvým potřebám.
               </p>
             </div>
@@ -490,7 +502,7 @@ const CustomItineraryDetail = React.memo(() => {
                 <ul className="space-y-3">
                   <li className="text-sm sm:text-base text-black flex items-start gap-3">
                     <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
-                    <span><span className="font-bold">Ověřené na vlastní kůži</span> - žádná data z internetu, ale reálné zkušenosti.</span>
+                    <span><span className="font-bold">Zkušenosti z cestování</span> – každý itinerář stavím na základě dlouholetých zkušeností a reálných doporučení.</span>
                   </li>
                   <li className="text-sm sm:text-base text-black flex items-start gap-3">
                     <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
@@ -527,7 +539,7 @@ const CustomItineraryDetail = React.memo(() => {
                   </li>
                   <li className="text-sm sm:text-base text-black flex items-start gap-3">
                     <div className="w-2 h-2 bg-green-800 rounded-full flex-shrink-0 mt-2"></div>
-                    <span>Okamžité stažení po zaplacení</span>
+                    <span><span className="font-bold">Rychlý start přípravy</span> – odesláním formuláře spouštíš proces prioritního plánování.</span>
                   </li>
                 </ul>
               </div>

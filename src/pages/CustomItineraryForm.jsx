@@ -14,7 +14,7 @@ const CustomItineraryForm = React.memo(() => {
     email: '',
     
     // Cestovní preference
-    vacationType: '',
+    vacationType: [],
     vacationTypeOther: '',
     duration: '',
     customDuration: '',
@@ -23,11 +23,11 @@ const CustomItineraryForm = React.memo(() => {
     travelGroup: '',
     familyDetails: '',
     friendsCount: '',
-    preferredTerm: '',
+    preferredTerm: [],
     specificTerm: '',
     budgetCategory: '',
     budgetAmount: '',
-    transportation: '',
+    transportation: [],
     transportationOther: '',
     
     // Destinace
@@ -53,6 +53,16 @@ const CustomItineraryForm = React.memo(() => {
 
   const handleInputChange = useCallback((field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleCheckboxChange = useCallback((field, value) => {
+    setFormData(prev => {
+      const currentValues = prev[field] || [];
+      const newValues = currentValues.includes(value)
+        ? currentValues.filter(item => item !== value)
+        : [...currentValues, value];
+      return { ...prev, [field]: newValues };
+    });
   }, []);
   
   const handleBackToItinerary = useCallback(() => {
@@ -171,18 +181,17 @@ const CustomItineraryForm = React.memo(() => {
                       ].map(type => (
                         <label key={type} className="flex items-center space-x-3 cursor-pointer">
                           <input
-                            type="radio"
-                            name="vacationType"
+                            type="checkbox"
                             value={type}
-                            checked={formData.vacationType === type}
-                            onChange={(e) => handleInputChange('vacationType', e.target.value)}
-                            className="w-4 h-4 text-green-600 focus:ring-green-500"
+                            checked={formData.vacationType.includes(type)}
+                            onChange={() => handleCheckboxChange('vacationType', type)}
+                            className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
                           />
                           <span className="text-sm text-gray-700">{type}</span>
                         </label>
                       ))}
                     </div>
-                    {formData.vacationType === 'Jiné' && (
+                    {formData.vacationType.includes('Jiné') && (
                       <Input
                         type="text"
                         value={formData.vacationTypeOther}
@@ -299,18 +308,17 @@ const CustomItineraryForm = React.memo(() => {
                       ].map(term => (
                         <label key={term} className="flex items-center space-x-3 cursor-pointer">
                           <input
-                            type="radio"
-                            name="preferredTerm"
+                            type="checkbox"
                             value={term}
-                            checked={formData.preferredTerm === term}
-                            onChange={(e) => handleInputChange('preferredTerm', e.target.value)}
-                            className="w-4 h-4 text-green-600 focus:ring-green-500"
+                            checked={formData.preferredTerm.includes(term)}
+                            onChange={() => handleCheckboxChange('preferredTerm', term)}
+                            className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
                           />
                           <span className="text-sm text-gray-700">{term}</span>
                         </label>
                       ))}
                     </div>
-                    {formData.preferredTerm === 'Určitý termín' && (
+                    {formData.preferredTerm.includes('Určitý termín') && (
                       <Input
                         type="text"
                         value={formData.specificTerm}
@@ -369,18 +377,17 @@ const CustomItineraryForm = React.memo(() => {
                       ].map(transport => (
                         <label key={transport} className="flex items-center space-x-3 cursor-pointer">
                           <input
-                            type="radio"
-                            name="transportation"
+                            type="checkbox"
                             value={transport}
-                            checked={formData.transportation === transport}
-                            onChange={(e) => handleInputChange('transportation', e.target.value)}
-                            className="w-4 h-4 text-green-600 focus:ring-green-500"
+                            checked={formData.transportation.includes(transport)}
+                            onChange={() => handleCheckboxChange('transportation', transport)}
+                            className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
                           />
                           <span className="text-sm text-gray-700">{transport}</span>
                         </label>
                       ))}
                     </div>
-                    {formData.transportation === 'Jiné' && (
+                    {formData.transportation.includes('Jiné') && (
                       <Input
                         type="text"
                         value={formData.transportationOther}
