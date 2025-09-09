@@ -290,10 +290,14 @@ const ItalyRoadtripDetail = () => {
                     <ul className="space-y-4">
                       <li className="text-base sm:text-lg text-black leading-relaxed">
                         <div className="font-bold mb-1 text-green-800">Chceš projet celou Itálii bez hodin strávených nad mapou a plánováním?</div>
+                      </li>
+                      <li className="text-base sm:text-lg text-black leading-relaxed">
                         <div>Přesně pro tebe jsem připravila tento detailní itinerář – ověřený, projížděný, vyzkoušený.</div>
                       </li>
                       <li className="text-base sm:text-lg text-black leading-relaxed mt-8">
                         <div className="font-bold mb-1 text-green-800">Od jezer na severu až po moře v Kalábrii.</div>
+                      </li>
+                      <li className="text-base sm:text-lg text-black leading-relaxed">
                         <div>Navštívíš slavná místa jako Benátky, Řím, Cinque Terre, Amalfi, ale taky méně známé perly, které turisté často míjejí. A vše máš přehledně den po dni.</div>
                       </li>
                     </ul>
