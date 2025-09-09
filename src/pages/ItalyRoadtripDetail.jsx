@@ -280,26 +280,28 @@ const ItalyRoadtripDetail = () => {
 
             <div className="grid lg:grid-cols-2 gap-12 xl:gap-16 items-start">
               {/* Left Column - Content */}
-              <div className="order-2 lg:order-1">
-                <h2 className="text-xl sm:text-2xl text-black font-medium mb-8">
-                  Kompletně naplánovaná cesta od severu až na jih
-                </h2>
-                
-                <div className="mb-10">
-                  <ul className="space-y-4">
-                    <li className="text-base sm:text-lg text-black leading-relaxed">
-                      <div className="font-bold mb-1 text-green-800">Chceš projet celou Itálii bez hodin strávených nad mapou a plánováním?</div>
-                      <div>Přesně pro tebe jsem připravila tento detailní itinerář – ověřený, projížděný, vyzkoušený.</div>
-                    </li>
-                    <li className="text-base sm:text-lg text-black leading-relaxed">
-                      <div className="font-bold mb-1 text-green-800">Od jezer na severu až po moře v Kalábrii.</div>
-                      <div>Navštívíš slavná místa jako Benátky, Řím, Cinque Terre, Amalfi, ale taky méně známé perly, které turisté často míjejí. A vše máš přehledně den po dni.</div>
-                    </li>
-                  </ul>
+              <div className="order-2 lg:order-1 flex flex-col justify-between min-h-full">
+                <div>
+                  <h2 className="text-xl sm:text-2xl text-black font-medium mb-8">
+                    Kompletně naplánovaná cesta od severu až na jih
+                  </h2>
+                  
+                  <div className="mb-10">
+                    <ul className="space-y-4">
+                      <li className="text-base sm:text-lg text-black leading-relaxed">
+                        <div className="font-bold mb-1 text-green-800">Chceš projet celou Itálii bez hodin strávených nad mapou a plánováním?</div>
+                        <div>Přesně pro tebe jsem připravila tento detailní itinerář – ověřený, projížděný, vyzkoušený.</div>
+                      </li>
+                      <li className="text-base sm:text-lg text-black leading-relaxed">
+                        <div className="font-bold mb-1 text-green-800">Od jezer na severu až po moře v Kalábrii.</div>
+                        <div>Navštívíš slavná místa jako Benátky, Řím, Cinque Terre, Amalfi, ale taky méně známé perly, které turisté často míjejí. A vše máš přehledně den po dni.</div>
+                      </li>
+                    </ul>
+                  </div>
                 </div>
 
                 {/* Premium CTA */}
-                <div className="relative">
+                <div className="relative mt-auto">
                   <div className="bg-gradient-to-br from-white via-green-50 to-emerald-50 rounded-3xl p-8 shadow-2xl border border-green-200/50 backdrop-blur-sm">
                     <div className="flex items-baseline gap-3 mb-6">
                       <span className="text-4xl font-bold text-green-800">

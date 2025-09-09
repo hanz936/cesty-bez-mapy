@@ -274,33 +274,35 @@ const CustomItineraryDetail = React.memo(() => {
 
             <div className="grid lg:grid-cols-2 gap-12 xl:gap-16 items-start">
               {/* Left Column - Content */}
-              <div className="order-2 lg:order-1">
-                <h2 className="text-xl sm:text-2xl text-black font-medium mb-8">
-                  Cesta šitá jen pro tebe.
-                </h2>
-                
-                <div className="mb-10">
-                  <ul className="space-y-4">
-                    <li className="text-base sm:text-lg text-black leading-relaxed">
-                      <div className="font-bold mb-1 text-green-800">Chceš vyrazit na cestu bez stresu a zbytečných kompromisů?</div>
-                    </li>
-                    <li className="text-base sm:text-lg text-black leading-relaxed">
-                      <div>Přesně pro tebe připravím detailní itinerář na míru – originální, přehledný a přizpůsobený tvým přáním, rozpočtu i času.</div>
-                    </li>
-                    <li className="text-base sm:text-lg text-black leading-relaxed">
-                      <div>Ať už tě láká poznávání měst, příroda nebo kombinace obojího, naplánuju ti cestu den po dni.</div>
-                    </li>
-                    <li className="text-base sm:text-lg text-black leading-relaxed">
-                      <div>Dostaneš tipy na ubytování, restaurace i skrytá místa, která běžní turisté často minou.</div>
-                    </li>
-                    <li className="text-base sm:text-lg text-black leading-relaxed">
-                      <div>Stačí jen vyplnit formulář – a tvá vysněná dovolená může začít.</div>
-                    </li>
-                  </ul>
+              <div className="order-2 lg:order-1 flex flex-col justify-between min-h-full">
+                <div>
+                  <h2 className="text-xl sm:text-2xl text-black font-medium mb-8">
+                    Cesta šitá jen pro tebe.
+                  </h2>
+                  
+                  <div className="mb-10">
+                    <ul className="space-y-4">
+                      <li className="text-base sm:text-lg text-black leading-relaxed">
+                        <div className="font-bold mb-1 text-green-800">Chceš vyrazit na cestu bez stresu a zbytečných kompromisů?</div>
+                      </li>
+                      <li className="text-base sm:text-lg text-black leading-relaxed">
+                        <div>Přesně pro tebe připravím detailní itinerář na míru – originální, přehledný a přizpůsobený tvým přáním, rozpočtu i času.</div>
+                      </li>
+                      <li className="text-base sm:text-lg text-black leading-relaxed">
+                        <div>Ať už tě láká poznávání měst, příroda nebo kombinace obojího, naplánuju ti cestu den po dni.</div>
+                      </li>
+                      <li className="text-base sm:text-lg text-black leading-relaxed">
+                        <div>Dostaneš tipy na ubytování, restaurace i skrytá místa, která běžní turisté často minou.</div>
+                      </li>
+                      <li className="text-base sm:text-lg text-black leading-relaxed">
+                        <div>Stačí jen vyplnit formulář – a tvá vysněná dovolená může začít.</div>
+                      </li>
+                    </ul>
+                  </div>
                 </div>
 
                 {/* Premium CTA */}
-                <div className="relative">
+                <div className="relative mt-auto">
                   <div className="bg-gradient-to-br from-white via-green-50 to-emerald-50 rounded-3xl p-8 shadow-2xl border border-green-200/50 backdrop-blur-sm">
                     <div className="flex items-baseline justify-between mb-6">
                       <span className="text-4xl font-bold text-green-800">
