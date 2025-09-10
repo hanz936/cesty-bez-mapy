@@ -272,7 +272,7 @@ const ItalyRoadtripDetail = () => {
             </nav>
 
             {/* Title Section */}
-            <div className="text-center mb-5 pb-5 border-b border-gray-200">
+            <div className="text-center mb-6 pb-5 border-b border-gray-200">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-black leading-tight">
                 Roadtrip po Itálii na 20 dní
               </h1>

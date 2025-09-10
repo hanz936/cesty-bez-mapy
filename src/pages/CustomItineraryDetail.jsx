@@ -266,7 +266,7 @@ const CustomItineraryDetail = React.memo(() => {
             </nav>
 
             {/* Title Section */}
-            <div className="text-center mb-5 pb-5 border-b border-gray-200">
+            <div className="text-center mb-10 pb-5 border-b border-gray-200">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-black leading-tight">
                 Itinerář na míru
               </h1>
@@ -304,6 +304,45 @@ const CustomItineraryDetail = React.memo(() => {
                   </div>
                 </div>
 
+                {/* Premium CTA */}
+                <div className="relative mt-auto">
+                  <div className="bg-gradient-to-br from-white via-green-50 to-emerald-50 rounded-3xl p-8 shadow-2xl border border-green-200/50 backdrop-blur-sm">
+                    <div className="flex items-baseline justify-between mb-6">
+                      <span className="text-4xl font-bold text-green-800">
+                        999 Kč
+                      </span>
+                      <span className="text-sm text-slate-500">včetně DPH</span>
+                    </div>
+                    
+                    <div className="space-y-3 mb-6">
+                      <div className="flex items-center">
+                        <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                          <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <span className="text-slate-700 font-medium">Osobní konzultace před cestou</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                          <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <span className="text-slate-700 font-medium">Detailní itinerář s mapami a tipy</span>
+                      </div>
+                    </div>
+                    
+                    <Button
+                      onClick={handlePurchase}
+                      variant="green"
+                      size="xl"
+                      className="w-full"
+                    >
+                      Vyplnit formulář
+                    </Button>
+                  </div>
+                </div>
               </div>
 
               {/* Right Column - Enhanced Gallery */}
@@ -372,59 +411,9 @@ const CustomItineraryDetail = React.memo(() => {
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-            
-            {/* Full width separator */}
-            <div className="w-full h-px bg-gray-200 my-12"></div>
-            
-            <div className="grid lg:grid-cols-2 gap-12 xl:gap-16 items-end">
-              {/* Left Column - Premium CTA */}
-              <div className="order-2 lg:order-1">
-                {/* Premium CTA */}
-                <div className="relative">
-                  <div className="bg-gradient-to-br from-white via-green-50 to-emerald-50 rounded-3xl p-8 shadow-2xl border border-green-200/50 backdrop-blur-sm">
-                    <div className="flex items-baseline justify-between mb-6">
-                      <span className="text-4xl font-bold text-green-800">
-                        999 Kč
-                      </span>
-                      <span className="text-sm text-slate-500">včetně DPH</span>
-                    </div>
-                    
-                    <div className="space-y-3 mb-6">
-                      <div className="flex items-center">
-                        <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                          <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                        <span className="text-slate-700 font-medium">Osobní konzultace před cestou</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                          <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                        </div>
-                        <span className="text-slate-700 font-medium">Detailní itinerář s mapami a tipy</span>
-                      </div>
-                    </div>
-                    
-                    <Button
-                      onClick={handlePurchase}
-                      variant="green"
-                      size="xl"
-                      className="w-full"
-                    >
-                      Vyplnit formulář
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column - How it works */}
-              <div className="order-1 lg:order-2">
-                <div className="pl-6 border-l border-gray-200 space-y-4">
+                
+                {/* How it works section */}
+                <div className="mt-10 pl-6 border-l border-gray-200 space-y-4">
                   <div>
                     <h3 className="text-base sm:text-lg font-bold text-green-800 mb-2">Jak to funguje?</h3>
                     <p className="text-sm sm:text-base text-black mb-6">Je to jednoduché – během pár kroků máš v ruce vlastní cestu na míru:</p>
