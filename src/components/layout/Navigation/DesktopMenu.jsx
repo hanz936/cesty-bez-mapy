@@ -1,8 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
 import { NAV_ITEMS, BASE_PATH } from '../../../constants';
 import ImageWithFallback from '../../common/ImageWithFallback';
+import CartButton from '../../common/CartButton';
 
-const DesktopMenu = () => {
+const DesktopMenu = ({ onCartClick }) => {
   const location = useLocation();
 
   return (
@@ -27,8 +28,10 @@ const DesktopMenu = () => {
         </ul>
       </div>
 
-      {/* Instagram Link */}
+      {/* Cart & Instagram Links */}
       <div className="hidden xl:flex items-center gap-2.5 h-full">
+        <CartButton onClick={onCartClick} itemCount={2} />
+        
         <a 
           href="https://www.instagram.com/cestybezmapy" 
           target="_blank" 

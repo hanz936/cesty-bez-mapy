@@ -2,6 +2,7 @@ import { forwardRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { NAV_ITEMS, BASE_PATH } from '../../../constants';
 import ImageWithFallback from '../../common/ImageWithFallback';
+import CartButton from '../../common/CartButton';
 
 const MOBILE_MENU_CLASSES = {
   base: 'xl:hidden fixed top-20 right-4 left-4 md:right-8 md:left-8 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 transition-all duration-300 ease-in-out transform motion-reduce:transition-none',
@@ -9,7 +10,7 @@ const MOBILE_MENU_CLASSES = {
   closed: 'opacity-0 -translate-y-4 scale-95 pointer-events-none',
 };
 
-const MobileMenu = forwardRef(({ isMenuOpen, onClose, firstMenuItemRef }, ref) => {
+const MobileMenu = forwardRef(({ isMenuOpen, onClose, firstMenuItemRef, onCartClick }, ref) => {
   const location = useLocation();
 
   return (
@@ -40,8 +41,14 @@ const MobileMenu = forwardRef(({ isMenuOpen, onClose, firstMenuItemRef }, ref) =
           
           <li className="border-t border-gray-100 mt-4 pt-4">
             <div className="px-6 py-2">
-              <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">Sleduj mě</span>
+              <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">Košík & Sociální sítě</span>
             </div>
+            
+            {/* Košík tlačítko */}
+            <div className="px-4 py-2">
+              <CartButton onClick={() => { onCartClick?.(); onClose(); }} itemCount={2} />
+            </div>
+            
             <a 
               href="https://www.instagram.com/cestybezmapy" 
               target="_blank" 

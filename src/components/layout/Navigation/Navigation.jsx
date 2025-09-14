@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigation } from '../../../hooks';
 import logger from '../../../utils/logger';
 import Logo from './Logo';
 import DesktopMenu from './DesktopMenu';
 import MobileMenu from './MobileMenu';
 import MobileMenuToggle from './MobileMenuToggle';
+import Cart from '../../common/Cart';
 
 class NavigationErrorBoundary extends React.Component {
   constructor(props) {
@@ -44,6 +45,16 @@ const Navigation = () => {
     buttonRef,
     firstMenuItemRef
   } = useNavigation();
+  
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  
+  const handleCartOpen = useCallback(() => {
+    setIsCartOpen(true);
+  }, []);
+  
+  const handleCartClose = useCallback(() => {
+    setIsCartOpen(false);
+  }, []);
 
   return (
     <nav className="bg-white px-4 md:px-8 flex items-center justify-between z-50 relative h-20 xl:h-24" role="navigation">
@@ -55,7 +66,7 @@ const Navigation = () => {
         onToggle={toggleMenu}
       />
 
-      <DesktopMenu />
+      <DesktopMenu onCartClick={handleCartOpen} />
 
       {/* Mobile menu overlay */}
       {isMenuOpen && (
@@ -72,7 +83,10 @@ const Navigation = () => {
         isMenuOpen={isMenuOpen}
         onClose={closeMenu}
         firstMenuItemRef={firstMenuItemRef}
+        onCartClick={handleCartOpen}
       />
+      
+      <Cart isOpen={isCartOpen} onClose={handleCartClose} />
     </nav>
   );
 };
