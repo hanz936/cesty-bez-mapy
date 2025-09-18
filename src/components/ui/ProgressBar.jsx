@@ -5,7 +5,7 @@ const ProgressBar = React.memo(({ currentStep, totalSteps }) => {
   const progressPercentage = totalSteps > 1 ? ((currentStep - 1) / (totalSteps - 1)) * 100 : 0;
 
   return (
-    <div className="w-full mb-8">
+    <div className="w-full mb-16">
       {/* Progress Bar with overlaid step indicators */}
       <div className="relative">
         {/* Step indicators positioned absolutely */}

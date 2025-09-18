@@ -77,7 +77,7 @@ const CustomItineraryForm = React.memo(() => {
     // PDF styling
     doc.setFontSize(20);
     doc.setTextColor(22, 101, 52); // Green-800
-    doc.text('Dotazník - Itinerář na míru', 20, 30);
+    doc.text('Tvůj cestovní profil - Itinerář na míru', 20, 30);
 
     doc.setFontSize(12);
     doc.setTextColor(0, 0, 0);
@@ -180,10 +180,10 @@ const CustomItineraryForm = React.memo(() => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">
+              <h1 className="text-3xl sm:text-4xl font-bold text-black mb-6">
                 Díky!
               </h1>
-              <p className="text-lg text-gray-600 mb-8 leading-relaxed">
+              <p className="text-lg text-black mb-8 leading-relaxed">
                 Teď už mám od tebe vše potřebné a můžu se pustit do plánování tvé cesty. Po dokončení objednávky ti přijde potvrzení na email.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -215,7 +215,7 @@ const CustomItineraryForm = React.memo(() => {
   const steps = [
     {
       title: 'Základní informace',
-      description: 'Nejdříve se seznamme a poznejme tvé cestovní preference',
+      description: 'Každá cesta je jedinečná - pojďme zjistit, jak má vypadat ta tvoje',
       content: (
         <div className="space-y-8">
           {/* Základní informace */}
@@ -244,13 +244,13 @@ const CustomItineraryForm = React.memo(() => {
 
           {/* Cestovní preference */}
           <div>
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">
+            <h4 className="text-lg font-semibold text-black mb-4">
               Cestovní preference
             </h4>
 
             {/* Typ dovolené */}
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
+              <label className="block text-sm font-medium text-black mb-3">
                 Typ dovolené:
               </label>
               <div className="grid sm:grid-cols-2 gap-3">
@@ -261,7 +261,7 @@ const CustomItineraryForm = React.memo(() => {
                   'Gastronomický zážitek',
                   'Romantická dovolená',
                   'Rodinná dovolená',
-                  'Dobrodruzná dovolená',
+                  'Dobrodružná dovolená',
                   'Jiné'
                 ].map(type => (
                   <label key={type} className="flex items-center space-x-3 cursor-pointer">
@@ -272,7 +272,7 @@ const CustomItineraryForm = React.memo(() => {
                       onChange={() => handleCheckboxChange('vacationType', type)}
                       className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
                     />
-                    <span className="text-sm text-gray-700">{type}</span>
+                    <span className="text-sm text-black">{type}</span>
                   </label>
                 ))}
               </div>
@@ -289,7 +289,7 @@ const CustomItineraryForm = React.memo(() => {
 
             {/* Délka pobytu */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
+              <label className="block text-sm font-medium text-black mb-3">
                 Délka pobytu:
               </label>
               <div className="grid sm:grid-cols-2 gap-3">
@@ -309,7 +309,7 @@ const CustomItineraryForm = React.memo(() => {
                       onChange={(e) => handleInputChange('duration', e.target.value)}
                       className="w-4 h-4 text-green-600 focus:ring-green-500"
                     />
-                    <span className="text-sm text-gray-700">{duration}</span>
+                    <span className="text-sm text-black">{duration}</span>
                   </label>
                 ))}
               </div>
@@ -354,7 +354,7 @@ const CustomItineraryForm = React.memo(() => {
                     onChange={(e) => handleInputChange('travelGroup', e.target.value)}
                     className="w-4 h-4 text-green-600 focus:ring-green-500"
                   />
-                  <span className="text-sm text-gray-700">{group}</span>
+                  <span className="text-sm text-black">{group}</span>
                 </label>
               ))}
             </div>
@@ -400,7 +400,7 @@ const CustomItineraryForm = React.memo(() => {
                     onChange={() => handleCheckboxChange('preferredTerm', term)}
                     className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
                   />
-                  <span className="text-sm text-gray-700">{term}</span>
+                  <span className="text-sm text-black">{term}</span>
                 </label>
               ))}
             </div>
@@ -435,7 +435,7 @@ const CustomItineraryForm = React.memo(() => {
                     onChange={(e) => handleInputChange('budgetCategory', e.target.value)}
                     className="w-4 h-4 text-green-600 focus:ring-green-500"
                   />
-                  <span className="text-sm text-gray-700">{budget}</span>
+                  <span className="text-sm text-black">{budget}</span>
                 </label>
               ))}
             </div>
@@ -469,7 +469,7 @@ const CustomItineraryForm = React.memo(() => {
                     onChange={() => handleCheckboxChange('transportation', transport)}
                     className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
                   />
-                  <span className="text-sm text-gray-700">{transport}</span>
+                  <span className="text-sm text-black">{transport}</span>
                 </label>
               ))}
             </div>
@@ -669,10 +669,13 @@ const CustomItineraryForm = React.memo(() => {
                 Naplánuj svůj trip
               </h1>
               <h2 className="text-xl sm:text-2xl text-green-800 font-medium mb-4">
-                Dotazník
+                Tvůj cestovní profil
               </h2>
-              <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                Vyplň dotazník a já ti připravím itinerář přesně podle tvých představ
+              <p className="text-lg text-black max-w-3xl mx-auto mb-3">
+                Stačí 5 jednoduchých kroků a já ti připravím itinerář přesně podle tvých představ
+              </p>
+              <p className="text-sm text-gray-500">
+                Pole označená <span className="text-red-500">*</span> jsou povinná k vyplnění
               </p>
             </div>
           </div>
