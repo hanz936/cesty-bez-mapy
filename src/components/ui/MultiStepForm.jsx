@@ -12,13 +12,16 @@ const MultiStepForm = React.memo(({
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = steps.length;
 
+
   const handleNext = useCallback(() => {
     if (currentStep < totalSteps) {
       const nextStep = currentStep + 1;
       setCurrentStep(nextStep);
       onStepChange?.(nextStep);
-      // Smooth scroll to top when moving to next step
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Delay scroll until after DOM update
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      });
     }
   }, [currentStep, totalSteps, onStepChange]);
 
@@ -27,8 +30,10 @@ const MultiStepForm = React.memo(({
       const prevStep = currentStep - 1;
       setCurrentStep(prevStep);
       onStepChange?.(prevStep);
-      // Smooth scroll to top when moving to previous step
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Delay scroll until after DOM update
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      });
     }
   }, [currentStep, onStepChange]);
 
@@ -53,56 +58,29 @@ const MultiStepForm = React.memo(({
           />
         </div>
 
-        {/* Two Column Layout Inside Container */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Left Column - Form Content */}
+        {/* Single Column Layout Inside Container */}
+        <div className="mb-8">
+          {/* Step Header */}
           <div>
-            {/* Step Header */}
-            <div className="mb-8">
-              <h2 className="text-2xl sm:text-3xl font-bold text-green-800 mb-2">
-                {currentStepData.title}
-              </h2>
-              {currentStepData.description && (
-                <p className="text-black">
-                  {currentStepData.description}
-                </p>
-              )}
-            </div>
-
-            {/* Step Content */}
-            <div className="mb-8">
-              {currentStepData.content}
-            </div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-green-800 mb-2">
+              {currentStepData.title}
+            </h2>
+            {currentStepData.description && (
+              <p className="text-black mb-6">
+                {currentStepData.description}
+              </p>
+            )}
+            <div className="border-t border-gray-200 mb-8"></div>
           </div>
 
-          {/* Right Column - Image Placeholders */}
-          <div className="hidden lg:block">
-            <div className="flex flex-col h-full justify-center items-center space-y-6">
-              {/* Placeholder 1 */}
-              <div className="w-full h-48 bg-gray-100 rounded-2xl flex items-center justify-center">
-                <div className="text-center">
-                  <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <p className="text-sm text-gray-500">Inspirační obrázek</p>
-                </div>
-              </div>
-
-              {/* Placeholder 2 */}
-              <div className="w-full h-48 bg-gray-100 rounded-2xl flex items-center justify-center">
-                <div className="text-center">
-                  <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
-                  </svg>
-                  <p className="text-sm text-gray-500">Cestovní destinace</p>
-                </div>
-              </div>
-            </div>
+          {/* Step Content */}
+          <div className="mb-8">
+            {currentStepData.content}
           </div>
         </div>
 
         {/* Navigation - Full Width Across Container */}
-        <div className="pt-6 border-t border-gray-200">
+        <div className="pt-12">
           {!isLastStep ? (
             /* Step navigation for non-final steps - spanning full width */
             <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
