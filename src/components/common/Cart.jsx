@@ -86,7 +86,7 @@ const Cart = React.memo(({ isOpen, onClose }) => {
 
   // Výpočty
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const vat = Math.round(subtotal * 0.21); // 21% DPH
+  const _vat = Math.round(subtotal * 0.21); // 21% DPH - pro budoucí použití
   const total = subtotal;
   const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 

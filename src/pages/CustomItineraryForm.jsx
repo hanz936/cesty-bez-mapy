@@ -2,8 +2,9 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import Layout from '../components/layout/Layout';
-import { Button, Input, TextArea, MultiStepForm } from '../components/ui';
-import { ROUTES, BASE_PATH } from '../constants';
+import { Button, Input, TextArea, MultiStepForm, CustomCheckbox, CustomRadio } from '../components/ui';
+import { ROUTES } from '../constants';
+import { BASE_PATH } from '../constants/app';
 
 const CustomItineraryForm = React.memo(() => {
   const navigate = useNavigate();
@@ -87,6 +88,7 @@ const CustomItineraryForm = React.memo(() => {
 
     // Helper function to add text with wrapping
     const addWrappedText = (text, maxWidth = 170) => {
+      if (!text || text.trim() === '') return;
       const splitText = doc.splitTextToSize(text, maxWidth);
       doc.text(splitText, 20, yPosition);
       yPosition += splitText.length * lineHeight;
@@ -115,44 +117,139 @@ const CustomItineraryForm = React.memo(() => {
     if (formData.vacationType.length > 0) {
       addWrappedText(`Typ dovolené: ${formData.vacationType.join(', ')}`);
     }
+    if (formData.vacationTypeOther) {
+      addWrappedText(`Jiný typ: ${formData.vacationTypeOther}`);
+    }
     if (formData.duration) {
       addWrappedText(`Délka pobytu: ${formData.duration}`);
+    }
+    if (formData.customDuration) {
+      addWrappedText(`Počet dní: ${formData.customDuration}`);
     }
     yPosition += 10;
 
     // Travel details
-    if (formData.travelGroup) {
-      doc.setFontSize(14);
-      doc.setTextColor(22, 101, 52);
-      addWrappedText('Cestování a termín');
-      yPosition += 5;
+    doc.setFontSize(14);
+    doc.setTextColor(22, 101, 52);
+    addWrappedText('Cestování a termín');
+    yPosition += 5;
 
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
-      addWrappedText(`Cestovní skupina: ${formData.travelGroup}`);
-      if (formData.budgetCategory) {
-        addWrappedText(`Rozpočet: ${formData.budgetCategory}`);
-      }
-      yPosition += 10;
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    addWrappedText(`Cestovní skupina: ${formData.travelGroup || 'Neuvedeno'}`);
+    if (formData.familyDetails) {
+      addWrappedText(`Podrobnosti o rodině: ${formData.familyDetails}`);
     }
+    if (formData.friendsCount) {
+      addWrappedText(`Počet přátel: ${formData.friendsCount}`);
+    }
+    if (formData.preferredTerm.length > 0) {
+      addWrappedText(`Preferovaný termín: ${formData.preferredTerm.join(', ')}`);
+    }
+    if (formData.specificTerm) {
+      addWrappedText(`Konkrétní termín: ${formData.specificTerm}`);
+    }
+    if (formData.budgetCategory) {
+      addWrappedText(`Rozpočet: ${formData.budgetCategory}`);
+    }
+    if (formData.budgetAmount) {
+      addWrappedText(`Orientační částka: ${formData.budgetAmount}`);
+    }
+    if (formData.transportation.length > 0) {
+      addWrappedText(`Doprava: ${formData.transportation.join(', ')}`);
+    }
+    if (formData.transportationOther) {
+      addWrappedText(`Jiná doprava: ${formData.transportationOther}`);
+    }
+    yPosition += 10;
+
+    // Destinations
+    doc.setFontSize(14);
+    doc.setTextColor(22, 101, 52);
+    addWrappedText('Destinace a preference');
+    yPosition += 5;
+
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    addWrappedText(`Konkrétní destinace: ${formData.specificDestination || 'Neuvedeno'}`);
+    addWrappedText(`Otevřený návrhům: ${formData.openToSuggestions || 'Neuvedeno'}`);
+    addWrappedText(`Preferované kontinenty: ${formData.preferredContinents || 'Neuvedeno'}`);
+    addWrappedText(`Klimatické preference: ${formData.climatePreferences || 'Neuvedeno'}`);
+    addWrappedText(`Kultura vs příroda: ${formData.cultureVsNature || 'Neuvedeno'}`);
+    addWrappedText(`Specifické faktory: ${formData.specificFactors || 'Neuvedeno'}`);
+    yPosition += 10;
+
+    // Activities and interests
+    doc.setFontSize(14);
+    doc.setTextColor(22, 101, 52);
+    addWrappedText('Zájmy a aktivity');
+    yPosition += 5;
+
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    addWrappedText(`Hlavní zájmy: ${formData.mainInterests || 'Neuvedeno'}`);
+    addWrappedText(`Specifické aktivity: ${formData.specificActivities || 'Neuvedeno'}`);
+    addWrappedText(`Požadavky na ubytování: ${formData.accommodationRequirements || 'Neuvedeno'}`);
+    addWrappedText(`Preference stravování: ${formData.diningPreferences || 'Neuvedeno'}`);
+    addWrappedText(`Organizované výlety: ${formData.organizedTours || 'Neuvedeno'}`);
+    yPosition += 10;
+
+    // Additional information
+    doc.setFontSize(14);
+    doc.setTextColor(22, 101, 52);
+    addWrappedText('Dodatečné informace');
+    yPosition += 5;
+
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    addWrappedText(`Zdravotní omezení: ${formData.healthRestrictions || 'Žádné'}`);
+    addWrappedText(`Cestování s mazlíčkem: ${formData.travelWithPet || 'Ne'}`);
+    addWrappedText(`Dodatečné informace: ${formData.additionalInfo || 'Žádné'}`);
+
+    // Add date
+    yPosition += 10;
+    addWrappedText(`Datum vyplnění: ${new Date().toLocaleDateString('cs-CZ')}`);
+
+    // Footer
+    yPosition += 20;
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    addWrappedText('Vygenerováno aplikací Cesty bez mapy - www.cestybelmapy.cz');
 
     // Save PDF
     doc.save('itinerar-na-miru-dotaznik.pdf');
   }, [formData]);
 
+  // Toast notification state
+  const [notification, setNotification] = useState({ show: false, message: '', type: 'info' });
+
+  // Show notification function
+  const showNotification = useCallback((message, type = 'info') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => {
+      setNotification({ show: false, message: '', type: 'info' });
+    }, 4000);
+  }, []);
+
   const handleComplete = useCallback(() => {
     // Basic validation
     if (!formData.name.trim() || !formData.email.trim()) {
-      alert('Prosím vyplň jméno a email.');
+      showNotification('Prosím vyplň jméno a email.', 'error');
       return;
     }
 
-    // Generate PDF
-    generatePDF();
+    try {
+      // Generate PDF
+      generatePDF();
 
-    // Show success message
-    setShowSuccessMessage(true);
-  }, [formData, generatePDF]);
+      // Show success message
+      setShowSuccessMessage(true);
+      showNotification('PDF bylo úspěšně vygenerováno!', 'success');
+    } catch (error) {
+      console.error('Chyba při generování PDF:', error);
+      showNotification('Chyba při generování PDF. Zkuste to prosím znovu.', 'error');
+    }
+  }, [formData, generatePDF, showNotification]);
 
   // Step configuration
   const stepLabels = [
@@ -215,7 +312,6 @@ const CustomItineraryForm = React.memo(() => {
   const steps = [
     {
       title: 'Základní informace',
-      description: 'Každá cesta je jedinečná - pojďme zjistit, jak má vypadat ta tvoje',
       content: (
         <div className="space-y-8">
           {/* Základní informace */}
@@ -241,7 +337,7 @@ const CustomItineraryForm = React.memo(() => {
               />
             </div>
             {/* Separator for Základní informace */}
-            <div className="border-t border-gray-200 mt-8 mb-8"></div>
+            <div className="border-t border-gray-200 mt-10 mb-10"></div>
           </div>
 
           {/* Typ dovolené */}
@@ -262,16 +358,15 @@ const CustomItineraryForm = React.memo(() => {
                     'Dobrodružná dovolená',
                     'Jiné'
                   ].map(type => (
-                    <label key={type} className="flex items-center space-x-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        value={type}
-                        checked={formData.vacationType.includes(type)}
-                        onChange={() => handleCheckboxChange('vacationType', type)}
-                        className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
-                      />
-                      <span className="text-sm text-black">{type}</span>
-                    </label>
+                    <CustomCheckbox
+                      key={type}
+                      id={`vacationType-${type}`}
+                      value={type}
+                      checked={formData.vacationType.includes(type)}
+                      onChange={() => handleCheckboxChange('vacationType', type)}
+                    >
+                      {type}
+                    </CustomCheckbox>
                   ))}
                 </div>
                 {formData.vacationType.includes('Jiné') && (
@@ -316,17 +411,16 @@ const CustomItineraryForm = React.memo(() => {
                     'Delší dovolená (15 dní a více)',
                     'Vím přesný počet dní'
                   ].map(duration => (
-                    <label key={duration} className="flex items-center space-x-3 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="duration"
-                        value={duration}
-                        checked={formData.duration === duration}
-                        onChange={(e) => handleInputChange('duration', e.target.value)}
-                        className="w-4 h-4 text-green-600 focus:ring-green-500"
-                      />
-                      <span className="text-sm text-black">{duration}</span>
-                    </label>
+                    <CustomRadio
+                      key={duration}
+                      id={`duration-${duration}`}
+                      name="duration"
+                      value={duration}
+                      checked={formData.duration === duration}
+                      onChange={(e) => handleInputChange('duration', e.target.value)}
+                    >
+                      {duration}
+                    </CustomRadio>
                   ))}
                 </div>
                 {formData.duration === 'Vím přesný počet dní' && (
@@ -359,17 +453,15 @@ const CustomItineraryForm = React.memo(() => {
     },
     {
       title: 'Cestování a termín',
-      description: 'Kdy a s kým bys chtěl cestovat?',
       content: (
         <div className="space-y-8">
           {/* Počet osob */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
-              <label className="block text-base font-medium text-gray-700 mb-10">
+              <label className="block text-base font-medium text-black mb-10">
                 S kolika lidmi cestuješ?
               </label>
-              <div className="border-t border-gray-200 mb-6"></div>
               <div className="space-y-3">
                 {[
                   'Cestuji sám/sama',
@@ -377,17 +469,16 @@ const CustomItineraryForm = React.memo(() => {
                   'Cestuji s rodinou',
                   'Cestuji s přáteli'
                 ].map(group => (
-                  <label key={group} className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="travelGroup"
-                      value={group}
-                      checked={formData.travelGroup === group}
-                      onChange={(e) => handleInputChange('travelGroup', e.target.value)}
-                      className="w-4 h-4 text-green-600 focus:ring-green-500"
-                    />
-                    <span className="text-sm text-black">{group}</span>
-                  </label>
+                  <CustomRadio
+                    key={group}
+                    id={`travelGroup-${group}`}
+                    name="travelGroup"
+                    value={group}
+                    checked={formData.travelGroup === group}
+                    onChange={(e) => handleInputChange('travelGroup', e.target.value)}
+                  >
+                    {group}
+                  </CustomRadio>
                 ))}
               </div>
               {formData.travelGroup === 'Cestuji s rodinou' && (
@@ -433,10 +524,9 @@ const CustomItineraryForm = React.memo(() => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
-              <label className="block text-base font-medium text-gray-700 mb-10">
+              <label className="block text-base font-medium text-black mb-10">
                 Kdy bys nejraději cestoval/a?
               </label>
-              <div className="border-t border-gray-200 mb-6"></div>
               <div className="grid sm:grid-cols-2 gap-3">
                 {[
                   'Jarní měsíce (duben - červen)',
@@ -446,16 +536,15 @@ const CustomItineraryForm = React.memo(() => {
                   'Jsem flexibilní ohledně termínu',
                   'Určitý termín'
                 ].map(term => (
-                  <label key={term} className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      value={term}
-                      checked={formData.preferredTerm.includes(term)}
-                      onChange={() => handleCheckboxChange('preferredTerm', term)}
-                      className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
-                    />
-                    <span className="text-sm text-black">{term}</span>
-                  </label>
+                  <CustomCheckbox
+                    key={term}
+                    id={`preferredTerm-${term}`}
+                    value={term}
+                    checked={formData.preferredTerm.includes(term)}
+                    onChange={() => handleCheckboxChange('preferredTerm', term)}
+                  >
+                    {term}
+                  </CustomCheckbox>
                 ))}
               </div>
               {formData.preferredTerm.includes('Určitý termín') && (
@@ -492,27 +581,25 @@ const CustomItineraryForm = React.memo(() => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
-              <label className="block text-base font-medium text-gray-700 mb-10">
+              <label className="block text-base font-medium text-black mb-10">
                 Jaký máš rozpočet na cestu?
               </label>
-              <div className="border-t border-gray-200 mb-6"></div>
               <div className="space-y-3">
                 {[
                   'Nízkorozpočtová dovolená',
                   'Středně rozpočtová dovolená',
                   'Luxusní dovolená'
                 ].map(budget => (
-                  <label key={budget} className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="budgetCategory"
-                      value={budget}
-                      checked={formData.budgetCategory === budget}
-                      onChange={(e) => handleInputChange('budgetCategory', e.target.value)}
-                      className="w-4 h-4 text-green-600 focus:ring-green-500"
-                    />
-                    <span className="text-sm text-black">{budget}</span>
-                  </label>
+                  <CustomRadio
+                    key={budget}
+                    id={`budgetCategory-${budget}`}
+                    name="budgetCategory"
+                    value={budget}
+                    checked={formData.budgetCategory === budget}
+                    onChange={(e) => handleInputChange('budgetCategory', e.target.value)}
+                  >
+                    {budget}
+                  </CustomRadio>
                 ))}
               </div>
               <Input
@@ -547,10 +634,9 @@ const CustomItineraryForm = React.memo(() => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
-              <label className="block text-base font-medium text-gray-700 mb-10">
+              <label className="block text-base font-medium text-black mb-10">
                 Jaký způsob dopravy preferuješ?
               </label>
-              <div className="border-t border-gray-200 mb-6"></div>
               <div className="grid sm:grid-cols-2 gap-3">
                 {[
                   'Vlastní auto',
@@ -559,16 +645,15 @@ const CustomItineraryForm = React.memo(() => {
                   'Autobus',
                   'Jiné'
                 ].map(transport => (
-                  <label key={transport} className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      value={transport}
-                      checked={formData.transportation.includes(transport)}
-                      onChange={() => handleCheckboxChange('transportation', transport)}
-                      className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
-                    />
-                    <span className="text-sm text-black">{transport}</span>
-                  </label>
+                  <CustomCheckbox
+                    key={transport}
+                    id={`transportation-${transport}`}
+                    value={transport}
+                    checked={formData.transportation.includes(transport)}
+                    onChange={() => handleCheckboxChange('transportation', transport)}
+                  >
+                    {transport}
+                  </CustomCheckbox>
                 ))}
               </div>
               {formData.transportation.includes('Jiné') && (
@@ -603,14 +688,15 @@ const CustomItineraryForm = React.memo(() => {
     },
     {
       title: 'Destinace',
-      description: 'Kam se chceš vydat?',
       content: (
-        <div className="space-y-6">
+        <div className="space-y-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
+              <label className="block text-base font-medium text-black mb-10">
+                Máš už konkrétní destinaci na mysli?
+              </label>
               <TextArea
-                label="Máš už konkrétní destinaci na mysli?"
                 value={formData.specificDestination}
                 onChange={(e) => handleInputChange('specificDestination', e.target.value)}
                 rows={2}
@@ -641,8 +727,10 @@ const CustomItineraryForm = React.memo(() => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
+              <label className="block text-base font-medium text-black mb-10">
+                Jsi otevřený/á návrhům na destinaci?
+              </label>
               <TextArea
-                label="Jsi otevřený/á návrhům na destinaci?"
                 value={formData.openToSuggestions}
                 onChange={(e) => handleInputChange('openToSuggestions', e.target.value)}
                 rows={2}
@@ -673,8 +761,10 @@ const CustomItineraryForm = React.memo(() => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
+              <label className="block text-base font-medium text-black mb-10">
+                Které kontinenty nebo země tě nejvíc lákají?
+              </label>
               <TextArea
-                label="Které kontinenty nebo země tě nejvíc lákají?"
                 value={formData.preferredContinents}
                 onChange={(e) => handleInputChange('preferredContinents', e.target.value)}
                 rows={2}
@@ -705,8 +795,10 @@ const CustomItineraryForm = React.memo(() => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
+              <label className="block text-base font-medium text-black mb-10">
+                Jaké klima máš nejradši?
+              </label>
               <TextArea
-                label="Jaké klima máš nejradši?"
                 value={formData.climatePreferences}
                 onChange={(e) => handleInputChange('climatePreferences', e.target.value)}
                 rows={2}
@@ -737,8 +829,10 @@ const CustomItineraryForm = React.memo(() => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
+              <label className="block text-base font-medium text-black mb-10">
+                Co tě víc láká - historie a kultura, nebo příroda a dobrodružství?
+              </label>
               <TextArea
-                label="Co tě víc láká - historie a kultura, nebo příroda a dobrodružství?"
                 value={formData.cultureVsNature}
                 onChange={(e) => handleInputChange('cultureVsNature', e.target.value)}
                 rows={3}
@@ -769,8 +863,10 @@ const CustomItineraryForm = React.memo(() => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
+              <label className="block text-base font-medium text-black mb-10">
+                Jsou pro tebe důležité specifické faktory, jako je dostupnost pláží, hor, lyžařských středisek, ...?
+              </label>
               <TextArea
-                label="Jsou pro tebe důležité specifické faktory, jako je dostupnost pláží, hor, lyžařských středisek, ...?"
                 value={formData.specificFactors}
                 onChange={(e) => handleInputChange('specificFactors', e.target.value)}
                 rows={2}
@@ -800,14 +896,15 @@ const CustomItineraryForm = React.memo(() => {
     },
     {
       title: 'Zájmy a aktivity',
-      description: 'Co tě na cestování baví?',
       content: (
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
+              <label className="block text-base font-medium text-black mb-10">
+                Co tě na dovolené nejvíce baví? (poznávání památek, relaxace u moře, sportovní aktivity, gastronomické zážitky, ...)
+              </label>
               <TextArea
-                label="Co tě na dovolené nejvíce baví? (poznávání památek, relaxace u moře, sportovní aktivity, gastronomické zážitky, ...)"
                 value={formData.mainInterests}
                 onChange={(e) => handleInputChange('mainInterests', e.target.value)}
                 rows={3}
@@ -838,8 +935,10 @@ const CustomItineraryForm = React.memo(() => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
+              <label className="block text-base font-medium text-black mb-10">
+                Jsou pro tebe důležité specifické aktivity, které bys na dovolené rád/a zažil/a? (např. potápění, turistika, degustace vín, ...)
+              </label>
               <TextArea
-                label="Jsou pro tebe důležité specifické aktivity, které bys na dovolené rád/a zažil/a? (např. potápění, turistika, degustace vín, ...)"
                 value={formData.specificActivities}
                 onChange={(e) => handleInputChange('specificActivities', e.target.value)}
                 rows={3}
@@ -867,8 +966,10 @@ const CustomItineraryForm = React.memo(() => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
+              <label className="block text-base font-medium text-black mb-10">
+                Máš nějaké specifické požadavky na ubytování? (typ ubytování, vybavení, ...)
+              </label>
               <TextArea
-                label="Máš nějaké specifické požadavky na ubytování? (typ ubytování, vybavení, ...)"
                 value={formData.accommodationRequirements}
                 onChange={(e) => handleInputChange('accommodationRequirements', e.target.value)}
                 rows={2}
@@ -896,8 +997,10 @@ const CustomItineraryForm = React.memo(() => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
+              <label className="block text-base font-medium text-black mb-10">
+                Jaký typ stravování preferuješ? (snídaně v hotelu, vlastní vaření, stravování v restauracích, ...)
+              </label>
               <TextArea
-                label="Jaký typ stravování preferuješ? (snídaně v hotelu, vlastní vaření, stravování v restauracích, ...)"
                 value={formData.diningPreferences}
                 onChange={(e) => handleInputChange('diningPreferences', e.target.value)}
                 rows={2}
@@ -925,8 +1028,10 @@ const CustomItineraryForm = React.memo(() => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
+              <label className="block text-base font-medium text-black mb-10">
+                Máš zájem o organizované výlety a exkurze?
+              </label>
               <TextArea
-                label="Máš zájem o organizované výlety a exkurze?"
                 value={formData.organizedTours}
                 onChange={(e) => handleInputChange('organizedTours', e.target.value)}
                 rows={2}
@@ -953,14 +1058,15 @@ const CustomItineraryForm = React.memo(() => {
     },
     {
       title: 'Dokončení',
-      description: 'Poslední informace a shrnutí',
       content: (
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
+              <label className="block text-base font-medium text-black mb-10">
+                Máš nějaké zdravotní omezení, která by mohla ovlivnit tvou cestu?
+              </label>
               <TextArea
-                label="Máš nějaké zdravotní omezení, která by mohla ovlivnit tvou cestu?"
                 value={formData.healthRestrictions}
                 onChange={(e) => handleInputChange('healthRestrictions', e.target.value)}
                 rows={2}
@@ -988,8 +1094,10 @@ const CustomItineraryForm = React.memo(() => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
+              <label className="block text-base font-medium text-black mb-10">
+                Cestuješ s domácím mazlíčkem?
+              </label>
               <TextArea
-                label="Cestuješ s domácím mazlíčkem?"
                 value={formData.travelWithPet}
                 onChange={(e) => handleInputChange('travelWithPet', e.target.value)}
                 rows={2}
@@ -1017,8 +1125,10 @@ const CustomItineraryForm = React.memo(() => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
             <div>
+              <label className="block text-base font-medium text-black mb-10">
+                Je ještě něco, co bys mi o sobě rád/a sdělil/a, abych ti mohla lépe vytvořit itinerář na míru?
+              </label>
               <TextArea
-                label="Je ještě něco, co bys mi o sobě rád/a sdělil/a, abych ti mohla lépe vytvořit itinerář na míru?"
                 value={formData.additionalInfo}
                 onChange={(e) => handleInputChange('additionalInfo', e.target.value)}
                 rows={4}
@@ -1056,6 +1166,29 @@ const CustomItineraryForm = React.memo(() => {
 
   return (
     <Layout>
+      {/* Toast Notification */}
+      {notification.show && (
+        <div className={`fixed top-4 right-4 z-50 max-w-sm p-4 rounded-lg shadow-lg transition-all duration-300 ${
+          notification.type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
+          notification.type === 'error' ? 'bg-red-100 text-red-800 border border-red-200' :
+          'bg-blue-100 text-blue-800 border border-blue-200'
+        }`}>
+          <div className="flex items-center space-x-2">
+            {notification.type === 'success' && (
+              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+            {notification.type === 'error' && (
+              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            )}
+            <p className="text-sm font-medium">{notification.message}</p>
+          </div>
+        </div>
+      )}
+
       <main className="min-h-screen bg-white">
         {/* Hero Section with Breadcrumb */}
         <section className="relative pt-6 pb-12 bg-white">
@@ -1073,21 +1206,6 @@ const CustomItineraryForm = React.memo(() => {
               </button>
             </nav>
 
-            {/* Title Section */}
-            <div className="text-center mb-8">
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-black leading-tight mb-4">
-                Naplánuj svůj trip
-              </h1>
-              <h2 className="text-xl sm:text-2xl text-green-800 font-medium mb-4">
-                Tvůj cestovní profil
-              </h2>
-              <p className="text-lg text-black max-w-3xl mx-auto mb-3">
-                Stačí 5 jednoduchých kroků a já ti připravím itinerář přesně podle tvých představ
-              </p>
-              <p className="text-sm text-gray-500">
-                Pole označená <span className="text-red-500">*</span> jsou povinná k vyplnění
-              </p>
-            </div>
           </div>
         </section>
 

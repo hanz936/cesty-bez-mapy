@@ -21,9 +21,9 @@ const ProgressBar = React.memo(({ currentStep, totalSteps }) => {
                 <div className={`
                   w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300 border-2
                   ${isCompleted
-                    ? 'bg-green-600 text-white border-green-600'
+                    ? 'bg-green-800 text-white border-green-800'
                     : isCurrent
-                      ? 'bg-green-600 text-white border-green-600 ring-4 ring-green-100'
+                      ? 'bg-green-800 text-white border-green-800 ring-4 ring-green-300'
                       : 'bg-white text-gray-600 border-gray-300'
                   }
                 `}>
@@ -45,7 +45,7 @@ const ProgressBar = React.memo(({ currentStep, totalSteps }) => {
         <div className="w-full h-2 bg-gray-200 rounded-full">
           {/* Progress fill */}
           <div
-            className="h-2 bg-gradient-to-r from-green-600 to-green-700 rounded-full transition-all duration-500 ease-out"
+            className="h-2 bg-green-800 rounded-full transition-all duration-500 ease-out"
             style={{ width: `${progressPercentage}%` }}
           />
         </div>
