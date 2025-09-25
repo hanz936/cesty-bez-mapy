@@ -381,9 +381,9 @@ const CustomItineraryForm = React.memo(() => {
               </div>
 
               {/* Right - Image */}
-              <div className="hidden lg:block">
+              <div className="block">
                 <div className="flex flex-col h-full justify-center items-center">
-                  <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
+                  <div className="w-full aspect-[4/3] lg:aspect-[3/2] overflow-hidden rounded-2xl">
                     <img
                       src={`${BASE_PATH}/images/custom-itinerary-form-1.png`}
                       alt="Inspirační obrázek pro typ dovolené"
@@ -436,9 +436,9 @@ const CustomItineraryForm = React.memo(() => {
               </div>
 
               {/* Right - Image */}
-              <div className="hidden lg:block">
+              <div className="block">
                 <div className="flex flex-col h-full justify-center items-center">
-                  <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
+                  <div className="w-full aspect-[4/3] lg:aspect-[3/2] overflow-hidden rounded-2xl">
                     <img
                       src={`${BASE_PATH}/images/custom-itinerary-form-2.png`}
                       alt="Inspirační obrázek pro délku pobytu"
@@ -502,7 +502,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -559,7 +559,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -612,7 +612,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -668,7 +668,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -706,7 +706,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -740,7 +740,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -774,7 +774,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -808,7 +808,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -842,7 +842,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -876,7 +876,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -914,7 +914,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -948,7 +948,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -979,7 +979,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -1010,7 +1010,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -1041,7 +1041,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -1076,7 +1076,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -1107,7 +1107,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img
@@ -1138,7 +1138,7 @@ const CustomItineraryForm = React.memo(() => {
             </div>
 
             {/* Right - Image */}
-            <div className="hidden lg:block">
+            <div className="block">
               <div className="flex flex-col h-full justify-center items-center">
                 <div className="w-full aspect-[3/2] overflow-hidden rounded-2xl">
                   <img

@@ -111,22 +111,28 @@ const MultiStepForm = React.memo(({
         <div className="pt-12">
           {!isLastStep ? (
             /* Step navigation for non-final steps - spanning full width */
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center w-full">
+            <div className="flex flex-row gap-4 justify-between items-center w-full">
               {/* Left side - Back button */}
               <div className="flex gap-3">
                 {!isFirstStep ? (
                   <Button
                     onClick={handlePrev}
                     variant="green"
-                    size="lg"
-                    className="group relative overflow-hidden w-full sm:w-auto"
+                    size="md"
+                    className="group relative overflow-hidden w-auto sm:w-auto sm:px-8"
                   >
-                    <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:-translate-x-2 transition-all duration-300 rotate-180" fill="currentColor" viewBox="0 0 512 512">
+                    {/* Mobile: jen ikona */}
+                    <svg className="w-5 h-5 sm:hidden group-hover:-translate-x-1 transition-all duration-300 rotate-180" fill="currentColor" viewBox="0 0 512 512">
                       <path d="M186.62,464H160a16,16,0,0,1-14.57-22.6l64.46-142.25L113.1,297,77.8,339.77C71.07,348.23,65.7,352,52,352H34.08a17.66,17.66,0,0,1-14.7-7.06c-2.38-3.21-4.72-8.65-2.44-16.41l19.82-71c.15-.53.33-1.06.53-1.58a.38.38,0,0,0,0-.15,14.82,14.82,0,0,1-.53-1.59L16.92,182.76c-2.15-7.61.2-12.93,2.56-16.06a16.83,16.83,0,0,1,13.6-6.7H52c10.23,0,20.16,4.59,26,12l34.57,42.05,97.32-1.44-64.44-142A16,16,0,0,1,160,48h26.91a25,25,0,0,1,19.35,9.8l125.05,152,57.77-1.52c4.23-.23,15.95-.31,18.66-.31C463,208,496,225.94,496,256c0,9.46-3.78,27-29.07,38.16-14.93,6.6-34.85,9.94-59.21,9.94-2.68,0-14.37-.08-18.66-.31l-57.76-1.54-125.36,152A25,25,0,0,1,186.62,464Z"/>
                     </svg>
-                    <span>
-                      Jdeme zpět
-                    </span>
+
+                    {/* Desktop: ikona + text */}
+                    <div className="hidden sm:flex items-center">
+                      <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:-translate-x-2 transition-all duration-300 rotate-180" fill="currentColor" viewBox="0 0 512 512">
+                        <path d="M186.62,464H160a16,16,0,0,1-14.57-22.6l64.46-142.25L113.1,297,77.8,339.77C71.07,348.23,65.7,352,52,352H34.08a17.66,17.66,0,0,1-14.7-7.06c-2.38-3.21-4.72-8.65-2.44-16.41l19.82-71c.15-.53.33-1.06.53-1.58a.38.38,0,0,0,0-.15,14.82,14.82,0,0,1-.53-1.59L16.92,182.76c-2.15-7.61.2-12.93,2.56-16.06a16.83,16.83,0,0,1,13.6-6.7H52c10.23,0,20.16,4.59,26,12l34.57,42.05,97.32-1.44-64.44-142A16,16,0,0,1,160,48h26.91a25,25,0,0,1,19.35,9.8l125.05,152,57.77-1.52c4.23-.23,15.95-.31,18.66-.31C463,208,496,225.94,496,256c0,9.46-3.78,27-29.07,38.16-14.93,6.6-34.85,9.94-59.21,9.94-2.68,0-14.37-.08-18.66-.31l-57.76-1.54-125.36,152A25,25,0,0,1,186.62,464Z"/>
+                      </svg>
+                      <span>Jdeme zpět</span>
+                    </div>
                   </Button>
                 ) : (
                   <div></div>
@@ -138,15 +144,21 @@ const MultiStepForm = React.memo(({
                 <Button
                   onClick={handleNext}
                   variant="green"
-                  size="lg"
-                  className="group relative overflow-hidden w-full sm:w-auto"
+                  size="md"
+                  className="group relative overflow-hidden w-auto sm:w-auto sm:px-8"
                 >
-                  <span>
-                    Jdeme dál
-                  </span>
-                  <svg className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 transition-all duration-300" fill="currentColor" viewBox="0 0 512 512">
+                  {/* Mobile: jen ikona */}
+                  <svg className="w-5 h-5 sm:hidden group-hover:translate-x-1 transition-all duration-300" fill="currentColor" viewBox="0 0 512 512">
                     <path d="M186.62,464H160a16,16,0,0,1-14.57-22.6l64.46-142.25L113.1,297,77.8,339.77C71.07,348.23,65.7,352,52,352H34.08a17.66,17.66,0,0,1-14.7-7.06c-2.38-3.21-4.72-8.65-2.44-16.41l19.82-71c.15-.53.33-1.06.53-1.58a.38.38,0,0,0,0-.15,14.82,14.82,0,0,1-.53-1.59L16.92,182.76c-2.15-7.61.2-12.93,2.56-16.06a16.83,16.83,0,0,1,13.6-6.7H52c10.23,0,20.16,4.59,26,12l34.57,42.05,97.32-1.44-64.44-142A16,16,0,0,1,160,48h26.91a25,25,0,0,1,19.35,9.8l125.05,152,57.77-1.52c4.23-.23,15.95-.31,18.66-.31C463,208,496,225.94,496,256c0,9.46-3.78,27-29.07,38.16-14.93,6.6-34.85,9.94-59.21,9.94-2.68,0-14.37-.08-18.66-.31l-57.76-1.54-125.36,152A25,25,0,0,1,186.62,464Z"/>
                   </svg>
+
+                  {/* Desktop: text + ikona */}
+                  <div className="hidden sm:flex items-center">
+                    <span>Jdeme dál</span>
+                    <svg className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 transition-all duration-300" fill="currentColor" viewBox="0 0 512 512">
+                      <path d="M186.62,464H160a16,16,0,0,1-14.57-22.6l64.46-142.25L113.1,297,77.8,339.77C71.07,348.23,65.7,352,52,352H34.08a17.66,17.66,0,0,1-14.7-7.06c-2.38-3.21-4.72-8.65-2.44-16.41l19.82-71c.15-.53.33-1.06.53-1.58a.38.38,0,0,0,0-.15,14.82,14.82,0,0,1-.53-1.59L16.92,182.76c-2.15-7.61.2-12.93,2.56-16.06a16.83,16.83,0,0,1,13.6-6.7H52c10.23,0,20.16,4.59,26,12l34.57,42.05,97.32-1.44-64.44-142A16,16,0,0,1,160,48h26.91a25,25,0,0,1,19.35,9.8l125.05,152,57.77-1.52c4.23-.23,15.95-.31,18.66-.31C463,208,496,225.94,496,256c0,9.46-3.78,27-29.07,38.16-14.93,6.6-34.85,9.94-59.21,9.94-2.68,0-14.37-.08-18.66-.31l-57.76-1.54-125.36,152A25,25,0,0,1,186.62,464Z"/>
+                    </svg>
+                  </div>
                 </Button>
               </div>
             </div>
@@ -158,15 +170,21 @@ const MultiStepForm = React.memo(({
                 <Button
                   onClick={handlePrev}
                   variant="green"
-                  size="lg"
-                  className="group relative overflow-hidden w-full sm:w-auto"
+                  size="md"
+                  className="group relative overflow-hidden w-auto sm:w-auto sm:px-8"
                 >
-                  <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:-translate-x-2 transition-all duration-300 rotate-180" fill="currentColor" viewBox="0 0 512 512">
+                  {/* Mobile: jen ikona */}
+                  <svg className="w-5 h-5 sm:hidden group-hover:-translate-x-1 transition-all duration-300 rotate-180" fill="currentColor" viewBox="0 0 512 512">
                     <path d="M186.62,464H160a16,16,0,0,1-14.57-22.6l64.46-142.25L113.1,297,77.8,339.77C71.07,348.23,65.7,352,52,352H34.08a17.66,17.66,0,0,1-14.7-7.06c-2.38-3.21-4.72-8.65-2.44-16.41l19.82-71c.15-.53.33-1.06.53-1.58a.38.38,0,0,0,0-.15,14.82,14.82,0,0,1-.53-1.59L16.92,182.76c-2.15-7.61.2-12.93,2.56-16.06a16.83,16.83,0,0,1,13.6-6.7H52c10.23,0,20.16,4.59,26,12l34.57,42.05,97.32-1.44-64.44-142A16,16,0,0,1,160,48h26.91a25,25,0,0,1,19.35,9.8l125.05,152,57.77-1.52c4.23-.23,15.95-.31,18.66-.31C463,208,496,225.94,496,256c0,9.46-3.78,27-29.07,38.16-14.93,6.6-34.85,9.94-59.21,9.94-2.68,0-14.37-.08-18.66-.31l-57.76-1.54-125.36,152A25,25,0,0,1,186.62,464Z"/>
                   </svg>
-                  <span>
-                    Jdeme zpět
-                  </span>
+
+                  {/* Desktop: ikona + text */}
+                  <div className="hidden sm:flex items-center">
+                    <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:-translate-x-2 transition-all duration-300 rotate-180" fill="currentColor" viewBox="0 0 512 512">
+                      <path d="M186.62,464H160a16,16,0,0,1-14.57-22.6l64.46-142.25L113.1,297,77.8,339.77C71.07,348.23,65.7,352,52,352H34.08a17.66,17.66,0,0,1-14.7-7.06c-2.38-3.21-4.72-8.65-2.44-16.41l19.82-71c.15-.53.33-1.06.53-1.58a.38.38,0,0,0,0-.15,14.82,14.82,0,0,1-.53-1.59L16.92,182.76c-2.15-7.61.2-12.93,2.56-16.06a16.83,16.83,0,0,1,13.6-6.7H52c10.23,0,20.16,4.59,26,12l34.57,42.05,97.32-1.44-64.44-142A16,16,0,0,1,160,48h26.91a25,25,0,0,1,19.35,9.8l125.05,152,57.77-1.52c4.23-.23,15.95-.31,18.66-.31C463,208,496,225.94,496,256c0,9.46-3.78,27-29.07,38.16-14.93,6.6-34.85,9.94-59.21,9.94-2.68,0-14.37-.08-18.66-.31l-57.76-1.54-125.36,152A25,25,0,0,1,186.62,464Z"/>
+                    </svg>
+                    <span>Jdeme zpět</span>
+                  </div>
                 </Button>
               </div>
 
