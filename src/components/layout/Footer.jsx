@@ -45,7 +45,7 @@ const BLUR_CIRCLES = [
 const aboutLinks = [
   { href: ROUTES.MY_STORY, text: "Můj příběh" },
   { href: ROUTES.CONTACT, text: "Kontakt" },
-  { href: "/recenze", text: "Recenze" }
+  { href: ROUTES.REVIEWS, text: "Recenze" }
 ];
 
 const planningLinks = [

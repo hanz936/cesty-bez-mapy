@@ -15,6 +15,7 @@ import CustomItineraryForm from './pages/CustomItineraryForm';
 import Checkout from './pages/Checkout';
 import OrderConfirmation from './pages/OrderConfirmation';
 import FAQ from './pages/FAQ';
+import Reviews from './pages/Reviews';
 import Contact from './pages/Contact';
 import NotFound from './pages/NotFound';
 import logger from './utils/logger';
@@ -85,6 +86,7 @@ function App() {
           <Route path={ROUTES.INSPIRATION} element={<TravelInspiration />} />
           <Route path={ROUTES.COLLABORATION} element={<Collaboration />} />
           <Route path={ROUTES.FAQ} element={<FAQ />} />
+          <Route path={ROUTES.REVIEWS} element={<Reviews />} />
           <Route path={ROUTES.CONTACT} element={<Contact />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

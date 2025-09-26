@@ -11,6 +11,7 @@ export const ROUTES = {
   INSPIRATION: '/inspirace',
   COLLABORATION: '/spoluprace',
   FAQ: '/caste-dotazy',
+  REVIEWS: '/recenze',
   CONTACT: '/kontakt'
 };
 
@@ -22,6 +23,7 @@ export const ROUTE_LABELS = {
   [ROUTES.INSPIRATION]: 'Inspirace na cesty',
   [ROUTES.COLLABORATION]: 'Spolupráce',
   [ROUTES.FAQ]: 'Časté dotazy',
+  [ROUTES.REVIEWS]: 'Recenze',
   [ROUTES.CONTACT]: 'Kontakt'
 };
 
