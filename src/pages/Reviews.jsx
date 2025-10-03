@@ -20,7 +20,7 @@ const Reviews = memo(() => {
     <Layout>
       {/* Hero Section */}
       <PageHero
-        backgroundImage={`${BASE_PATH}/images/blog-hero-cestovni-pruvodci.png`}
+        backgroundImage={`${BASE_PATH}/images/blog-hero-review.png`}
         title="Recenze cestovatelů"
         subtitle="Přečti si, co říkají ti, kteří už s námi cestovali"
         overlayOpacity={0.6}

@@ -143,7 +143,7 @@ const ReviewsSection = memo(({ className = '', autoScroll = true }) => {
           Co říkají cestovatelé
         </h2>
         <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-8 leading-relaxed">
-          Přečti si autentické recenze od těch, kteří už se mnou cestovali. Další najdeš na Google, Instagramu i u konkrétních itinerářů.
+          Přečti si recenze od těch, kteří už se mnou cestovali. Další najdeš na Google, Instagramu i u konkrétních itinerářů.
         </p>
         <div className="w-24 h-0.5 bg-gradient-to-r from-green-600 to-green-800 mx-auto"></div>
       </div>
