@@ -16,6 +16,7 @@ import Checkout from './pages/Checkout';
 import OrderConfirmation from './pages/OrderConfirmation';
 import FAQ from './pages/FAQ';
 import Reviews from './pages/Reviews';
+import SalzburgItinerary from './pages/SalzburgItinerary';
 import Contact from './pages/Contact';
 import NotFound from './pages/NotFound';
 import logger from './utils/logger';
@@ -79,6 +80,7 @@ function App() {
           <Route path={ROUTES.PLAN_YOUR_DREAM_TRIP} element={<PlanYourDreamTrip />} />
           <Route path={ROUTES.TRAVEL_GUIDES} element={<TravelGuides />} />
           <Route path={ROUTES.ITALY_ROADTRIP_DETAIL} element={<ItalyRoadtripDetail />} />
+          <Route path={ROUTES.SALZBURG_ITINERARY} element={<SalzburgItinerary />} />
           <Route path={ROUTES.CUSTOM_ITINERARY_DETAIL} element={<CustomItineraryDetail />} />
           <Route path={ROUTES.CUSTOM_ITINERARY_FORM} element={<CustomItineraryForm />} />
           <Route path={ROUTES.CHECKOUT} element={<Checkout />} />
