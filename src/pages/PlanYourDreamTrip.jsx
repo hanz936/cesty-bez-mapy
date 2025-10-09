@@ -60,6 +60,10 @@ const PlanYourDreamTrip = () => {
     navigate(ROUTES.INSPIRATION);
   }, [navigate]);
 
+  const handleFreeSampleClick = useCallback(() => {
+    navigate(ROUTES.SALZBURG_ITINERARY);
+  }, [navigate]);
+
   const handleQuizClick = useCallback(() => {
     // Quiz functionality will be implemented in future version
     alert('Kvíz bude brzy dostupný! 🚀');
@@ -214,14 +218,23 @@ const PlanYourDreamTrip = () => {
             <p className={CLASSES.ctaParagraph}>
               Plánuj chytře. Cestuj naplno.
             </p>
-            <div className="text-center lg:text-left">
-              <Button 
+            <div className="flex flex-col sm:flex-row gap-4 text-center lg:text-left">
+              <Button
                 onClick={handleCtaClick}
                 variant="green"
                 size="lg"
                 aria-label="Přejít na výběr cestovních itinerářů"
               >
                 Vyber si cestu
+              </Button>
+              <Button
+                onClick={handleFreeSampleClick}
+                variant="outline"
+                size="lg"
+                className="border-2 border-green-800 text-green-800 hover:bg-green-50"
+                aria-label="Vyzkoušet bezplatný Salzburg itinerář"
+              >
+                Vyzkoušej zdarma
               </Button>
             </div>
           </div>

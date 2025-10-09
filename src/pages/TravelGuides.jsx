@@ -9,6 +9,19 @@ import { BASE_PATH, ROUTES } from '../constants';
 // Cestovní průvodce (testovací data)
 const ALL_ITINERARIES = [
   {
+    id: 'salzburg',
+    title: 'Víkendový pobyt v Salzburgu – Mozart město za 2 dny',
+    description: 'Kompletní průvodce se všemi důležitými informacemi pro perfektní víkend v městě Mozarta. Navštívíš slavnou pevnost Hohensalzburg, projdeš se barokním centrem UNESCO a možná se vypravíš i k nedaleké perle Hallstattu. Celý průvodce je úplně zdarma - jako ukázka kvality mých itinerářů.',
+    price: 'Zdarma',
+    duration: '2 dny',
+    rating: 5.0,
+    image: `${BASE_PATH}/images/salzburg-guide-card.jpg`,
+    alt: 'Salzburg - panorama města s pevností Hohensalzburg a alpským pozadím',
+    badge: '🎁 ZDARMA',
+    category: 'Víkendové výlety',
+    isFree: true
+  },
+  {
     id: 0,
     title: 'Itinerář na míru – cesta šitá jen pro tebe',
     description: 'Chceš cestovat bez kompromisů? Připravím ti jedinečný plán podle tvých přání, rozpočtu i času. Získáš osobní konzultaci, detailní průvodce a podporu během celé cesty – aby tvé dobrodružství bylo naprosto bez starostí.',
@@ -190,21 +203,23 @@ const GuideCard = ({ guide, onCardClick }) => {
         <div className="mt-4 pt-4 border-t border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <span className="text-2xl font-bold text-green-800">{guide.price}</span>
-            <span className="text-sm text-gray-500">včetně DPH</span>
+            {!guide.isFree && <span className="text-sm text-gray-500">včetně DPH</span>}
           </div>
-          
+
           <div className="flex gap-3 items-center">
             <Button variant="green" size="md" className="flex-1">
-              Zobrazit průvodce
+              {guide.isFree ? 'Stáhnout zdarma' : 'Zobrazit průvodce'}
             </Button>
-            
-            <Button variant="secondary" className="p-3" aria-label="Přidat do košíku">
-              <img 
-                src={`${BASE_PATH}/images/shopping-cart.svg`} 
-                alt="Košík" 
-                className="w-5 h-5"
-              />
-            </Button>
+
+            {!guide.isFree && (
+              <Button variant="secondary" className="p-3" aria-label="Přidat do košíku">
+                <img
+                  src={`${BASE_PATH}/images/shopping-cart.svg`}
+                  alt="Košík"
+                  className="w-5 h-5"
+                />
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -235,13 +250,14 @@ const TravelGuides = () => {
 
   const handleCardClick = useCallback((guide) => {
     // Navigace na detail stránku podle ID průvodce
-    if (guide.id === 0) {
+    if (guide.id === 'salzburg') {
+      navigate(ROUTES.SALZBURG_ITINERARY);
+      window.scrollTo(0, 0);
+    } else if (guide.id === 0) {
       navigate(ROUTES.CUSTOM_ITINERARY_DETAIL);
-      // Okamžité posčrollování na vrchol stránky
       window.scrollTo(0, 0);
     } else if (guide.id === 1) {
       navigate(ROUTES.ITALY_ROADTRIP_DETAIL);
-      // Okamžité posčrollování na vrchol stránky
       window.scrollTo(0, 0);
     }
     // Pro budoucí průvodce zde bude obecná logika

@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
+import { Button } from '../components/ui';
 import { BASE_PATH, ROUTES } from '../constants';
 
 const FAQ_DATA = [
@@ -79,18 +80,24 @@ const FAQ_DATA = [
     id: 15,
     question: 'Proč si koupit právě tvůj itinerář?',
     answer: 'Itineráře stavím na osobní zkušenosti, ne jen z Googlu nebo umělé inteligence. Vše jsem sama projela, vyzkoušela a dávám do nich své tipy, které ti ušetří čas i peníze.'
+  },
+  {
+    id: 16,
+    question: 'Není možnost si to nejdřív vyzkoušet?',
+    answer: 'Určitě! Připravila jsem pro tebe bezplatný víkendový průvodce po Salzburgu. Je to ukázka toho, co můžeš od mých itinerářů očekávat – detailní program, tipy na restaurace, mapy, ceny a praktické rady. Stáhni si ho zdarma a uvidíš, jestli ti můj styl vyhovuje.',
+    isSalzburgCTA: true
   }
 ];
 
 
-const FAQItem = ({ item, isOpen, onToggle }) => {
+const FAQItem = ({ item, isOpen, onToggle, onSalzburgClick }) => {
   return (
     <div className="last:border-b-0 group">
       <button
         onClick={onToggle}
         className={`w-full px-6 py-6 text-left transition-all duration-300 focus:outline-none relative ${
-          isOpen 
-            ? 'bg-gradient-to-r from-green-50/50 to-green-50/30' 
+          isOpen
+            ? 'bg-gradient-to-r from-green-50/50 to-green-50/30'
             : 'hover:bg-gradient-to-r hover:from-green-50/30 hover:to-green-50/20'
         }`}
         aria-expanded={isOpen}
@@ -104,14 +111,14 @@ const FAQItem = ({ item, isOpen, onToggle }) => {
             </h3>
           </div>
           <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-500 ease-out ${
-            isOpen 
-              ? 'bg-green-100 text-green-700 shadow-sm' 
+            isOpen
+              ? 'bg-green-100 text-green-700 shadow-sm'
               : 'bg-gray-100 text-gray-400 group-hover:bg-green-50 group-hover:text-green-600'
           }`}>
-            <svg 
+            <svg
               className={`w-4 h-4 transition-transform duration-500 ease-out ${isOpen ? 'rotate-180' : ''}`}
-              fill="none" 
-              stroke="currentColor" 
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -119,15 +126,28 @@ const FAQItem = ({ item, isOpen, onToggle }) => {
           </div>
         </div>
       </button>
-      
+
       <div className={`transition-all duration-700 ease-out ${isOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
-        <div className={`px-6 py-4 transition-all duration-500 ease-out flex items-center ${
+        <div className={`px-6 py-4 transition-all duration-500 ease-out ${
           isOpen ? 'bg-gradient-to-r from-green-50/20 to-transparent' : ''
         }`}>
           <div className="pl-4">
             <p className="text-gray-700 leading-relaxed">
               {item.answer}
             </p>
+            {item.isSalzburgCTA && (
+              <div className="mt-4">
+                <Button
+                  onClick={onSalzburgClick}
+                  variant="green"
+                  size="md"
+                  className="inline-flex items-center gap-2"
+                >
+                  <span>🎁</span>
+                  Stáhnout zdarma
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -137,11 +157,15 @@ const FAQItem = ({ item, isOpen, onToggle }) => {
 
 const FAQ = () => {
   const [openItem, setOpenItem] = useState(1); // První položka otevřená
+  const navigate = useNavigate();
 
   const toggleItem = useCallback((id) => {
     setOpenItem(prev => prev === id ? null : id);
   }, []);
 
+  const handleSalzburgClick = useCallback(() => {
+    navigate(ROUTES.SALZBURG_ITINERARY);
+  }, [navigate]);
 
   return (
     <Layout>
@@ -167,6 +191,7 @@ const FAQ = () => {
               item={item}
               isOpen={openItem === item.id}
               onToggle={() => toggleItem(item.id)}
+              onSalzburgClick={handleSalzburgClick}
             />
           ))}
         </div>
