@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { Button } from './components/ui';
 import { ROUTES } from './constants';
@@ -20,6 +20,7 @@ import SalzburgItinerary from './pages/SalzburgItinerary';
 import Contact from './pages/Contact';
 import NotFound from './pages/NotFound';
 import logger from './utils/logger';
+import { testSupabaseConnection } from './lib/testConnection';
 
 // Error boundary for the entire application
 class AppErrorBoundary extends React.Component {
@@ -70,6 +71,13 @@ class AppErrorBoundary extends React.Component {
 }
 
 function App() {
+  // Test Supabase connection on app mount (only in development)
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      testSupabaseConnection();
+    }
+  }, []);
+
   return (
     <AppErrorBoundary>
       <Router>

@@ -9,6 +9,52 @@
 - **Vite 7.0.4** - moderní build tool místo Create React App
 - **Tailwind CSS 4.1.11** - nejnovější verze s Vite integrací
 
+## 🗄️ Backend & Database
+
+**Supabase Platform:**
+- **PostgreSQL 15-17** (managed database, nové projekty používají v17)
+- **Supabase Auth** - JWT authentication s custom claims
+- **Supabase Storage** - file storage s RLS (FÁZE 1)
+- **Supabase Edge Functions** - serverless functions (FÁZE 3)
+
+**PostgreSQL Features:**
+- **Row Level Security (RLS)** - 12 tabulek s granular policies
+- **Custom Access Token Hook** - JWT claims (is_admin, user_role)
+- **Database Triggers** - auto-assign default role k novým uživatelům
+- **SECURITY DEFINER functions** - s `SET search_path = ''` ochranou
+- **JSONB** - pro integration_logs
+- **UUID** - všechny primary keys
+- **Foreign keys** - CASCADE deletes
+- **Check constraints** - data validation
+- **Indexes** - performance optimization
+- **Soft deletes** - deleted_at pattern pro products
+
+**Security & Auth Pattern:**
+- **JWT-based RBAC** - 10-100x rychlejší než DB reads
+- **user_roles table** - admin/user role management
+- **Defense in depth** - RLS + service_role pro webhooks
+- **Immutable audit logs** - newsletter_consent_log (no UPDATE/DELETE)
+- **Token-based downloads** - download_tokens s expirací
+
+**Database Schema (12 tabulek):**
+- `customers` - normalizovaná zákaznická data
+- `categories` + `product_categories` - M:N vztah produkty-kategorie
+- `products` - PDF cestopisy
+- `blog_posts` - články
+- `orders` + `order_items` - Stripe objednávky
+- `custom_itinerary_requests` - poptávkový formulář
+- `download_tokens` - PDF delivery
+- `integration_logs` - API audit trail
+- `newsletter_consent_log` - GDPR compliance
+- `user_roles` - RBAC
+
+**Planned Integrations:**
+- **Stripe** - platby (webhooks, Checkout) - FÁZE 3
+- **Ecomail** - email marketing + newsletter - FÁZE 7
+- **Resend** - transactional emails (nebo Ecomail API) - FÁZE 7
+- **Facturoid** - fakturace - FÁZE 7
+- **Plausible Analytics** - GDPR-friendly analytics - FÁZE 6
+
 ## 🏗️ Architektura
 
 - **Functional Components** - žádné class komponenty (kromě Error Boundaries)

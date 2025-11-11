@@ -48,8 +48,12 @@ id_dsa
 *.sqlite3
 db.json
 database/
-*.sql
 backups/
+
+# SQL files - ignore ALL except migrations
+*.sql
+# EXCEPTION: Allow Supabase migrations (important for version control!)
+!supabase/migrations/*.sql
 
 # Large and binary files
 *.zip
