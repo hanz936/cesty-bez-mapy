@@ -55,6 +55,41 @@
 - **Facturoid** - fakturace - FÁZE 7
 - **Plausible Analytics** - GDPR-friendly analytics - FÁZE 6
 
+## 🔧 Admin Panel (FÁZE 2)
+
+**Framework: React-Admin + ra-supabase**
+
+**Proč React-Admin:**
+- **Production proven** - 25,000+ firem v produkci, 500,000+ sessions denně
+- **E-commerce ready** - demo poster shop (produkty, objednávky, zákazníci)
+- **Fastest setup** - AdminGuesser scaffold celý admin jedním řádkem (2-3h setup)
+- **Oficiální Supabase integrace** - ra-supabase s auth, CRUD, realtime
+- **Material-UI (MUI v7)** - profesionální UI framework pro interní nástroje
+- **React 19 kompatibilní** - plná podpora nejnovějšího Reactu (od v5.5)
+- **Aktivní maintenance** - měsíční updaty v 2025 (v5.3-5.12)
+- **Excelentní dokumentace** - obrovská komunita a tutoriály
+
+**Design rozhodnutí:**
+- Admin panel je **interní nástroj** (pouze Jana + admin)
+- **Nepotřebuje** vizuální konzistenci s hlavním webem (Tailwind)
+- Material UI je **standard pro admin panely** (WordPress, Shopify, atd.)
+- **DVĚ SEPARÁTNÍ APLIKACE** - main site (zákazníci) vs admin (interní)
+
+**Funkce:**
+- Products CRUD (kategorie, PDF upload, obrázky)
+- Orders management (Stripe webhook integration)
+- Customers management
+- Blog posts CRUD
+- Custom itinerary requests
+- Integration logs viewer
+- Newsletter consent log (GDPR)
+
+**File Upload:**
+- Standard upload (do 6MB): `ra-supabase` + `<FileInput>`
+- Large files (>6MB): TUS resumable upload (`tus-js-client`)
+- Chunk size: 6MB (Supabase requirement)
+- Free tier limit: 50MB | Pro tier: až 50GB (plánováno později)
+
 ## 🏗️ Architektura
 
 - **Functional Components** - žádné class komponenty (kromě Error Boundaries)
@@ -133,4 +168,4 @@
 
 **Celkové hodnocení:** Moderní, well-architected React aplikace následující současné best practices s důrazem na výkon, dostupnost a udržitelnost! 🌟
 
-*Poslední aktualizace: Prosinec 2024*
+*Poslední aktualizace: Listopad 2025*
