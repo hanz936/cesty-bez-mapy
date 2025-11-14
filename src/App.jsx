@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Button } from './components/ui';
 import { ROUTES } from './constants';
 import ScrollToTop from './components/common/ScrollToTop';
