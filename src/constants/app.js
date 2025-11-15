@@ -1,5 +1,5 @@
-// Base path for GitHub Pages deployment
-export const BASE_PATH = '/cesty-bez-mapy';
+// Base path for Vercel deployment (root)
+export const BASE_PATH = '';
 
 export const APP_CONFIG = {
   BASE_PATH,
