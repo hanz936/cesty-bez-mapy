@@ -5,9 +5,31 @@
 ## 🚀 Core Stack
 
 - **React 19.1.0** - nejnovější verze s moderními features
-- **React Router 7.7.1** - HashRouter pro GitHub Pages
+- **React Router 7.7.1** - BrowserRouter pro Vercel deployment
 - **Vite 7.0.4** - moderní build tool místo Create React App
 - **Tailwind CSS 4.1.11** - nejnovější verze s Vite integrací
+
+## 🚀 Deployment (Vercel)
+
+**Prostředí:** Vercel (production + preview deployments)
+
+**Konfigurace:**
+- ✅ **BrowserRouter** (ne HashRouter) - pro čisté URL bez `#`
+- ✅ BASE_PATH = `''` v `src/constants/app.js` (ne `/cesty-bez-mapy/`)
+- ✅ `vite.config.js` má `base: '/'`
+- ✅ `vercel.json` obsahuje SPA rewrites + `git.deploymentEnabled.main = false`
+- ✅ **Ignored Build Step:** `[ "$VERCEL_GIT_COMMIT_REF" == "main" ]` (Settings → Git)
+
+**Environment Variables (Vercel Dashboard):**
+- `VITE_SUPABASE_URL` - všechna prostředí
+- `VITE_SUPABASE_ANON_KEY` - všechna prostředí
+- `VITE_APP_ENV` - development (Preview/Dev), production (Production)
+- `VITE_DEBUG` - true (Preview/Dev), false (Production)
+
+**Deployment Protection:**
+- Standard Protection (FREE) - chrání preview deployments
+- Pracujeme na development branch → všechny deploymenty jsou preview (chráněné)
+- Production URL zůstává 404 (žádný deployment z main)
 
 ## 🗄️ Backend & Database
 
