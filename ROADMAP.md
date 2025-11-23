@@ -195,7 +195,7 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
    - Browse soubor
    - Progress bar
    - Upload do Supabase Storage (private bucket)
-   - Validace (jen PDF, max 50 MB)
+   - Validace (jen PDF, max 200 MB)
 
 6. **Product template komponenta**
    ```jsx
