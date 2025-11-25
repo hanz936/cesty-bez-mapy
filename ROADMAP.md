@@ -23,6 +23,47 @@
 | **FÁZE 7:** Ecomail + Facturoid | ⏸️ ČEKÁ | 0% | Za ~8 týdnů |
 | **FÁZE 8:** Testing, Legal & Launch | ⏸️ ČEKÁ | 0% | Finální fáze |
 
+### ⚠️ Zbývající práce (TODO)
+
+#### FÁZE 2: Co ještě chybí (5%)
+**Product template komponenta + Dynamické načítání ze Supabase**
+- **Problém:** TravelGuides.jsx má hardcoded produkty (řádek 10-150)
+- **Co udělat:**
+  1. Vytvořit reusable `<ProductCard />` komponentu
+  2. Vytvořit `<ProductDetail />` template komponentu
+  3. Připojit TravelGuides.jsx k Supabase (useEffect + fetch)
+  4. Nahradit `ALL_ITINERARIES` dynamickým načítáním:
+     ```jsx
+     const [products, setProducts] = useState([]);
+     useEffect(() => {
+       // Fetch from Supabase: products table
+       // Filter: is_active = true, is_deleted = false
+       // Order by: created_at DESC
+     }, []);
+     ```
+  5. Vytvořit dynamickou product detail page (`/produkty/[slug]`)
+- **Časový odhad:** 3-4 hodiny
+- **Priorita:** 🟡 Nízká - můžeme dokončit později (po FÁZI 3 nebo 4)
+
+#### FÁZE 4: Co ještě chybí (50%)
+**Blog Frontend**
+- Blog List view (`/blog` nebo `/inspirace`)
+- Blog Detail view (`/blog/[slug]`)
+- Vyhledávání v blogu
+- Newsletter signup integrace (Ecomail)
+- **Časový odhad:** 6-8 hodin
+- **Priorita:** 🟡 Střední - můžeme přeskočit a vrátit se po FÁZI 5
+
+#### FÁZE 5: Co ještě chybí (70%)
+**Kvíz Systém**
+- Vyhodnocovací stránka (`/kviz/vysledky`)
+- Matching algoritmus (utils/quizMatcher.js)
+- Admin panel - kvíz metadata editor
+- **Časový odhad:** 3-4 hodiny
+- **Priorita:** 🟡 Nízká - není kritické pro MVP
+
+---
+
 ### Dashboard Vylepšení - Strategie C
 **Kdy:** Po dokončení FÁZE 3 (Stripe integrace)
 **Čas:** 12-15 hodin (1 velký update)
