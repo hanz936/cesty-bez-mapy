@@ -1,10 +1,40 @@
 # 🗺️ ROADMAP - Cesty bez mapy (Full Launch MVP)
 
-**Verze:** 3.2
+**Verze:** 3.3
 **Vytvořeno:** 2025-10-30
-**Aktualizováno:** 2025-10-30 (přidána FÁZE 5 - Kvíz Systém, reorganizace fází)
+**Aktualizováno:** 2025-11-25 (přidán progress tracking, dashboard strategie)
 **Pro:** Jana (majitelka) + vývojář (part-time)
 **Cíl:** Funkční eshop s blogem, admin panelem, automatickým dodáním PDF
+
+---
+
+## 📊 PROGRESS TRACKING
+
+**Aktuální stav:** Přechod z FÁZE 2 → FÁZE 3
+
+| Fáze | Status | Dokončeno | Poznámky |
+|------|--------|-----------|----------|
+| **FÁZE 1:** Supabase Setup & Database | ✅ HOTOVO | 100% | Database, RLS, Storage buckets, Auth |
+| **FÁZE 2:** Admin Panel - Produkty | ✅ HOTOVO | 95% | CRUD, Upload, Blog, 100% CZ lokalizace, B&W theme |
+| **FÁZE 3:** Stripe + Auto Delivery | 🔄 PROBÍHÁ | 0% | **← TEĎKA PRACUJEME** |
+| **FÁZE 4:** Blog Systém + Admin | ⏳ ČÁSTEČNĚ | 50% | Admin hotov, Frontend chybí |
+| **FÁZE 5:** Kvíz Systém | ⏳ ČÁSTEČNĚ | 30% | Možná už existuje na webu |
+| **FÁZE 6:** SEO, Analytics & Polish | ⏸️ ČEKÁ | 0% | Po FÁZI 3 |
+| **FÁZE 7:** Ecomail + Facturoid | ⏸️ ČEKÁ | 0% | Za ~8 týdnů |
+| **FÁZE 8:** Testing, Legal & Launch | ⏸️ ČEKÁ | 0% | Finální fáze |
+
+### Dashboard Vylepšení - Strategie C
+**Kdy:** Po dokončení FÁZE 3 (Stripe integrace)
+**Čas:** 12-15 hodin (1 velký update)
+**Co zahrnuje:**
+- Custom itineráře, Produkty, Blog KPI karty
+- Grafy (MonthlyRevenue, OrderChart, TopProducts)
+- Comparisons (% změny oproti minulému měsíci)
+- PendingOrders seznam
+- Responsivní layout (Grid)
+- Welcome sekce s personalizací
+
+**DŮVOD:** Grafy budou mít reálná data ze Stripe, má smysl udělat vše najednou.
 
 ---
 
@@ -84,7 +114,7 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
 
 ---
 
-## 📅 FÁZE 1: Supabase Setup & Database (1.5 týdne)
+## 📅 FÁZE 1: Supabase Setup & Database ✅ DOKONČENO
 
 ### Tasky:
 1. **Supabase projekt setup**
@@ -147,7 +177,7 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
 
 ---
 
-## 📅 FÁZE 2: Admin Panel - Produkty (2 týdny)
+## 📅 FÁZE 2: Admin Panel - Produkty ✅ DOKONČENO
 
 ### Tasky:
 1. **Admin layout & routing**
@@ -218,7 +248,7 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
 
 ---
 
-## 📅 FÁZE 3: Stripe Integrace + Auto Delivery (2 týdny)
+## 📅 FÁZE 3: Stripe Integrace + Auto Delivery 🔄 PROBÍHÁ (2 týdny)
 
 ### Tasky:
 1. **Stripe account setup**
