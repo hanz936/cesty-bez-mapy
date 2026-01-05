@@ -1,8 +1,8 @@
 # 🗺️ ROADMAP - Cesty bez mapy (Full Launch MVP)
 
-**Verze:** 3.3
+**Verze:** 3.5
 **Vytvořeno:** 2025-10-30
-**Aktualizováno:** 2025-11-25 (přidán progress tracking, dashboard strategie)
+**Aktualizováno:** 2025-12-22 (přidána FÁZE 2.5: Dynamické produkty + Review systém)
 **Pro:** Jana (majitelka) + vývojář (part-time)
 **Cíl:** Funkční eshop s blogem, admin panelem, automatickým dodáním PDF
 
@@ -10,13 +10,14 @@
 
 ## 📊 PROGRESS TRACKING
 
-**Aktuální stav:** Přechod z FÁZE 2 → FÁZE 3
+**Aktuální stav:** FÁZE 2.5 → Dokončení produktového systému
 
 | Fáze | Status | Dokončeno | Poznámky |
 |------|--------|-----------|----------|
 | **FÁZE 1:** Supabase Setup & Database | ✅ HOTOVO | 100% | Database, RLS, Storage buckets, Auth |
 | **FÁZE 2:** Admin Panel - Produkty | ✅ HOTOVO | 95% | CRUD, Upload, Blog, 100% CZ lokalizace, B&W theme |
-| **FÁZE 3:** Stripe + Auto Delivery | 🔄 PROBÍHÁ | 0% | **← TEĎKA PRACUJEME** |
+| **FÁZE 2.5:** Dynamické produkty + Review systém | 🔄 PROBÍHÁ | 0% | **← TEĎKA PRACUJEME** |
+| **FÁZE 3:** Stripe + Auto Delivery | ⏸️ ČEKÁ | 0% | Po FÁZI 2.5 |
 | **FÁZE 4:** Blog Systém + Admin | ⏳ ČÁSTEČNĚ | 50% | Admin hotov, Frontend chybí |
 | **FÁZE 5:** Kvíz Systém | ⏳ ČÁSTEČNĚ | 30% | Možná už existuje na webu |
 | **FÁZE 6:** SEO, Analytics & Polish | ⏸️ ČEKÁ | 0% | Po FÁZI 3 |
@@ -76,6 +77,85 @@
 - Welcome sekce s personalizací
 
 **DŮVOD:** Grafy budou mít reálná data ze Stripe, má smysl udělat vše najednou.
+
+---
+
+## 🔧 TECHNICKÁ VYLEPŠENÍ & TECH DEBT
+
+*Poznámky z code review (2025-12-22)*
+
+Tato sekce obsahuje doporučení pro zlepšení kvality kódu, výkonu a udržovatelnosti projektu.
+Nejsou kritické pro MVP, ale měly by být adresovány postupně.
+
+### 🔴 KRITICKÉ (před launchem)
+
+**1. Dynamické načítání produktů (FÁZE 2 - 5% chybí)**
+- ✅ Již zaznamenáno výše v TODO sekci
+
+### 🟡 VYSOKÁ PRIORITA (po FÁZI 3)
+
+**2. TypeScript migrace (Frontend)**
+- **Problém:** Frontend je JavaScript, admin je TypeScript - nekonzistence
+- **Řešení:** Postupná migrace .jsx → .tsx
+- **Benefit:** Type safety, méně runtime bugů, lepší DX
+- **Časový odhad:** 8-12 hodin (postupně)
+- **Kdy:** Po FÁZI 6, nebo průběžně
+
+**3. Testing setup**
+- **Problém:** Žádné unit/integration/E2E testy
+- **Řešení:**
+  - Unit tests: Vitest + React Testing Library
+  - E2E tests: Playwright pro critical paths (checkout, PDF delivery)
+- **Časový odhad:** 10-15 hodin (initial setup + kritické testy)
+- **Kdy:** FÁZE 8 nebo průběžně
+- **Priorita:** Vyšší pro produkci s real payments
+
+### 🟢 STŘEDNÍ PRIORITA (post-launch optimalizace)
+
+**4. Performance optimalizace**
+- **Co udělat:**
+  - React.lazy() pro route-based code splitting
+  - Suspense boundaries
+  - Image optimization (WebP format, responsive images)
+  - Lazy loading pro images (už máš ImageWithFallback, rozšířit)
+- **Časový odhad:** 4-6 hodin
+- **Kdy:** Po FÁZI 6, během "Polish"
+- **Benefit:** Lepší Lighthouse score, rychlejší načítání
+
+**5. SEO vylepšení (rozšíření FÁZE 6)**
+- **Co chybí:**
+  - Meta tagy (description, OG, Twitter cards) - už plánováno v FÁZI 6
+  - Sitemap.xml - už plánováno
+  - React Helmet Async - už plánováno
+- **Extra doporučení:**
+  - Structured data (JSON-LD) pro produkty
+  - Breadcrumbs schema
+- **Časový odhad:** +2-3 hodiny k FÁZI 6
+- **Kdy:** FÁZE 6
+
+**6. Analytics implementace**
+- **Problém:** Plausible je v plánu (FÁZE 6), ale není implementován
+- **Doporučení:** Nainstalovat TEĎKA, data jsou cenná od začátku
+- **Časový odhad:** 30 minut
+- **Kdy:** IHNED nebo s FÁZE 3
+- **Benefit:** Sledování conversion rate, user behavior od začátku
+
+### ⚪ NÍZKÁ PRIORITA (nice-to-have)
+
+**7. Error monitoring**
+- **Doporučení:** Sentry nebo podobný nástroj
+- **Benefit:** Automatické zachycení runtime errors v produkci
+- **Časový odhad:** 2 hodiny
+- **Kdy:** Po soft launch
+- **Náklady:** FREE tier existuje
+
+**8. Code quality improvements**
+- **Co sledovat:**
+  - Některé komponenty používají `any` nebo nespecifikované typy (pokud budete migrovat na TS)
+  - ESLint warnings (pokud nějaké jsou)
+  - Duplicitní kód (DRY principle)
+- **Kdy:** Průběžně během dalšího vývoje
+- **Benefit:** Lepší maintainability
 
 ---
 
@@ -289,7 +369,396 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
 
 ---
 
-## 📅 FÁZE 3: Stripe Integrace + Auto Delivery 🔄 PROBÍHÁ (2 týdny)
+## 📅 FÁZE 2.5: Dynamické produkty + Review systém 🔄 PROBÍHÁ (2 týdny)
+
+**Důvod této fáze:**
+- Dokončit FÁZI 2 (dynamické načítání produktů místo hardcoded dat)
+- Přidat review systém (social proof je kritický pro konverzi)
+- Review systém MUSÍ být před Stripe - zákazníci chtějí vidět recenze před nákupem
+
+### Tasky:
+
+#### **A. Dynamické načítání produktů (KRITICKÉ)**
+
+1. **Nahradit hardcoded ALL_ITINERARIES v TravelGuides.jsx**
+   ```jsx
+   // Současný stav: Hardcoded array (řádek 9-108)
+   const ALL_ITINERARIES = [...]
+
+   // Nový stav: Dynamické načítání ze Supabase
+   const [products, setProducts] = useState([]);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState(null);
+
+   useEffect(() => {
+     async function fetchProducts() {
+       const { data, error } = await supabase
+         .from('products')
+         .select('*')
+         .eq('is_active', true)
+         .eq('is_deleted', false)
+         .order('created_at', { ascending: false });
+
+       if (error) setError(error);
+       else setProducts(data);
+       setLoading(false);
+     }
+     fetchProducts();
+   }, []);
+   ```
+
+2. **Mapování databázové struktury na GuideCard props**
+   - `guide.price` → formátovat jako "XXX Kč" z `product.price`
+   - `guide.image` → `product.image_url`
+   - `guide.alt` → generovat z `product.title` ("Průvodce: {title}")
+   - `guide.badge` → `product.badge`
+   - `guide.isFree` → `product.price === 0`
+   - `guide.rating` → `product.average_rating` (po implementaci reviews)
+   - `guide.review_count` → `product.review_count` (po implementaci reviews)
+
+3. **Loading & Error states**
+   - Loading spinner při načítání
+   - Error message pokud fetch selže
+   - Empty state pokud žádné produkty
+
+**Časový odhad:** 2-3 hodiny
+
+---
+
+#### **B. Review systém - Databáze & Backend**
+
+1. **Database migration: reviews tabulka**
+   ```sql
+   CREATE TABLE reviews (
+     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+     product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+     customer_id UUID REFERENCES customers(id),
+     order_id UUID REFERENCES orders(id),           -- Verified purchase
+
+     rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+     title VARCHAR(200),
+     comment TEXT,
+
+     is_verified_purchase BOOLEAN DEFAULT false,
+     is_approved BOOLEAN DEFAULT false,             -- Jana schválí
+     admin_notes TEXT,
+
+     created_at TIMESTAMPTZ DEFAULT NOW(),
+     updated_at TIMESTAMPTZ DEFAULT NOW()
+   );
+
+   -- Přidat do products tabulky
+   ALTER TABLE products
+     ADD COLUMN average_rating NUMERIC(3,2) DEFAULT 0.00,
+     ADD COLUMN review_count INTEGER DEFAULT 0;
+   ```
+
+2. **PostgreSQL Trigger pro automatický přepočet ratingu**
+   ```sql
+   -- Row-level trigger pro simple operace
+   CREATE OR REPLACE FUNCTION update_product_rating()
+   RETURNS TRIGGER AS $$
+   BEGIN
+     UPDATE products
+     SET
+       average_rating = (
+         SELECT COALESCE(AVG(rating), 0)
+         FROM reviews
+         WHERE product_id = COALESCE(NEW.product_id, OLD.product_id)
+           AND is_approved = true
+       ),
+       review_count = (
+         SELECT COUNT(*)
+         FROM reviews
+         WHERE product_id = COALESCE(NEW.product_id, OLD.product_id)
+           AND is_approved = true
+       )
+     WHERE id = COALESCE(NEW.product_id, OLD.product_id);
+
+     RETURN COALESCE(NEW, OLD);
+   END;
+   $$ LANGUAGE plpgsql;
+
+   CREATE TRIGGER recalculate_rating_after_review
+     AFTER INSERT OR UPDATE OR DELETE ON reviews
+     FOR EACH ROW
+     EXECUTE FUNCTION update_product_rating();
+   ```
+
+3. **Performance indexy**
+   ```sql
+   -- Partial index pro completed orders (RLS performance)
+   CREATE INDEX idx_orders_customer_completed
+     ON orders(customer_id)
+     WHERE status = 'completed';
+
+   -- Index pro rychlé vyhledávání recenzí
+   CREATE INDEX idx_reviews_product_approved
+     ON reviews(product_id, is_approved);
+
+   -- Partial unique index - max 1 schválená recenze per product per customer
+   CREATE UNIQUE INDEX idx_one_approved_review_per_product_customer
+     ON reviews(product_id, customer_id)
+     WHERE is_approved = true;
+   ```
+
+4. **RLS Policies (optimalizované)**
+   ```sql
+   -- Public může vidět jen schválené recenze
+   CREATE POLICY "Public can view approved reviews"
+     ON reviews FOR SELECT
+     USING (is_approved = true);
+
+   -- Admin vidí všechny
+   CREATE POLICY "Admin can manage reviews"
+     ON reviews FOR ALL
+     USING (auth.jwt() ->> 'role' = 'admin');
+
+   -- Zákazníci mohou vytvořit recenzi (jen pokud koupili)
+   -- OPTIMALIZOVÁNO: Vyhnout se korelovanému subquery
+   CREATE POLICY "Customers can create reviews for purchased products"
+     ON reviews FOR INSERT
+     WITH CHECK (
+       product_id = ANY (
+         SELECT oi.product_id
+         FROM order_items oi
+         JOIN orders o ON oi.order_id = o.id
+         WHERE o.customer_id = auth.uid()
+           AND o.status = 'completed'
+       )
+     );
+   ```
+
+**Časový odhad:** 3-5 hodin
+
+---
+
+#### **C. Review systém - Admin Panel**
+
+1. **ReviewList.tsx - Seznam recenzí**
+   ```jsx
+   // cesty-bez-mapy-admin/src/resources/reviews/ReviewList.tsx
+
+   export const ReviewList = () => (
+     <List
+       filters={reviewFilters}
+       sort={{ field: 'created_at', order: 'DESC' }}
+     >
+       <Datagrid bulkActionButtons={<BulkApproveButton />}>
+         <TextField source="id" />
+         <ReferenceField source="product_id" reference="products">
+           <TextField source="title" />
+         </ReferenceField>
+         <ReferenceField source="customer_id" reference="customers">
+           <TextField source="name" />
+         </ReferenceField>
+         <NumberField source="rating" />
+         <TextField source="title" />
+         <BooleanField source="is_approved" />
+         <BooleanField source="is_verified_purchase" />
+         <DateField source="created_at" />
+         <EditButton />
+       </Datagrid>
+     </List>
+   );
+
+   const reviewFilters = [
+     <BooleanInput source="is_approved" alwaysOn />,
+     <ReferenceInput source="product_id" reference="products" />,
+     <NumberInput source="rating" />
+   ];
+   ```
+
+2. **ReviewEdit.tsx - Detail & Approve**
+   ```jsx
+   export const ReviewEdit = () => {
+     const notify = useNotify();
+
+     const handleApprove = async (id) => {
+       await dataProvider.update('reviews', {
+         id,
+         data: { is_approved: true }
+       });
+       notify('Recenze schválena!', { type: 'success' });
+     };
+
+     return (
+       <Edit>
+         <SimpleForm>
+           <TextInput source="title" disabled />
+           <TextInput source="comment" multiline disabled />
+           <NumberInput source="rating" disabled />
+           <BooleanInput source="is_verified_purchase" disabled />
+           <BooleanInput source="is_approved" />
+           <TextInput source="admin_notes" multiline />
+
+           <Toolbar>
+             <SaveButton />
+             <Button label="Schválit" onClick={() => handleApprove(record.id)} />
+           </Toolbar>
+         </SimpleForm>
+       </Edit>
+     );
+   };
+   ```
+
+3. **Přidat do App.tsx**
+   ```jsx
+   <Resource
+     name="reviews"
+     list={ReviewList}
+     edit={ReviewEdit}
+     icon={ReviewIcon}
+   />
+   ```
+
+**Časový odhad:** 4-6 hodin
+
+---
+
+#### **D. Review systém - Frontend Display**
+
+1. **ReviewsSection komponenta pro product detail**
+   ```jsx
+   // src/components/reviews/ReviewsSection.jsx
+
+   export const ReviewsSection = ({ productId }) => {
+     const [reviews, setReviews] = useState([]);
+     const [avgRating, setAvgRating] = useState(0);
+     const [reviewCount, setReviewCount] = useState(0);
+
+     useEffect(() => {
+       async function fetchReviews() {
+         // Fetch product rating
+         const { data: product } = await supabase
+           .from('products')
+           .select('average_rating, review_count')
+           .eq('id', productId)
+           .single();
+
+         setAvgRating(product.average_rating);
+         setReviewCount(product.review_count);
+
+         // Fetch approved reviews
+         const { data: reviewsData } = await supabase
+           .from('reviews')
+           .select('*, customers(name)')
+           .eq('product_id', productId)
+           .eq('is_approved', true)
+           .order('created_at', { ascending: false });
+
+         setReviews(reviewsData);
+       }
+
+       fetchReviews();
+     }, [productId]);
+
+     return (
+       <section className="my-12">
+         <AverageRating rating={avgRating} count={reviewCount} />
+         <ReviewsList reviews={reviews} />
+       </section>
+     );
+   };
+   ```
+
+2. **React 19 useOptimistic hook (pro budoucí WriteReviewForm)**
+   ```jsx
+   import { useOptimistic } from 'react';
+
+   const [optimisticReviews, addOptimisticReview] = useOptimistic(
+     reviews,
+     (state, newReview) => [...state, { ...newReview, status: 'pending' }]
+   );
+   ```
+
+3. **Zobrazení v TravelGuides.jsx (GuideCard)**
+   ```jsx
+   // Přidat do GuideCard:
+   <div className="flex items-center gap-2">
+     <span className="text-sm font-medium">
+       {guide.average_rating?.toFixed(1) || '5.0'}
+     </span>
+     <div className="flex">
+       {[1,2,3,4,5].map(star => (
+         <StarIcon key={star} filled={star <= (guide.average_rating || 5)} />
+       ))}
+     </div>
+     <span className="text-xs text-gray-500">
+       ({guide.review_count || 0})
+     </span>
+   </div>
+   ```
+
+4. **Přidat na product detail pages**
+   - ItalyRoadtripDetail.jsx
+   - (Další product detail pages až budou vytvořeny)
+
+**Časový odhad:** 5-7 hodin
+
+---
+
+### **E. Testing & Dokumentace**
+
+1. **Manual testing checklist**
+   - [ ] Produkty se načítají ze Supabase dynamicky
+   - [ ] Loading state se zobrazuje správně
+   - [ ] Error handling funguje
+   - [ ] Jana může přidat recenzi v admin panelu
+   - [ ] Jana může schválit/zamítnout recenzi
+   - [ ] Trigger přepočítá average_rating automaticky
+   - [ ] Frontend zobrazuje recenze správně
+   - [ ] RLS policy blokuje neoprávněné akce
+
+2. **Dokumentace pro Janu**
+   - Návod: Jak schválit recenzi
+   - Návod: Co dělat s fake/spam recenzemi
+   - Návod: Jak přidat testovací recenzi
+
+**Časový odhad:** 2-3 hodiny
+
+---
+
+### **📊 Celkový časový odhad FÁZE 2.5**
+
+| Část | Odhad |
+|------|-------|
+| A. Dynamické produkty | 2-3h |
+| B. Review DB & Backend | 3-5h |
+| C. Review Admin Panel | 4-6h |
+| D. Review Frontend | 5-7h |
+| E. Testing & Docs | 2-3h |
+| **CELKEM** | **16-24 hodin** |
+
+**Realistický odhad:** 2-3 týdny při 10-15h/týden
+
+---
+
+### **🎯 Měřítko úspěchu FÁZE 2.5**
+
+✅ **Produkty:**
+- TravelGuides.jsx načítá produkty ze Supabase
+- Jana přidá nový produkt v adminu → zobrazí se na webu automaticky
+- Loading a error states fungují
+
+✅ **Reviews:**
+- Jana může přidávat testovací recenze v admin panelu
+- Jana může schvalovat/zamítat recenze
+- Average rating se přepočítá automaticky (trigger)
+- Frontend zobrazuje hvězdičky + recenze na product detail
+- RLS policies chrání před neoprávněným přístupem
+
+✅ **Performance:**
+- Partial indexy fungují (rychlý fetch)
+- RLS policies optimalizované (bez slow JOINů)
+
+---
+
+**POZNÁMKA:** WriteReviewForm pro zákazníky (front-end psaní recenzí) je **OPTIONAL** pro tuto fázi. Můžeme to přidat později po FÁZI 3 (Stripe), když budeme mít auth systém pro zákazníky. Zatím Jana může přidávat testovací recenze ručně.
+
+---
+
+## 📅 FÁZE 3: Stripe Integrace + Auto Delivery ⏸️ ČEKÁ (2 týdny)
 
 ### Tasky:
 1. **Stripe account setup**

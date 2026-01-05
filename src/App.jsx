@@ -9,7 +9,7 @@ import Collaboration from './pages/Collaboration';
 import PlanYourDreamTrip from './pages/PlanYourDreamTrip';
 import TravelInspiration from './pages/TravelInspiration';
 import TravelGuides from './pages/TravelGuides';
-import ItalyRoadtripDetail from './pages/ItalyRoadtripDetail';
+import ProductDetail from './pages/ProductDetail';
 import CustomItineraryDetail from './pages/CustomItineraryDetail';
 import CustomItineraryForm from './pages/CustomItineraryForm';
 import Checkout from './pages/Checkout';
@@ -87,7 +87,7 @@ function App() {
           <Route path={ROUTES.MY_STORY} element={<MyStory />} />
           <Route path={ROUTES.PLAN_YOUR_DREAM_TRIP} element={<PlanYourDreamTrip />} />
           <Route path={ROUTES.TRAVEL_GUIDES} element={<TravelGuides />} />
-          <Route path={ROUTES.ITALY_ROADTRIP_DETAIL} element={<ItalyRoadtripDetail />} />
+          <Route path="/cestovni-pruvodci/:slug" element={<ProductDetail />} />
           <Route path={ROUTES.SALZBURG_ITINERARY} element={<SalzburgItinerary />} />
           <Route path={ROUTES.CUSTOM_ITINERARY_DETAIL} element={<CustomItineraryDetail />} />
           <Route path={ROUTES.CUSTOM_ITINERARY_FORM} element={<CustomItineraryForm />} />

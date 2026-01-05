@@ -1,13 +1,14 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo, useDeferredValue, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
 import { Button, Dropdown } from '../components/ui';
 import { BASE_PATH, ROUTES } from '../constants';
+import { supabase } from '../lib/supabase';
 
 
-// Cestovní průvodce (testovací data)
-const ALL_ITINERARIES = [
+// LEGACY: Hardcoded data (fallback pro development)
+const ALL_ITINERARIES_LEGACY = [
   {
     id: 'salzburg',
     title: 'Víkendový pobyt v Salzburgu – Mozart město za 2 dny',
@@ -227,12 +228,181 @@ const GuideCard = ({ guide, onCardClick }) => {
   );
 };
 
-GuideCard.displayName = 'GuideCard';
+// ✅ React.memo() pro optimalizaci - zabrání re-renderu cards, které se nezměnily (React 19 best practice)
+const MemoizedGuideCard = memo(GuideCard);
+MemoizedGuideCard.displayName = 'GuideCard';
+
+/**
+ * Helper: Parsuje duration string na počet dní
+ * "2 dny" → 2, "7 dní" → 7, "20 dní" → 20, "Neuvedeno" → 0
+ */
+const parseDurationToDays = (duration) => {
+  if (!duration || duration === 'Neuvedeno') return 0;
+  const match = duration.match(/(\d+)/);
+  return match ? parseInt(match[1], 10) : 0;
+};
+
+/**
+ * Cache pro normalized strings (performance optimization)
+ * Best practice 2026: Prevence zbytečných NFD normalizací
+ * Zdroj: ClarityDev, Listiak.dev, MDN
+ */
+const diacriticsCache = new Map();
+
+/**
+ * Helper: Odstraní diakritiku (háčky, čárky) z textu pro diacritics-insensitive search
+ * Funguje obousměrně - "Pariz" najde "Paříž" i "Paříž" najde "Paříž"
+ * Best practice 2026: NFD normalization + regex s cache (MDN, Unicode standard)
+ *
+ * @param {string} str - Text k normalizaci
+ * @returns {string} - Text bez diakritiky
+ *
+ * @example
+ * removeDiacritics("Paříž") → "Pariz"
+ * removeDiacritics("český") → "cesky"
+ * removeDiacritics("průvodce") → "pruvodce"
+ * removeDiacritics("Salcburk") → "Salcburk" (již bez diakritiky)
+ */
+const removeDiacritics = (str) => {
+  if (!str) return '';
+
+  // ✅ Check cache first (performance optimization)
+  if (diacriticsCache.has(str)) {
+    return diacriticsCache.get(str);
+  }
+
+  // ✅ NFD normalization + regex (best practice 2026)
+  const normalized = str
+    .normalize('NFD')                    // Rozloží znaky na base + diacritics (ř → r + háček)
+    .replace(/[\u0300-\u036f]/g, '');   // Odstraní kombinující diakritické znaky (U+0300-U+036F)
+
+  // ✅ Store in cache for future lookups
+  diacriticsCache.set(str, normalized);
+
+  return normalized;
+};
+
+/**
+ * Mapuje produkt z databáze na formát pro GuideCard
+ */
+const mapProductToGuide = (product) => {
+  return {
+    id: product.id,
+    title: product.title,
+    description: product.description,
+    price: product.price === 0 ? 'Zdarma' : `${product.price} Kč`,
+    priceNumeric: product.price || 0, // Pro sorting
+    duration: product.duration || 'Neuvedeno',
+    rating: product.average_rating || 5.0,
+    image: product.image_url || `${BASE_PATH}/images/placeholder-guide.jpg`,
+    alt: `Průvodce: ${product.title}`,
+    badge: product.badge || 'Průvodce',
+    category: 'Kategorie',
+    category_ids: product.category_ids || [], // UUID array kategorií
+    isFree: product.price === 0,
+    slug: product.slug,
+    reviewCount: product.review_count || 0,
+    total_sales: product.total_sales || 0, // Pro sorting podle prodejnosti
+    created_at: product.created_at // Pro sorting podle nejnovějších
+  };
+};
+
+// Constants for filtering (outside component to prevent recreation on every render)
+// camelCase per Airbnb Style Guide 2025: module-scoped constants use camelCase, not UPPER_CASE
+const priceRanges = [
+  { id: '0-400', label: 'Do 400 Kč', min: 0, max: 400 },
+  { id: '400-600', label: '400-600 Kč', min: 400, max: 600 },
+  { id: '600-800', label: '600-800 Kč', min: 600, max: 800 },
+  { id: '800+', label: 'Nad 800 Kč', min: 800, max: Infinity }
+];
+
+const durationRanges = [
+  { id: 'weekend', label: 'Víkend (1-3 dny)', minDays: 1, maxDays: 3 },
+  { id: 'week', label: 'Týden (4-10 dní)', minDays: 4, maxDays: 10 },
+  { id: 'longterm', label: 'Dlouhodobé (11+ dní)', minDays: 11, maxDays: Infinity }
+];
+
+const ratingRanges = [
+  { id: '5', label: '5 hvězdiček', minRating: 5.0, exact: true },
+  { id: '4.5+', label: '4.5+ hvězdiček', minRating: 4.5 },
+  { id: '4+', label: '4+ hvězdiček', minRating: 4.0 },
+  { id: '3.5+', label: '3.5+ hvězdiček', minRating: 3.5 }
+];
 
 const TravelGuides = () => {
+  // State pro produkty a UI
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // State pro filtry a sorting
   const [activeSortOption, setActiveSortOption] = useState('Nejprodávanější');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [selectedPriceRanges, setSelectedPriceRanges] = useState([]);
+  const [selectedDurationRanges, setSelectedDurationRanges] = useState([]);
+  const [selectedRatingRanges, setSelectedRatingRanges] = useState([]);
+
+  // ✅ React 19: Search state s useDeferredValue (best practice 2026)
+  const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearchQuery = useDeferredValue(searchQuery, '');
+
   const navigate = useNavigate();
+
+  // Fetch produktů ze Supabase
+  useEffect(() => {
+    async function fetchProducts() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const { data, error: fetchError } = await supabase
+          .from('products')
+          .select('*')
+          .eq('is_active', true)
+          .eq('is_deleted', false)
+          .order('created_at', { ascending: false });
+
+        if (fetchError) {
+          throw fetchError;
+        }
+
+        // Mapuj data z DB na formát pro GuideCard
+        const mappedProducts = data.map(mapProductToGuide);
+        setProducts(mappedProducts);
+      } catch (err) {
+        console.error('Error fetching products:', err);
+        setError(err.message || 'Nepodařilo se načíst produkty');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchProducts();
+  }, []);
+
+  // Fetch kategorií ze Supabase
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('categories')
+          .select('id, name, slug')
+          .order('name');
+
+        if (fetchError) {
+          throw fetchError;
+        }
+
+        setCategories(data || []);
+      } catch (err) {
+        console.error('Error fetching categories:', err);
+      }
+    }
+
+    fetchCategories();
+  }, []);
 
   const sortOptions = [
     'Nejprodávanější',
@@ -244,24 +414,257 @@ const TravelGuides = () => {
 
   const handleSortChange = useCallback((e) => {
     setActiveSortOption(e.target.value);
-    // Zde bude později sorting logika
-    console.log('Sorting by:', e.target.value);
   }, []);
 
   const handleCardClick = useCallback((guide) => {
-    // Navigace na detail stránku podle ID průvodce
-    if (guide.id === 'salzburg') {
-      navigate(ROUTES.SALZBURG_ITINERARY);
-      window.scrollTo(0, 0);
-    } else if (guide.id === 0) {
-      navigate(ROUTES.CUSTOM_ITINERARY_DETAIL);
-      window.scrollTo(0, 0);
-    } else if (guide.id === 1) {
-      navigate(ROUTES.ITALY_ROADTRIP_DETAIL);
+    // Dynamická navigace na detail produktu podle slug
+    if (guide.slug) {
+      navigate(`/cestovni-pruvodci/${guide.slug}`);
       window.scrollTo(0, 0);
     }
-    // Pro budoucí průvodce zde bude obecná logika
   }, [navigate]);
+
+  // Spočítej produkty pro každou kategorii (useMemo pro cached computed value)
+  const categoriesWithCount = useMemo(() => {
+    return categories.map(category => {
+      const count = products.filter(product =>
+        product.category_ids && product.category_ids.includes(category.id)
+      ).length;
+
+      return {
+        id: category.id,
+        label: category.name,
+        slug: category.slug,
+        count: count
+      };
+    }).filter(cat => cat.count > 0); // Zobraz jen kategorie s produkty
+  }, [categories, products]);
+
+  // Handler pro zaškrtnutí/odškrtnutí kategorie
+  const handleCategoryToggle = useCallback((categoryId) => {
+    setSelectedCategories(prev => {
+      if (prev.includes(categoryId)) {
+        // Odškrtni - odstraň z pole
+        return prev.filter(id => id !== categoryId);
+      } else {
+        // Zaškrtni - přidej do pole
+        return [...prev, categoryId];
+      }
+    });
+  }, []);
+
+  // Spočítej produkty pro každý price range (useMemo pro cached computed value)
+  const priceRangesWithCount = useMemo(() => {
+    return priceRanges.map(range => {
+      const count = products.filter(product => {
+        const price = product.priceNumeric || 0;
+        return price >= range.min && price < range.max;
+      }).length;
+
+      return {
+        ...range,
+        count: count
+      };
+    }).filter(range => range.count > 0); // Zobraz jen ranges s produkty (best practice 2026)
+  }, [products]);
+
+  // Handler pro zaškrtnutí/odškrtnutí price range
+  const handlePriceRangeToggle = useCallback((rangeId) => {
+    setSelectedPriceRanges(prev => {
+      if (prev.includes(rangeId)) {
+        return prev.filter(id => id !== rangeId);
+      } else {
+        return [...prev, rangeId];
+      }
+    });
+  }, []);
+
+  // Spočítej produkty pro každý duration range (useMemo pro cached computed value)
+  const durationRangesWithCount = useMemo(() => {
+    return durationRanges.map(range => {
+      const count = products.filter(product => {
+        const days = parseDurationToDays(product.duration);
+        return days >= range.minDays && days <= range.maxDays;
+      }).length;
+
+      return {
+        ...range,
+        count: count
+      };
+    }).filter(range => range.count > 0); // Zobraz jen ranges s produkty
+  }, [products]);
+
+  // Handler pro zaškrtnutí/odškrtnutí duration range
+  const handleDurationRangeToggle = useCallback((rangeId) => {
+    setSelectedDurationRanges(prev => {
+      if (prev.includes(rangeId)) {
+        return prev.filter(id => id !== rangeId);
+      } else {
+        return [...prev, rangeId];
+      }
+    });
+  }, []);
+
+  // Spočítej produkty pro každý rating range (useMemo pro cached computed value)
+  const ratingRangesWithCount = useMemo(() => {
+    return ratingRanges.map(range => {
+      const count = products.filter(product => {
+        const rating = product.rating || 0;
+        if (range.exact) {
+          return rating === range.minRating; // Exact match pro "5 hvězdiček"
+        } else {
+          return rating >= range.minRating; // Range match pro "4.5+" atd.
+        }
+      }).length;
+
+      return {
+        ...range,
+        count: count
+      };
+    }).filter(range => range.count > 0); // Zobraz jen ranges s produkty
+  }, [products]);
+
+  // Handler pro zaškrtnutí/odškrtnutí rating range
+  const handleRatingRangeToggle = useCallback((rangeId) => {
+    setSelectedRatingRanges(prev => {
+      if (prev.includes(rangeId)) {
+        return prev.filter(id => id !== rangeId);
+      } else {
+        return [...prev, rangeId];
+      }
+    });
+  }, []);
+
+  // ✅ React 19: Handler pro search input (best practice 2026)
+  const handleSearchChange = useCallback((e) => {
+    setSearchQuery(e.target.value);
+  }, []);
+
+  // ✅ Handler pro vymazání search query (UX best practice 2026)
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+  }, []);
+
+  // ✅ Handler pro vymazání všech checkbox filtrů (best practice 2026)
+  const handleClearFilters = useCallback(() => {
+    setSelectedCategories([]);
+    setSelectedPriceRanges([]);
+    setSelectedDurationRanges([]);
+    setSelectedRatingRanges([]);
+  }, []);
+
+  // ✅ Computed value: jsou nějaké checkbox filtry aktivní? (UX best practice)
+  const hasActiveFilters = useMemo(() => {
+    return selectedCategories.length > 0 ||
+           selectedPriceRanges.length > 0 ||
+           selectedDurationRanges.length > 0 ||
+           selectedRatingRanges.length > 0;
+  }, [selectedCategories, selectedPriceRanges, selectedDurationRanges, selectedRatingRanges]);
+
+  // Filtrované a seřazené produkty podle vybraných kategorií, ceny, délky a sorting option
+  const getSortedAndFilteredProducts = useMemo(() => {
+    let filtered = products;
+
+    // ✅ KROK 0: Search (React 19 + diacritics-insensitive best practice 2026)
+    // Normalizujeme query i data → "Pariz" najde "Paříž" i "Paříž" najde "Paříž"
+    if (deferredSearchQuery.trim()) {
+      const query = removeDiacritics(deferredSearchQuery.toLowerCase());
+      filtered = filtered.filter(product => {
+        // Prohledávej title (bez diakritiky)
+        const matchesTitle = removeDiacritics(product.title?.toLowerCase() || '').includes(query);
+
+        // Prohledávej description (bez diakritiky)
+        const matchesDescription = removeDiacritics(product.description?.toLowerCase() || '').includes(query);
+
+        // Prohledávej kategorie (bez diakritiky - user friendly feature)
+        const matchesCategory = product.category_ids?.some(catId => {
+          const category = categories.find(c => c.id === catId);
+          return removeDiacritics(category?.name?.toLowerCase() || '').includes(query);
+        });
+
+        return matchesTitle || matchesDescription || matchesCategory;
+      });
+    }
+
+    // 1. Filtrování podle kategorií
+    if (selectedCategories.length > 0) {
+      filtered = filtered.filter(product =>
+        product.category_ids &&
+        product.category_ids.some(catId => selectedCategories.includes(catId))
+      );
+    }
+
+    // 2. Filtrování podle price ranges (best practice 2026)
+    if (selectedPriceRanges.length > 0) {
+      filtered = filtered.filter(product => {
+        const price = product.priceNumeric || 0;
+        return selectedPriceRanges.some(rangeId => {
+          const range = priceRanges.find(r => r.id === rangeId);
+          if (!range) return false;
+          return price >= range.min && price < range.max;
+        });
+      });
+    }
+
+    // 3. Filtrování podle duration ranges
+    if (selectedDurationRanges.length > 0) {
+      filtered = filtered.filter(product => {
+        const days = parseDurationToDays(product.duration);
+        return selectedDurationRanges.some(rangeId => {
+          const range = durationRanges.find(r => r.id === rangeId);
+          if (!range) return false;
+          return days >= range.minDays && days <= range.maxDays;
+        });
+      });
+    }
+
+    // 4. Filtrování podle rating ranges
+    if (selectedRatingRanges.length > 0) {
+      filtered = filtered.filter(product => {
+        const rating = product.rating || 0;
+        return selectedRatingRanges.some(rangeId => {
+          const range = ratingRanges.find(r => r.id === rangeId);
+          if (!range) return false;
+          if (range.exact) {
+            return rating === range.minRating; // Exact match pro "5 hvězdiček"
+          } else {
+            return rating >= range.minRating; // Range match pro "4.5+" atd.
+          }
+        });
+      });
+    }
+
+    // 5. Řazení podle vybrané option
+    const sorted = [...filtered].sort((a, b) => {
+      switch (activeSortOption) {
+        case 'Nejprodávanější':
+          // Seřaď podle total_sales (nejvíce prodaných první)
+          return (b.total_sales || 0) - (a.total_sales || 0);
+
+        case 'Nejdražší':
+          // Seřaď podle ceny (nejvyšší první)
+          return (b.priceNumeric || 0) - (a.priceNumeric || 0);
+
+        case 'Nejlevnější':
+          // Seřaď podle ceny (nejnižší první)
+          return (a.priceNumeric || 0) - (b.priceNumeric || 0);
+
+        case 'Dle hodnocení':
+          // Seřaď podle hodnocení (nejvyšší první)
+          return (b.rating || 0) - (a.rating || 0);
+
+        case 'Nejnovější':
+          // Seřaď podle created_at (nejnovější první) - ISO string comparison
+          return (b.created_at || '').localeCompare(a.created_at || '');
+
+        default:
+          // Výchozí: podle prodejnosti
+          return (b.total_sales || 0) - (a.total_sales || 0);
+      }
+    });
+
+    return sorted;
+  }, [products, deferredSearchQuery, categories, selectedCategories, selectedPriceRanges, selectedDurationRanges, selectedRatingRanges, activeSortOption]);
 
   return (
     <Layout>
@@ -287,16 +690,36 @@ const TravelGuides = () => {
               
               {/* Search Bar - left side */}
               <div className="relative w-full lg:max-w-md">
+                {/* Search icon - left */}
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
+
+                {/* Search input */}
                 <input
                   type="text"
                   placeholder="Hledat průvodce..."
-                  className="input-base w-full pl-12 py-3 text-base"
+                  className="input-base w-full pl-12 pr-10 py-3 text-base"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  aria-label="Vyhledávání průvodců"
                 />
+
+                {/* Clear button - right (show only when has value) */}
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={handleClearSearch}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label="Vymazat vyhledávání"
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
               </div>
 
               {/* Filter Toggle - right side */}
@@ -346,16 +769,15 @@ const TravelGuides = () => {
                   <div>
                     <h4 className="font-medium text-black mb-3">Typ zážitku</h4>
                     <div className="space-y-2">
-                      {[
-                        { label: 'Roadtrip', count: 1 },
-                        { label: 'Městský', count: 2 },
-                        { label: 'Dobrodružný', count: 2 },
-                        { label: 'Gastro', count: 1 },
-                        { label: 'Backpacking', count: 1 }
-                      ].map(type => (
-                        <label key={type.label} className="flex items-center justify-between text-sm cursor-pointer hover:text-green-800 transition-colors">
+                      {categoriesWithCount.map(type => (
+                        <label key={type.id} className="flex items-center justify-between text-sm cursor-pointer hover:text-green-800 transition-colors">
                           <div className="flex items-center gap-2">
-                            <input type="checkbox" className="rounded text-green-600 focus:ring-green-500" />
+                            <input
+                              type="checkbox"
+                              className="rounded text-green-600 focus:ring-green-500"
+                              checked={selectedCategories.includes(type.id)}
+                              onChange={() => handleCategoryToggle(type.id)}
+                            />
                             <span>{type.label}</span>
                           </div>
                           <span className="text-gray-500">({type.count})</span>
@@ -368,18 +790,18 @@ const TravelGuides = () => {
                   <div>
                     <h4 className="font-medium text-black mb-3">Cena</h4>
                     <div className="space-y-2">
-                      {[
-                        { label: 'Do 400 Kč', count: 2 },
-                        { label: '400-600 Kč', count: 2 },
-                        { label: '600-800 Kč', count: 1 },
-                        { label: 'Nad 800 Kč', count: 1 }
-                      ].map(price => (
-                        <label key={price.label} className="flex items-center justify-between text-sm cursor-pointer hover:text-green-800 transition-colors">
+                      {priceRangesWithCount.map(range => (
+                        <label key={range.id} className="flex items-center justify-between text-sm cursor-pointer hover:text-green-800 transition-colors">
                           <div className="flex items-center gap-2">
-                            <input type="checkbox" className="rounded text-green-600 focus:ring-green-500" />
-                            <span>{price.label}</span>
+                            <input
+                              type="checkbox"
+                              className="rounded text-green-600 focus:ring-green-500"
+                              checked={selectedPriceRanges.includes(range.id)}
+                              onChange={() => handlePriceRangeToggle(range.id)}
+                            />
+                            <span>{range.label}</span>
                           </div>
-                          <span className="text-gray-500">({price.count})</span>
+                          <span className="text-gray-500">({range.count})</span>
                         </label>
                       ))}
                     </div>
@@ -389,17 +811,18 @@ const TravelGuides = () => {
                   <div>
                     <h4 className="font-medium text-black mb-3">Délka</h4>
                     <div className="space-y-2">
-                      {[
-                        { label: 'Víkend (1-3 dny)', count: 2 },
-                        { label: 'Týden (4-10 dní)', count: 3 },
-                        { label: 'Dlouhodobé (11+ dní)', count: 1 }
-                      ].map(duration => (
-                        <label key={duration.label} className="flex items-center justify-between text-sm cursor-pointer hover:text-green-800 transition-colors">
+                      {durationRangesWithCount.map(range => (
+                        <label key={range.id} className="flex items-center justify-between text-sm cursor-pointer hover:text-green-800 transition-colors">
                           <div className="flex items-center gap-2">
-                            <input type="checkbox" className="rounded text-green-600 focus:ring-green-500" />
-                            <span>{duration.label}</span>
+                            <input
+                              type="checkbox"
+                              className="rounded text-green-600 focus:ring-green-500"
+                              checked={selectedDurationRanges.includes(range.id)}
+                              onChange={() => handleDurationRangeToggle(range.id)}
+                            />
+                            <span>{range.label}</span>
                           </div>
-                          <span className="text-gray-500">({duration.count})</span>
+                          <span className="text-gray-500">({range.count})</span>
                         </label>
                       ))}
                     </div>
@@ -409,16 +832,18 @@ const TravelGuides = () => {
                   <div>
                     <h4 className="font-medium text-black mb-3">Hodnocení</h4>
                     <div className="space-y-2">
-                      {[
-                        { label: '5 hvězdiček', count: 0 },
-                        { label: '4.5+ hvězdiček', count: 6 }
-                      ].map(rating => (
-                        <label key={rating.label} className="flex items-center justify-between text-sm cursor-pointer hover:text-green-800 transition-colors">
+                      {ratingRangesWithCount.map(range => (
+                        <label key={range.id} className="flex items-center justify-between text-sm cursor-pointer hover:text-green-800 transition-colors">
                           <div className="flex items-center gap-2">
-                            <input type="checkbox" className="rounded text-green-600 focus:ring-green-500" />
-                            <span>{rating.label}</span>
+                            <input
+                              type="checkbox"
+                              className="rounded text-green-600 focus:ring-green-500"
+                              checked={selectedRatingRanges.includes(range.id)}
+                              onChange={() => handleRatingRangeToggle(range.id)}
+                            />
+                            <span>{range.label}</span>
                           </div>
-                          <span className="text-gray-500">({rating.count})</span>
+                          <span className="text-gray-500">({range.count})</span>
                         </label>
                       ))}
                     </div>
@@ -427,7 +852,14 @@ const TravelGuides = () => {
                 
                 {/* Clear filters */}
                 <div className="flex justify-center pt-4 border-t border-gray-200">
-                  <Button variant="secondary" size="sm" className="hover:text-green-800">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="hover:text-green-800"
+                    onClick={handleClearFilters}
+                    disabled={!hasActiveFilters}
+                    aria-label="Vymazat všechny filtry"
+                  >
                     Vymazat filtry
                   </Button>
                 </div>
@@ -436,15 +868,48 @@ const TravelGuides = () => {
         </div>
 
         {/* Guides Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {ALL_ITINERARIES.map((guide) => (
-            <GuideCard 
-              key={guide.id} 
-              guide={guide} 
-              onCardClick={handleCardClick}
-            />
-          ))}
-        </div>
+        {loading ? (
+          // Loading State
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-800"></div>
+            <p className="mt-4 text-gray-600">Načítám průvodce...</p>
+          </div>
+        ) : error ? (
+          // Error State
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="text-6xl mb-4">⚠️</div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">Něco se pokazilo</h3>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <Button
+              variant="green"
+              onClick={() => window.location.reload()}
+            >
+              Zkusit znovu
+            </Button>
+          </div>
+        ) : getSortedAndFilteredProducts.length === 0 ? (
+          // Empty State
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="text-6xl mb-4">🗺️</div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">
+              {products.length === 0 ? 'Zatím tu nejsou žádné průvodce' : 'Žádné průvodce neodpovídají zvoleným filtrům'}
+            </h3>
+            <p className="text-gray-600">
+              {products.length === 0 ? 'Brzy přidáme nové destinace!' : 'Zkuste změnit vybrané kategorie'}
+            </p>
+          </div>
+        ) : (
+          // Products Grid
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {getSortedAndFilteredProducts.map((guide) => (
+              <MemoizedGuideCard
+                key={guide.id}
+                guide={guide}
+                onCardClick={handleCardClick}
+              />
+            ))}
+          </div>
+        )}
       </main>
 
     </Layout>

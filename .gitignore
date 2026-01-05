@@ -27,6 +27,7 @@ supabase/.env
 supabase/config.toml
 .supabase/
 supabase/.temp/
+supabase/.branches/
 supabase/temp/
 *_backup.sql
 schema_dump.sql

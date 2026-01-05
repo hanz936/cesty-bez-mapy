@@ -1,77 +1,125 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui';
-import { BASE_PATH, ROUTES } from '../constants';
+import { BASE_PATH, ROUTES, SEASONS } from '../constants';
+import { supabase } from '../lib/supabase';
 
 // Custom hook for cross-device scroll lock
 const useScrollLock = (isLocked) => {
   useEffect(() => {
     if (!isLocked) return;
-    
+
     const scrollY = window.scrollY;
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    
+
     // CSS solution for desktop and Android
     document.body.style.overflow = 'hidden';
     document.body.style.position = 'fixed';
     document.body.style.top = `-${scrollY}px`;
     document.body.style.width = '100%';
-    
+
     // iOS Safari fix - prevent touch events
     const preventTouch = (e) => {
       e.preventDefault();
     };
-    
+
     if (isIOS) {
       document.addEventListener('touchmove', preventTouch, { passive: false });
     }
-    
+
     // Cleanup function
     return () => {
       document.body.style.overflow = '';
       document.body.style.position = '';
       document.body.style.top = '';
       document.body.style.width = '';
-      
+
       if (isIOS) {
         document.removeEventListener('touchmove', preventTouch);
       }
-      
+
       window.scrollTo(0, scrollY);
     };
   }, [isLocked]);
 };
 
-const GALLERY_IMAGES = [
-  {
-    src: `${BASE_PATH}/images/italy-roadmap-slide-1.png`,
-    alt: 'Benátky - pohled z gondly na Benátky'
-  },
-  {
-    src: `${BASE_PATH}/images/italy-roadmap-slide-2.png`, 
-    alt: 'Řím - Fontána di Trevi'
-  },
-  {
-    src: `${BASE_PATH}/images/italy-roadmap-slide-3.png`,
-    alt: 'Florencie - katedrála Santa Maria del Fiore (Il Duomo)'
-  }
-];
-
-
-const ItalyRoadtripDetail = () => {
+const ProductDetail = () => {
+  const { slug } = useParams();
+  const navigate = useNavigate();
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [modalCurrentImageIndex, setModalCurrentImageIndex] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const galleryRef = useRef(null);
   const modalTouchStartX = useRef(0);
   const modalTouchEndX = useRef(0);
-  const modalGalleryRef = useRef(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const navigate = useNavigate();
   const previousFocusRef = useRef(null);
 
   // Use custom scroll lock hook
   useScrollLock(isModalOpen);
+
+  // Fetch product data from Supabase
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchProduct() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const { data, error: fetchError } = await supabase
+          .from('products')
+          .select(`
+            id, title, description, price, slug, image_url,
+            detail_title, hero_subtitle,
+            hero_line_1, hero_line_2, hero_line_3, hero_line_4,
+            budget_level,
+            spring_description, summer_description, autumn_description, winter_description,
+            gallery_images
+          `)
+          .eq('slug', slug)
+          .eq('is_active', true)
+          .eq('is_deleted', false)
+          .single();
+
+        if (!isMounted) return;
+
+        if (fetchError) {
+          if (fetchError.code === 'PGRST116') {
+            // No rows returned
+            setError('Produkt nebyl nalezen');
+          } else {
+            throw fetchError;
+          }
+          return;
+        }
+
+        setProduct(data);
+      } catch (err) {
+        if (!isMounted) return;
+        console.error('Error fetching product:', err);
+        setError(err.message || 'Nepodařilo se načíst produkt');
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    if (slug) {
+      fetchProduct();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [slug]);
+
+  // Automatically scroll to top when page loads
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const handleImageError = useCallback((e) => {
     // Fallback to a placeholder or hide the broken image
@@ -102,39 +150,39 @@ const ItalyRoadtripDetail = () => {
 
   // Simple modal navigation functions
   const scrollModalPrev = useCallback(() => {
-    setModalCurrentImageIndex(prev => prev === 0 ? GALLERY_IMAGES.length - 1 : prev - 1);
-  }, []);
+    const galleryLength = product?.gallery_images?.length || 1;
+    setModalCurrentImageIndex(prev => prev === 0 ? galleryLength - 1 : prev - 1);
+  }, [product]);
 
   const scrollModalNext = useCallback(() => {
-    setModalCurrentImageIndex(prev => prev === GALLERY_IMAGES.length - 1 ? 0 : prev + 1);
-  }, []);
+    const galleryLength = product?.gallery_images?.length || 1;
+    setModalCurrentImageIndex(prev => prev === galleryLength - 1 ? 0 : prev + 1);
+  }, [product]);
 
   const scrollModalToImage = useCallback((index) => {
     setModalCurrentImageIndex(index);
   }, []);
 
-
   // Track scroll position to update active dot
   useEffect(() => {
     const gallery = galleryRef.current;
-    if (!gallery) return;
+    if (!gallery || !product) return;
 
     const handleScroll = () => {
       const scrollLeft = gallery.scrollLeft;
       const itemWidth = gallery.clientWidth;
       const newIndex = Math.round(scrollLeft / itemWidth);
-      const clampedIndex = Math.max(0, Math.min(newIndex, GALLERY_IMAGES.length - 1));
-      
-      
+      const galleryLength = product?.gallery_images?.length || 1;
+      const clampedIndex = Math.max(0, Math.min(newIndex, galleryLength - 1));
       setCurrentImageIndex(clampedIndex);
     };
 
-    // Přidáme i scrollend event pro lepší detekci
     const handleScrollEnd = () => {
       const scrollLeft = gallery.scrollLeft;
       const itemWidth = gallery.clientWidth;
       const newIndex = Math.round(scrollLeft / itemWidth);
-      const clampedIndex = Math.max(0, Math.min(newIndex, GALLERY_IMAGES.length - 1));
+      const galleryLength = product?.gallery_images?.length || 1;
+      const clampedIndex = Math.max(0, Math.min(newIndex, galleryLength - 1));
       setCurrentImageIndex(clampedIndex);
     };
 
@@ -144,43 +192,14 @@ const ItalyRoadtripDetail = () => {
       gallery.removeEventListener('scroll', handleScroll);
       gallery.removeEventListener('scrollend', handleScrollEnd);
     };
-  }, []);
-
-  // Track modal gallery scroll position
-  useEffect(() => {
-    if (!isModalOpen || !modalGalleryRef.current) return;
-    
-    const modalGallery = modalGalleryRef.current;
-
-    const handleModalScroll = () => {
-      const scrollLeft = modalGallery.scrollLeft;
-      const itemWidth = modalGallery.clientWidth;
-      const newIndex = Math.round(scrollLeft / itemWidth);
-      const clampedIndex = Math.max(0, Math.min(newIndex, GALLERY_IMAGES.length - 1));
-      setModalCurrentImageIndex(clampedIndex);
-    };
-
-    const handleModalScrollEnd = () => {
-      const scrollLeft = modalGallery.scrollLeft;
-      const itemWidth = modalGallery.clientWidth;
-      const newIndex = Math.round(scrollLeft / itemWidth);
-      const clampedIndex = Math.max(0, Math.min(newIndex, GALLERY_IMAGES.length - 1));
-      setModalCurrentImageIndex(clampedIndex);
-    };
-
-    modalGallery.addEventListener('scroll', handleModalScroll);
-    modalGallery.addEventListener('scrollend', handleModalScrollEnd);
-    return () => {
-      modalGallery.removeEventListener('scroll', handleModalScroll);
-      modalGallery.removeEventListener('scrollend', handleModalScrollEnd);
-    };
-  }, [isModalOpen]);
-
-
+  }, [product]);
 
   const handlePurchase = useCallback(() => {
-    alert('Přesměrování na platební bránu 💳');
-  }, []);
+    if (product) {
+      alert('Přesměrování na platební bránu 💳');
+      // TODO: Navigate to checkout with product
+    }
+  }, [product]);
 
   const handleBackToGuides = useCallback(() => {
     navigate(ROUTES.TRAVEL_GUIDES);
@@ -199,8 +218,6 @@ const ItalyRoadtripDetail = () => {
       previousFocusRef.current.focus();
     }
   }, []);
-
-
 
   // Modal keyboard and cleanup effects
   useEffect(() => {
@@ -238,19 +255,78 @@ const ItalyRoadtripDetail = () => {
     };
 
     document.addEventListener('keydown', handleKeyDown);
-    
+
+    // Hide background content from screen readers (WCAG 2.2 best practice)
+    const mainContent = document.querySelector('main');
+    if (mainContent) {
+      mainContent.setAttribute('aria-hidden', 'true');
+    }
+
     // Cleanup on unmount
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      // Restore background content visibility
+      if (mainContent) {
+        mainContent.removeAttribute('aria-hidden');
+      }
       // Modern cleanup
       document.documentElement.classList.remove('modal-open');
     };
   }, [isModalOpen, closeModal, scrollModalPrev, scrollModalNext]);
 
-  // Automatické posčrollování na vrchol při načtení stránky
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+  // Loading state
+  if (loading) {
+    return (
+      <Layout>
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-700 mb-4"></div>
+            <p className="text-gray-600">Načítám produkt...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Error state
+  if (error || !product) {
+    return (
+      <Layout>
+        <div className="min-h-screen bg-white flex items-center justify-center px-4">
+          <div className="max-w-md text-center">
+            <div className="mb-6">
+              <span className="text-6xl">😔</span>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+              {error || 'Produkt nebyl nalezen'}
+            </h1>
+            <p className="text-gray-600 mb-6">
+              Omlouváme se, ale požadovaný cestovní průvodce nebyl nalezen.
+            </p>
+            <Button
+              onClick={handleBackToGuides}
+              variant="green"
+              size="lg"
+            >
+              Zpět na průvodce
+            </Button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Prepare gallery images - use gallery_images if available, otherwise fallback to single image_url
+  const galleryImages = product.gallery_images && product.gallery_images.length > 0
+    ? product.gallery_images
+    : [{
+        src: product.image_url || `${BASE_PATH}/images/placeholder-guide.jpg`,
+        alt: `Průvodce: ${product.title}`
+      }];
+
+  // Format price
+  const formattedPrice = product.price === 0 ? 'Zdarma' : `${product.price} Kč`;
+  const isFree = product.price === 0;
 
   return (
     <Layout>
@@ -260,7 +336,7 @@ const ItalyRoadtripDetail = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Breadcrumb */}
             <nav className="mb-8">
-              <button 
+              <button
                 onClick={handleBackToGuides}
                 className="flex items-center text-sm sm:text-base text-gray-600 hover:text-green-700 transition-colors group"
               >
@@ -274,7 +350,7 @@ const ItalyRoadtripDetail = () => {
             {/* Title Section */}
             <div className="text-center mb-6 pb-5 border-b border-gray-200">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-black leading-tight">
-                Roadtrip po Itálii na 20 dní
+                {product.detail_title}
               </h1>
             </div>
 
@@ -283,37 +359,45 @@ const ItalyRoadtripDetail = () => {
               <div className="order-2 lg:order-1 flex flex-col justify-between min-h-full">
                 <div>
                   <h2 className="text-xl sm:text-2xl text-black font-medium mb-8">
-                    Kompletně naplánovaná cesta od severu až na jih
+                    {product.hero_subtitle}
                   </h2>
-                  
-                  <div className="mb-10">
-                    <ul className="space-y-4">
-                      <li className="text-base sm:text-lg text-black leading-relaxed">
-                        <div className="font-bold mb-1 text-green-800">Chceš projet celou Itálii bez hodin strávených nad mapou a plánováním?</div>
-                      </li>
-                      <li className="text-base sm:text-lg text-black leading-relaxed">
-                        <div>Přesně pro tebe jsem připravila tento detailní itinerář – ověřený, projížděný, vyzkoušený.</div>
-                      </li>
-                      <li className="text-base sm:text-lg text-black leading-relaxed mt-8">
-                        <div className="font-bold mb-1 text-green-800">Od jezer na severu až po moře v Kalábrii.</div>
-                      </li>
-                      <li className="text-base sm:text-lg text-black leading-relaxed">
-                        <div>Navštívíš slavná místa jako Benátky, Řím, Cinque Terre, Amalfi, ale taky méně známé perly, které turisté často míjejí. A vše máš přehledně den po dni.</div>
-                      </li>
-                    </ul>
-                  </div>
+
+                  {/* Hero Content with Structured Lines */}
+                  {(product.hero_line_1 || product.hero_line_2 || product.hero_line_3 || product.hero_line_4) && (
+                    <div className="mb-10">
+                      <ul className="space-y-4">
+                        {product.hero_line_1 && (
+                          <li className="text-base sm:text-lg text-black leading-relaxed">
+                            <div className="font-bold mb-1 text-green-800">{product.hero_line_1}</div>
+                          </li>
+                        )}
+                        {product.hero_line_2 && (
+                          <li className="text-base sm:text-lg text-black leading-relaxed">
+                            <div>{product.hero_line_2}</div>
+                          </li>
+                        )}
+                        {product.hero_line_3 && (
+                          <li className="text-base sm:text-lg text-black leading-relaxed mt-8">
+                            <div className="font-bold mb-1 text-green-800">{product.hero_line_3}</div>
+                          </li>
+                        )}
+                        {product.hero_line_4 && (
+                          <li className="text-base sm:text-lg text-black leading-relaxed">
+                            <div>{product.hero_line_4}</div>
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
                 </div>
 
                 {/* Premium CTA */}
                 <div className="relative mt-auto">
                   <div className="bg-gradient-to-br from-white via-green-50 to-emerald-50 rounded-3xl p-8 shadow-2xl border border-green-200/50 backdrop-blur-sm">
-                    <div className="mb-6">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-bold text-green-800">
-                          699 Kč
-                        </span>
-                      </div>
-                      <span className="text-sm text-gray-500 mt-1 block">včetně DPH</span>
+                    <div className="flex items-baseline gap-3 mb-6">
+                      <span className="text-4xl font-bold text-green-800">
+                        {formattedPrice}
+                      </span>
                     </div>
 
                     <div className="space-y-3 mb-6">
@@ -334,14 +418,14 @@ const ItalyRoadtripDetail = () => {
                         <span className="text-slate-700 font-medium">Vhodné i do mobilu/offline</span>
                       </div>
                     </div>
-                    
+
                     <Button
                       onClick={handlePurchase}
                       variant="green"
                       size="xl"
                       className="w-full"
                     >
-                      Koupit itinerář
+                      {isFree ? 'Stáhnout zdarma' : 'Koupit itinerář'}
                     </Button>
                   </div>
                 </div>
@@ -350,115 +434,118 @@ const ItalyRoadtripDetail = () => {
               {/* Right Column - Enhanced Gallery */}
               <div className="order-1 lg:order-2 mt-1">
                 <div className="relative group">
-                  <div 
+                  <div
                     className="aspect-[4/3] rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.25)] bg-gradient-to-br from-slate-50 to-slate-100"
                   >
-                    <div 
+                    <div
                       ref={galleryRef}
                       className="flex h-full overflow-x-auto snap-x snap-mandatory touch-auto scrollbar-hide"
                     >
-                      {GALLERY_IMAGES.map((image, index) => (
-                        <img 
+                      {galleryImages.map((image, index) => (
+                        <img
                           key={index}
                           src={image.src}
                           alt={image.alt}
                           className="w-full h-full object-cover select-none flex-shrink-0 snap-center cursor-pointer"
                           onError={handleImageError}
                           onClick={openModal}
-                          loading="lazy"
+                          loading={index === 0 ? "eager" : "lazy"}
                           draggable={false}
                         />
                       ))}
                     </div>
-                    
-                    {/* Desktop navigation arrows - only visible on hover */}
-                    <div className="hidden lg:block">
-                      <button
-                        onClick={scrollPrev}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-white hover:scale-110 shadow-md z-10"
-                        aria-label="Předchozí obrázek"
-                      >
-                        <svg className="w-4 h-4 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/>
-                        </svg>
-                      </button>
-                      <button
-                        onClick={scrollNext}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-white hover:scale-110 shadow-md z-10"
-                        aria-label="Následující obrázek"
-                      >
-                        <svg className="w-4 h-4 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-                        </svg>
-                      </button>
-                    </div>
-                    
-                    {/* Interactive dots indicator */}
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                      {GALLERY_IMAGES.map((_, index) => (
+
+                    {/* Desktop navigation arrows - only visible on hover and if multiple images */}
+                    {galleryImages.length > 1 && (
+                      <div className="hidden lg:block">
                         <button
-                          key={index}
-                          onClick={(e) => { 
-                            e.stopPropagation(); 
-                            scrollToImage(index); 
-                          }}
-                          className={`w-2 h-2 rounded-full transition-all duration-300 cursor-pointer hover:scale-125 ${
-                            index === currentImageIndex 
-                              ? 'bg-white shadow-md' 
-                              : 'bg-white/40 hover:bg-white/70'
-                          }`}
-                          aria-label={`Přejít na obrázek ${index + 1}`}
-                        />
-                      ))}
-                    </div>
-                    
+                          onClick={scrollPrev}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-white hover:scale-110 shadow-md z-10"
+                          aria-label="Předchozí obrázek"
+                        >
+                          <svg className="w-4 h-4 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/>
+                          </svg>
+                        </button>
+                        <button
+                          onClick={scrollNext}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-white hover:scale-110 shadow-md z-10"
+                          aria-label="Následující obrázek"
+                        >
+                          <svg className="w-4 h-4 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Interactive dots indicator - only if multiple images */}
+                    {galleryImages.length > 1 && (
+                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                        {galleryImages.map((_, index) => (
+                          <button
+                            key={index}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              scrollToImage(index);
+                            }}
+                            className={`w-2 h-2 rounded-full transition-all duration-300 cursor-pointer hover:scale-125 ${
+                              index === currentImageIndex
+                                ? 'bg-white shadow-md'
+                                : 'bg-white/40 hover:bg-white/70'
+                            }`}
+                            aria-label={`Přejít na obrázek ${index + 1}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+
                   </div>
-                  
                 </div>
-                
+
                 {/* Budget and Season Indicators */}
-                <div className="mt-10 pl-6 border-l border-gray-200 space-y-6">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm sm:text-base text-black font-medium">Finanční náročnost:</span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-yellow-500 text-base sm:text-lg">$</span>
-                      <span className="text-yellow-500 text-base sm:text-lg">$</span>
-                      <span className="text-yellow-500 text-base sm:text-lg">$</span>
-                    </div>
+                {(product.budget_level || SEASONS.some(season => product[season.dbField])) && (
+                  <div className="mt-10 pl-6 border-l border-gray-200 space-y-6">
+                    {/* Budget Level */}
+                    {product.budget_level && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm sm:text-base text-black font-medium">Finanční náročnost:</span>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: product.budget_level }).map((_, index) => (
+                            <span key={index} className="text-yellow-500 text-base sm:text-lg">$</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Seasonal Recommendations */}
+                    {SEASONS.some(season => product[season.dbField]) && (
+                      <div>
+                        <h3 className="text-sm sm:text-base text-black font-medium mb-3">Nejlepší období pro cestu:</h3>
+                        <ul className="space-y-2 sm:space-y-3">
+                          {SEASONS.map(season => (
+                            product[season.dbField] && (
+                              <li key={season.key} className="text-sm sm:text-base text-black flex items-start gap-2">
+                                <span className="text-base sm:text-lg leading-none flex-shrink-0 mt-0.5 sm:mt-1">{season.icon}</span>
+                                <span><strong>{season.title}:</strong> {product[season.dbField]}</span>
+                              </li>
+                            )
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-                  
-                  <div>
-                    <h3 className="text-sm sm:text-base text-black font-medium mb-3">Nejlepší období pro cestu :</h3>
-                    <ul className="space-y-2 sm:space-y-3">
-                      <li className="text-sm sm:text-base text-black flex items-start gap-2">
-                        <span className="text-base sm:text-lg leading-none flex-shrink-0 mt-0.5 sm:mt-1">🌸</span>
-                        <span><strong>Jaro:</strong> Rozkvetlé Toskánsko, příjemné počasí v Římě i Cinque Terre, méně turistů.</span>
-                      </li>
-                      <li className="text-sm sm:text-base text-black flex items-start gap-2">
-                        <span className="text-base sm:text-lg leading-none flex-shrink-0 mt-0.5 sm:mt-1">☀️</span>
-                        <span><strong>Léto:</strong> Teplé moře u Amalfi a Kalábrie, živá města, ale davy a vyšší ceny.</span>
-                      </li>
-                      <li className="text-sm sm:text-base text-black flex items-start gap-2">
-                        <span className="text-base sm:text-lg leading-none flex-shrink-0 mt-0.5 sm:mt-1">🍂</span>
-                        <span><strong>Podzim:</strong> Víno v Toskánsku, klidnější památky v Římě, stále příjemné počasí na jihu.</span>
-                      </li>
-                      <li className="text-sm sm:text-base text-black flex items-start gap-2">
-                        <span className="text-base sm:text-lg leading-none flex-shrink-0 mt-0.5 sm:mt-1">❄️</span>
-                        <span><strong>Zima:</strong> Zasněžené hory, Benátky a Řím bez davů, Amalfi a jih mimo sezónu.</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
         </section>
 
-        {/* Cards Section */}
+        {/* Three Static Cards Section */}
         <section className="py-6 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-              
+
               {/* Co získáš */}
               <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border border-gray-100">
                 <h3 className="text-lg sm:text-xl font-bold text-green-800 mb-4 sm:mb-6">
@@ -540,10 +627,10 @@ const ItalyRoadtripDetail = () => {
 
         {/* Fullscreen Modal */}
         {isModalOpen && (
-          <div 
+          <div
             className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center"
-            role="dialog" 
-            aria-modal="true" 
+            role="dialog"
+            aria-modal="true"
             aria-labelledby="modal-title"
             onClick={closeModal}
           >
@@ -559,40 +646,42 @@ const ItalyRoadtripDetail = () => {
               </svg>
             </button>
 
-            {/* Modal Gallery - CSS Scroll Snap like main gallery */}
-            <div 
+            {/* Modal Gallery */}
+            <div
               className="absolute inset-0 max-w-6xl mx-auto grid grid-rows-[1fr_auto] gap-4 sm:gap-6 p-2 sm:p-4 lg:p-6"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Gallery container - Grid row 1 */}
               <div className="relative grid place-items-center group min-h-0">
-                {/* Navigation arrows - desktop only */}
-                <div className="hidden lg:block">
-                  <button
-                    onClick={scrollModalPrev}
-                    className="absolute -left-16 xl:-left-20 top-1/2 -translate-y-1/2 w-12 h-12 text-white/80 hover:text-white transition-all duration-300 flex items-center justify-center hover:scale-110 z-10"
-                    aria-label="Předchozí obrázek"
-                    style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
-                  >
-                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/>
-                    </svg>
-                  </button>
-                  <button
-                    onClick={scrollModalNext}
-                    className="absolute -right-16 xl:-right-20 top-1/2 -translate-y-1/2 w-12 h-12 text-white/80 hover:text-white transition-all duration-300 flex items-center justify-center hover:scale-110 z-10"
-                    aria-label="Následující obrázek"
-                    style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
-                  >
-                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-                    </svg>
-                  </button>
-                </div>
-                
+                {/* Navigation arrows - desktop only and if multiple images */}
+                {galleryImages.length > 1 && (
+                  <div className="hidden lg:block">
+                    <button
+                      onClick={scrollModalPrev}
+                      className="absolute -left-16 xl:-left-20 top-1/2 -translate-y-1/2 w-12 h-12 text-white/80 hover:text-white transition-all duration-300 flex items-center justify-center hover:scale-110 z-10"
+                      aria-label="Předchozí obrázek"
+                      style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
+                    >
+                      <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/>
+                      </svg>
+                    </button>
+                    <button
+                      onClick={scrollModalNext}
+                      className="absolute -right-16 xl:-right-20 top-1/2 -translate-y-1/2 w-12 h-12 text-white/80 hover:text-white transition-all duration-300 flex items-center justify-center hover:scale-110 z-10"
+                      aria-label="Následující obrázek"
+                      style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
+                    >
+                      <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                      </svg>
+                    </button>
+                  </div>
+                )}
+
                 <div className="w-full max-w-6xl max-h-[70vh] sm:max-h-[75vh] lg:max-h-[80vh] rounded-xl sm:rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative">
-                  <div 
-                    className="grid grid-cols-[repeat(3,100%)] h-full transition-transform duration-300 ease-in-out touch-auto"
+                  <div
+                    className={`grid grid-cols-[repeat(${galleryImages.length},100%)] h-full transition-transform duration-300 ease-in-out touch-auto`}
                     style={{ transform: `translateX(-${modalCurrentImageIndex * 100}%)` }}
                     onTouchStart={(e) => {
                       modalTouchStartX.current = e.touches[0].clientX;
@@ -605,15 +694,15 @@ const ItalyRoadtripDetail = () => {
                       const distance = modalTouchStartX.current - modalTouchEndX.current;
                       const isLeftSwipe = distance > 50;
                       const isRightSwipe = distance < -50;
-                      if (isLeftSwipe) scrollModalNext();
-                      if (isRightSwipe) scrollModalPrev();
+                      if (isLeftSwipe && galleryImages.length > 1) scrollModalNext();
+                      if (isRightSwipe && galleryImages.length > 1) scrollModalPrev();
                       modalTouchStartX.current = 0;
                       modalTouchEndX.current = 0;
                     }}
                   >
-                    {GALLERY_IMAGES.map((image, index) => (
+                    {galleryImages.map((image, index) => (
                       <div key={index} className="grid place-items-center p-2">
-                        <img 
+                        <img
                           src={image.src}
                           alt={image.alt}
                           className="max-w-full max-h-full object-contain select-none rounded-xl sm:rounded-2xl"
@@ -624,37 +713,41 @@ const ItalyRoadtripDetail = () => {
                       </div>
                     ))}
                   </div>
-                  
+
                 </div>
               </div>
-              
+
               {/* Image description and navigation - Grid row 2 */}
               <div className="text-center px-2 h-24 sm:h-28 lg:h-32 flex flex-col justify-center">
                 <p id="modal-title" className="text-white text-sm sm:text-base font-medium leading-relaxed max-w-2xl mx-auto">
-                  {GALLERY_IMAGES[modalCurrentImageIndex]?.alt}
+                  {galleryImages[modalCurrentImageIndex]?.alt}
                 </p>
-                <div className="text-white/60 text-xs sm:text-sm mt-2">
-                  {modalCurrentImageIndex + 1} / {GALLERY_IMAGES.length}
-                </div>
-                
-                {/* Interactive dots indicator */}
-                <div className="flex justify-center gap-2 sm:gap-1.5 mt-3 sm:mt-4">
-                  {GALLERY_IMAGES.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        scrollModalToImage(index); 
-                      }}
-                      className={`w-3 h-3 sm:w-2.5 sm:h-2.5 lg:w-2 lg:h-2 rounded-full transition-all duration-300 cursor-pointer hover:scale-125 active:scale-110 ${
-                        index === modalCurrentImageIndex 
-                          ? 'bg-white shadow-md' 
-                          : 'bg-white/40 hover:bg-white/70'
-                      }`}
-                      aria-label={`Přejít na obrázek ${index + 1}`}
-                    />
-                  ))}
-                </div>
+                {galleryImages.length > 1 && (
+                  <>
+                    <div className="text-white/60 text-xs sm:text-sm mt-2">
+                      {modalCurrentImageIndex + 1} / {galleryImages.length}
+                    </div>
+
+                    {/* Interactive dots indicator */}
+                    <div className="flex justify-center gap-2 sm:gap-1.5 mt-3 sm:mt-4">
+                      {galleryImages.map((_, index) => (
+                        <button
+                          key={index}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            scrollModalToImage(index);
+                          }}
+                          className={`w-3 h-3 sm:w-2.5 sm:h-2.5 lg:w-2 lg:h-2 rounded-full transition-all duration-300 cursor-pointer hover:scale-125 active:scale-110 ${
+                            index === modalCurrentImageIndex
+                              ? 'bg-white shadow-md'
+                              : 'bg-white/40 hover:bg-white/70'
+                          }`}
+                          aria-label={`Přejít na obrázek ${index + 1}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -665,6 +758,6 @@ const ItalyRoadtripDetail = () => {
   );
 };
 
-ItalyRoadtripDetail.displayName = 'ItalyRoadtripDetail';
+ProductDetail.displayName = 'ProductDetail';
 
-export default ItalyRoadtripDetail;
+export default ProductDetail;
