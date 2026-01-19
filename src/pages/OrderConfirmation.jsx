@@ -188,7 +188,8 @@ const OrderConfirmation = React.memo(() => {
         clearTimeout(pollingRef.current);
       }
     };
-  }, [sessionId, fetchOrder, order]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
   // Automatické scroll na vrchol
   useEffect(() => {
