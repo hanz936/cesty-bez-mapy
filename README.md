@@ -54,12 +54,24 @@ Pro práci s Supabase databází:
 ## 📱 Funkcionality
 
 - ✅ Mobile-first responsive design
-- ✅ Hamburger menu s animacemi  
+- ✅ Hamburger menu s animacemi
 - ✅ Slideshow rotace obrázků
 - ✅ SEO optimalizace
 - ✅ Accessibility (WCAG)
 - ✅ Error boundaries
 - ✅ Performance optimalizace
+- ✅ Custom itinerary requests (guest checkout)
+- ✅ Anonymous authentication support
+- ✅ PDF generation via window.print()
+
+## 📚 Dokumentace
+
+Kompletní technická dokumentace se nachází v [docs/](docs/) složce:
+
+- **[Implementation Plan](docs/CUSTOM_ITINERARY_IMPLEMENTATION.md)** - Kompletní implementační plán pro custom itinerary feature
+- **[Architecture Decisions](docs/ARCHITECTURE_DECISIONS.md)** - Záznam důležitých architektonických rozhodnutí (ADR)
+- **[ROADMAP.md](ROADMAP.md)** - Plán vývoje projektu
+- **[TECH_STACK.md](TECH_STACK.md)** - Detailní přehled použitých technologií
 
 ## 🛠️ Build
 

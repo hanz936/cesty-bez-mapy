@@ -5,7 +5,6 @@ const ReviewCard = memo(({
   rating,
   text,
   location,
-  source,
   date,
   className = ''
 }) => {
@@ -36,20 +35,6 @@ const ReviewCard = memo(({
         </div>
       );
     });
-  };
-
-  // Subtle source indicator
-  const getSourceText = (source) => {
-    switch (source) {
-      case 'google':
-        return 'Google';
-      case 'instagram':
-        return 'Instagram';
-      case 'itinerary':
-        return 'Itinerář';
-      default:
-        return 'Recenze';
-    }
   };
 
   return (

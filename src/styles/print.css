@@ -1,0 +1,32 @@
+/* ================================================
+ * Print Styles - Supplement to Tailwind CSS 4.1.11
+ * ================================================
+ * Contains only print-specific features that Tailwind cannot handle
+ * All other styling uses Tailwind's print: utilities
+ * ================================================ */
+
+@media print {
+  /* Page setup - cannot be done with Tailwind */
+  @page {
+    size: A4;
+    margin: 1.5cm 2cm;
+  }
+
+  /* Ensure colors print correctly - critical for brand colors */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Typography orphans/widows control */
+  p, div {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Headings should not break from their content */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+}

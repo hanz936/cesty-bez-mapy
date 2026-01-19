@@ -8,7 +8,7 @@
 import Stripe from "https://esm.sh/stripe@20?target=denonext";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
-  apiVersion: "2025-12-15",
+  apiVersion: "2025-12-15.clover",
 });
 
 const corsHeaders = {
@@ -23,6 +23,7 @@ interface CreateProductRequest {
   price: number; // Price in CZK (koruna)
   image_url?: string;
   product_id: string; // Database product UUID
+  stripe_product_id?: string; // Optional: existing Stripe Product ID for price updates
 }
 
 Deno.serve(async (req) => {
@@ -34,7 +35,7 @@ Deno.serve(async (req) => {
   try {
     // Parse request body
     const body: CreateProductRequest = await req.json();
-    const { title, description, price, image_url, product_id } = body;
+    const { title, description, price, image_url, product_id, stripe_product_id } = body;
 
     // Validation
     if (!title || !price || !product_id) {
@@ -49,25 +50,43 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(
-      `Creating Stripe product for: ${title} (${price} CZK) - DB ID: ${product_id}`
-    );
+    let productId: string;
 
-    // Step 1: Create Stripe Product
-    const product = await stripe.products.create({
-      name: title,
-      description: description || undefined,
-      images: image_url ? [image_url] : undefined,
-      metadata: {
-        supabase_product_id: product_id, // Link to our database
-      },
-    });
+    // If stripe_product_id exists, just create new Price for existing Product
+    if (stripe_product_id) {
+      console.log(
+        `Updating Stripe price for existing product: ${stripe_product_id} (${price} CZK)`
+      );
+      productId = stripe_product_id;
 
-    console.log(`Stripe Product created: ${product.id}`);
+      // Optionally update product details in Stripe
+      await stripe.products.update(stripe_product_id, {
+        name: title,
+        description: description || undefined,
+        images: image_url ? [image_url] : undefined,
+      });
+    } else {
+      // Create new Stripe Product
+      console.log(
+        `Creating Stripe product for: ${title} (${price} CZK) - DB ID: ${product_id}`
+      );
 
-    // Step 2: Create Stripe Price (in CZK)
+      const product = await stripe.products.create({
+        name: title,
+        description: description || undefined,
+        images: image_url ? [image_url] : undefined,
+        metadata: {
+          supabase_product_id: product_id, // Link to our database
+        },
+      });
+
+      console.log(`Stripe Product created: ${product.id}`);
+      productId = product.id;
+    }
+
+    // Create Stripe Price (in CZK)
     const stripePrice = await stripe.prices.create({
-      product: product.id,
+      product: productId,
       unit_amount: Math.round(price * 100), // Convert CZK to cents (699 -> 69900)
       currency: "czk",
       metadata: {
@@ -83,7 +102,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        stripe_product_id: product.id,
+        stripe_product_id: productId,
         stripe_price_id: stripePrice.id,
         price_amount: stripePrice.unit_amount,
         currency: stripePrice.currency,

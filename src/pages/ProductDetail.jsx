@@ -4,6 +4,7 @@ import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui';
 import { BASE_PATH, ROUTES, SEASONS } from '../constants';
 import { supabase } from '../lib/supabase';
+import { useCart } from '../contexts';
 
 // Custom hook for cross-device scroll lock
 const useScrollLock = (isLocked) => {
@@ -47,12 +48,14 @@ const useScrollLock = (isLocked) => {
 const ProductDetail = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const { addToCart, isInCart } = useCart();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [modalCurrentImageIndex, setModalCurrentImageIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [addedToCart, setAddedToCart] = useState(false);
   const galleryRef = useRef(null);
   const modalTouchStartX = useRef(0);
   const modalTouchEndX = useRef(0);
@@ -194,12 +197,25 @@ const ProductDetail = () => {
     };
   }, [product]);
 
-  const handlePurchase = useCallback(() => {
+  // Přidání produktu do košíku
+  const handleAddToCart = useCallback(() => {
     if (product) {
-      alert('Přesměrování na platební bránu 💳');
-      // TODO: Navigate to checkout with product
+      const success = addToCart(product);
+      if (success) {
+        setAddedToCart(true);
+        // Reset notifikace po 3 sekundách
+        setTimeout(() => setAddedToCart(false), 3000);
+      }
     }
-  }, [product]);
+  }, [product, addToCart]);
+
+  // Přechod na checkout (pro přímý nákup)
+  const handleBuyNow = useCallback(() => {
+    if (product) {
+      addToCart(product);
+      navigate(ROUTES.CHECKOUT);
+    }
+  }, [product, addToCart, navigate]);
 
   const handleBackToGuides = useCallback(() => {
     navigate(ROUTES.TRAVEL_GUIDES);
@@ -419,14 +435,36 @@ const ProductDetail = () => {
                       </div>
                     </div>
 
-                    <Button
-                      onClick={handlePurchase}
-                      variant="green"
-                      size="xl"
-                      className="w-full"
-                    >
-                      {isFree ? 'Stáhnout zdarma' : 'Koupit itinerář'}
-                    </Button>
+                    {/* Notifikace o přidání do košíku */}
+                    {addedToCart && (
+                      <div className="mb-4 p-3 bg-green-100 border border-green-300 rounded-lg text-green-800 text-sm font-medium flex items-center">
+                        <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Přidáno do košíku!
+                      </div>
+                    )}
+
+                    {/* Hlavní CTA tlačítko */}
+                    {isInCart(product?.id) ? (
+                      <Button
+                        onClick={handleBuyNow}
+                        variant="green"
+                        size="xl"
+                        className="w-full"
+                      >
+                        Přejít k objednávce
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleAddToCart}
+                        variant="green"
+                        size="xl"
+                        className="w-full"
+                      >
+                        {isFree ? 'Stáhnout zdarma' : 'Přidat do košíku'}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>

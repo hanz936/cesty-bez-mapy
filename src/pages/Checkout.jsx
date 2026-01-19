@@ -1,31 +1,18 @@
+// ================================================
+// Checkout Page - Stripe Checkout Flow
+// ================================================
+// Zobrazuje souhrn objednávky a redirectuje na Stripe Checkout
+// ================================================
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
-import { Button, Form, Input, TextArea, Dropdown } from '../components/ui';
+import { Button } from '../components/ui';
 import { BASE_PATH, ROUTES } from '../constants';
+import { useCart } from '../contexts';
+import { supabase } from '../lib/supabase';
 
-// Statická data košíku (mockup - stejné jako v Cart komponente)
-const MOCK_CART_ITEMS = [
-  {
-    id: 1,
-    title: 'Roadtrip po Itálii na 20 dní',
-    price: 699,
-    image: `${BASE_PATH}/images/guide-italy-roadtrip.png`,
-    alt: 'Malebná italská krajina s cestou vedoucí mezi kopci',
-    duration: '20 dní',
-    quantity: 1
-  },
-  {
-    id: 0,
-    title: 'Itinerář na míru – cesta šitá jen pro tebe',
-    price: 999,
-    image: `${BASE_PATH}/images/custom-itinerary.png`,
-    alt: 'Otevřená mapa s tužkou a poznámkami pro plánování cesty na míru',
-    duration: 'Dle potřeb',
-    quantity: 1
-  }
-];
-
+// Komponenta pro položku v checkoutu
 const CheckoutItem = React.memo(({ item }) => {
   const [imageError, setImageError] = useState(false);
 
@@ -33,13 +20,20 @@ const CheckoutItem = React.memo(({ item }) => {
     setImageError(true);
   }, []);
 
+  // Sestavení URL obrázku
+  const imageUrl = item.image?.startsWith('http')
+    ? item.image
+    : item.image
+      ? `${BASE_PATH}${item.image}`
+      : null;
+
   return (
     <div className="flex gap-4 py-4 border-b border-gray-100 last:border-b-0">
       <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
-        {!imageError ? (
-          <img 
-            src={item.image} 
-            alt={item.alt}
+        {imageUrl && !imageError ? (
+          <img
+            src={imageUrl}
+            alt={item.alt || item.title}
             className="w-full h-full object-cover"
             onError={handleImageError}
             loading="lazy"
@@ -50,14 +44,16 @@ const CheckoutItem = React.memo(({ item }) => {
           </div>
         )}
       </div>
-      
+
       <div className="flex-1 min-w-0">
         <h4 className="text-sm font-medium text-black line-clamp-2 leading-tight mb-1">
           {item.title}
         </h4>
-        <p className="text-xs text-gray-600 mb-2">
-          📅 {item.duration}
-        </p>
+        {item.duration && (
+          <p className="text-xs text-gray-600 mb-2">
+            📅 {item.duration}
+          </p>
+        )}
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600">
             Množství: {item.quantity}
@@ -75,113 +71,101 @@ CheckoutItem.displayName = 'CheckoutItem';
 
 const Checkout = React.memo(() => {
   const navigate = useNavigate();
-  
-  // Form state
-  const [formData, setFormData] = useState({
-    // Kontaktní údaje
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    
-    // Fakturační adresa
-    company: '',
-    street: '',
-    city: '',
-    postalCode: '',
-    country: 'Česká republika',
-    
-    // Platba
-    paymentMethod: 'card',
-    
-    // Dodatečné informace
-    notes: ''
-  });
-
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Výpočty
-  const cartItems = MOCK_CART_ITEMS;
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const total = subtotal;
-  const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-
-  const countryOptions = [
-    'Česká republika',
-    'Slovensko',
-    'Německo',
-    'Rakousko',
-    'Polsko',
-    'Maďarsko'
-  ];
-
-  const paymentOptions = [
-    { value: 'card', label: 'Platební karta' },
-    { value: 'transfer', label: 'Bankovní převod' }
-  ];
-
-  const handleInputChange = useCallback((field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  }, [errors]);
-
-  const validateForm = useCallback(() => {
-    const newErrors = {};
-    
-    if (!formData.firstName.trim()) newErrors.firstName = 'Jméno je povinné';
-    if (!formData.lastName.trim()) newErrors.lastName = 'Příjmení je povinné';
-    if (!formData.email.trim()) {
-      newErrors.email = 'E-mail je povinný';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Neplatný e-mail';
-    }
-    if (!formData.phone.trim()) newErrors.phone = 'Telefon je povinný';
-    if (!formData.street.trim()) newErrors.street = 'Ulice je povinná';
-    if (!formData.city.trim()) newErrors.city = 'Město je povinné';
-    if (!formData.postalCode.trim()) newErrors.postalCode = 'PSČ je povinné';
-    
-    return newErrors;
-  }, [formData]);
-
-  const handleBackToCart = useCallback(() => {
-    // V reálné aplikaci bychom otevřeli košík
-    navigate(ROUTES.TRAVEL_GUIDES);
-  }, [navigate]);
-
-  const handleSubmit = useCallback(async (e) => {
-    e.preventDefault();
-    
-    const newErrors = validateForm();
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-    
-    setIsSubmitting(true);
-    setErrors({});
-    
-    try {
-      // Simulace objednávky
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Úspěšná objednávka - přechod na confirmation stránku
-      const orderNumber = `CBM-2024-${Math.random().toString().slice(2, 8)}`;
-      navigate(`${ROUTES.ORDER_CONFIRMATION}?name=${encodeURIComponent(formData.firstName + ' ' + formData.lastName)}&order=${orderNumber}`);
-      
-    } catch {
-      setErrors({ submit: 'Něco se pokazilo. Zkus to prosím znovu.' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [formData, validateForm, navigate]);
+  const { cartItems, cartTotal, itemCount } = useCart();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState(null);
 
   // Automatické poescrollování na vrchol při načtení stránky
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  // Redirect na průvodce pokud je košík prázdný
+  useEffect(() => {
+    if (cartItems.length === 0) {
+      navigate(ROUTES.TRAVEL_GUIDES);
+    }
+  }, [cartItems.length, navigate]);
+
+  // Zpět na průvodce
+  const handleBackToShop = useCallback(() => {
+    navigate(ROUTES.TRAVEL_GUIDES);
+  }, [navigate]);
+
+  // Vytvoření Stripe Checkout Session a redirect
+  const handleCheckout = useCallback(async () => {
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      // Přihlášení anonymního uživatele pokud není přihlášen
+      let userId = null;
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        // Anonymní přihlášení pro guest checkout
+        const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+        if (anonError) {
+          console.error('Anonymous sign-in error:', anonError);
+        } else {
+          userId = anonData.user?.id;
+        }
+      } else {
+        userId = user.id;
+      }
+
+      // Příprava line_items pro Edge Function
+      const lineItems = cartItems.map(item => ({
+        product_id: item.id,
+        quantity: item.quantity || 1,
+      }));
+
+      // Sestavení URL pro success a cancel
+      const baseUrl = window.location.origin;
+      const successUrl = `${baseUrl}${ROUTES.ORDER_CONFIRMATION}?session_id={CHECKOUT_SESSION_ID}`;
+      const cancelUrl = `${baseUrl}${ROUTES.CHECKOUT}`;
+
+      // Volání Edge Function pro vytvoření Checkout Session
+      const { data, error: fnError } = await supabase.functions.invoke('create-checkout-session', {
+        body: {
+          line_items: lineItems,
+          success_url: successUrl,
+          cancel_url: cancelUrl,
+          user_id: userId,
+        },
+      });
+
+      if (fnError) {
+        throw new Error(fnError.message || 'Nepodařilo se vytvořit platební session');
+      }
+
+      if (!data?.url) {
+        throw new Error('Nepodařilo se získat URL pro platbu');
+      }
+
+      // Redirect na Stripe Checkout
+      window.location.href = data.url;
+
+    } catch (err) {
+      console.error('Checkout error:', err);
+      setError(err.message || 'Nastala chyba při zpracování platby. Zkus to prosím znovu.');
+      setIsProcessing(false);
+    }
+  }, [cartItems]);
+
+  // Prázdný košík - přesměrování probíhá v useEffect
+  if (cartItems.length === 0) {
+    return (
+      <Layout>
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-700 mb-4"></div>
+            <p className="text-gray-600">Přesměrovávám...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -191,14 +175,14 @@ const Checkout = React.memo(() => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Breadcrumb */}
             <nav className="mb-6">
-              <button 
-                onClick={handleBackToCart}
+              <button
+                onClick={handleBackToShop}
                 className="flex items-center text-sm sm:text-base text-gray-600 hover:text-green-700 transition-colors group"
               >
                 <svg className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                Zpět do košíku
+                Zpět na průvodce
               </button>
             </nav>
 
@@ -207,7 +191,7 @@ const Checkout = React.memo(() => {
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-black leading-tight">
                 Dokončení objednávky
               </h1>
-              
+
               {/* Progress Steps */}
               <div className="flex items-center justify-center mt-8">
                 <div className="flex items-center space-x-4">
@@ -222,7 +206,7 @@ const Checkout = React.memo(() => {
                     <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
                       2
                     </div>
-                    <span className="ml-2 text-sm text-black font-medium">Objednávka</span>
+                    <span className="ml-2 text-sm text-black font-medium">Platba</span>
                   </div>
                   <div className="w-12 h-px bg-gray-300"></div>
                   <div className="flex items-center">
@@ -239,234 +223,95 @@ const Checkout = React.memo(() => {
 
         {/* Main Content */}
         <section className="py-8 lg:py-12">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid lg:grid-cols-3 gap-8 lg:gap-12">
-              
-              {/* Levá strana - Formulář */}
-              <div className="lg:col-span-2">
-                <div className="card-base p-6 lg:p-8">
-                  <Form onSubmit={handleSubmit} spacing="lg">
-                    
-                    {/* Kontaktní údaje */}
-                    <div>
-                      <h2 className="text-xl font-bold text-green-800 mb-6 border-b border-gray-200 pb-3">
-                        Kontaktní údaje
-                      </h2>
-                      <div className="grid sm:grid-cols-2 gap-6">
-                        <Input
-                          type="text"
-                          label="Jméno"
-                          required
-                          value={formData.firstName}
-                          onChange={(e) => handleInputChange('firstName', e.target.value)}
-                          placeholder="Tvé jméno"
-                          error={errors.firstName}
-                          className="focus-ring"
-                        />
-                        <Input
-                          type="text"
-                          label="Příjmení"
-                          required
-                          value={formData.lastName}
-                          onChange={(e) => handleInputChange('lastName', e.target.value)}
-                          placeholder="Tvé příjmení"
-                          error={errors.lastName}
-                          className="focus-ring"
-                        />
-                      </div>
-                      <div className="grid sm:grid-cols-2 gap-6">
-                        <Input
-                          type="email"
-                          label="E-mail"
-                          required
-                          value={formData.email}
-                          onChange={(e) => handleInputChange('email', e.target.value)}
-                          placeholder="tvuj@email.cz"
-                          error={errors.email}
-                          className="focus-ring"
-                        />
-                        <Input
-                          type="tel"
-                          label="Telefon"
-                          required
-                          value={formData.phone}
-                          onChange={(e) => handleInputChange('phone', e.target.value)}
-                          placeholder="+420 123 456 789"
-                          error={errors.phone}
-                          className="focus-ring"
-                        />
-                      </div>
-                    </div>
+          <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="card-base p-6 lg:p-8">
 
-                    {/* Fakturační adresa */}
-                    <div>
-                      <h2 className="text-xl font-bold text-green-800 mb-6 border-b border-gray-200 pb-3">
-                        Fakturační adresa
-                      </h2>
-                      <div className="space-y-6">
-                        <Input
-                          type="text"
-                          label="Firma (nepovinné)"
-                          value={formData.company}
-                          onChange={(e) => handleInputChange('company', e.target.value)}
-                          placeholder="Název firmy"
-                          className="focus-ring"
-                        />
-                        <Input
-                          type="text"
-                          label="Ulice a číslo popisné"
-                          required
-                          value={formData.street}
-                          onChange={(e) => handleInputChange('street', e.target.value)}
-                          placeholder="Např. Václavské náměstí 123"
-                          error={errors.street}
-                          className="focus-ring"
-                        />
-                        <div className="grid sm:grid-cols-3 gap-6">
-                          <Input
-                            type="text"
-                            label="Město"
-                            required
-                            value={formData.city}
-                            onChange={(e) => handleInputChange('city', e.target.value)}
-                            placeholder="Praha"
-                            error={errors.city}
-                            className="focus-ring"
-                          />
-                          <Input
-                            type="text"
-                            label="PSČ"
-                            required
-                            value={formData.postalCode}
-                            onChange={(e) => handleInputChange('postalCode', e.target.value)}
-                            placeholder="12000"
-                            error={errors.postalCode}
-                            className="focus-ring"
-                          />
-                          <Dropdown
-                            label="Země"
-                            value={formData.country}
-                            onChange={(e) => handleInputChange('country', e.target.value)}
-                            options={countryOptions}
-                            fullWidth={true}
-                          />
-                        </div>
-                      </div>
-                    </div>
+              {/* Souhrn objednávky */}
+              <h2 className="text-xl font-bold text-black mb-6">
+                Souhrn objednávky
+              </h2>
 
-                    {/* Způsob platby */}
-                    <div>
-                      <h2 className="text-xl font-bold text-green-800 mb-6 border-b border-gray-200 pb-3">
-                        Způsob platby
-                      </h2>
-                      <div className="space-y-4">
-                        {paymentOptions.map(option => (
-                          <label key={option.value} className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:border-green-600 transition-colors">
-                            <input
-                              type="radio"
-                              name="paymentMethod"
-                              value={option.value}
-                              checked={formData.paymentMethod === option.value}
-                              onChange={(e) => handleInputChange('paymentMethod', e.target.value)}
-                              className="w-4 h-4 text-green-600 focus:ring-green-500 mr-3"
-                            />
-                            <span className="text-black font-medium">{option.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                      
-                      {/* Bezpečnostní info */}
-                      <div className="flex items-center mt-4 p-4 bg-green-50 rounded-lg">
-                        <svg className="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
-                        <p className="text-sm text-green-800">
-                          Tvé platební údaje jsou chráněny SSL šifrováním
-                        </p>
-                      </div>
-                    </div>
+              {/* Seznam položek */}
+              <div className="space-y-1 mb-6">
+                {cartItems.map((item) => (
+                  <CheckoutItem key={item.id} item={item} />
+                ))}
+              </div>
 
-                    {/* Dodatečné poznámky */}
-                    <div>
-                      <h2 className="text-xl font-bold text-green-800 mb-6 border-b border-gray-200 pb-3">
-                        Dodatečné informace
-                      </h2>
-                      <TextArea
-                        label="Poznámky k objednávce (nepovinné)"
-                        rows={4}
-                        value={formData.notes}
-                        onChange={(e) => handleInputChange('notes', e.target.value)}
-                        placeholder="Máš nějaké speciální požadavky nebo poznámky k objednávce?"
-                        className="focus-ring"
-                      />
-                    </div>
-
-                    {/* Error message */}
-                    {errors.submit && (
-                      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-red-600 text-sm">{errors.submit}</p>
-                      </div>
-                    )}
-                  </Form>
+              {/* Cenový souhrn */}
+              <div className="space-y-3 mb-6 pt-4 border-t border-gray-200">
+                <div className="flex justify-between text-sm text-black">
+                  <span>Mezisoučet ({itemCount} {itemCount === 1 ? 'položka' : itemCount < 5 ? 'položky' : 'položek'}):</span>
+                  <span>{cartTotal.toLocaleString()} Kč</span>
+                </div>
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>DPH (21%):</span>
+                  <span>Zahrnuto v ceně</span>
+                </div>
+                <div className="flex justify-between text-lg font-bold text-black pt-3 border-t border-gray-300">
+                  <span>Celkem k úhradě:</span>
+                  <span className="text-green-800">{cartTotal.toLocaleString()} Kč</span>
                 </div>
               </div>
 
-              {/* Pravá strana - Souhrn objednávky */}
-              <div className="lg:col-span-1">
-                <div className="card-base p-6 sticky top-8">
-                  <h2 className="text-xl font-bold text-black mb-6">
-                    Souhrn objednávky
-                  </h2>
+              {/* Error message */}
+              {error && (
+                <div className="p-4 mb-6 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-600 text-sm">{error}</p>
+                </div>
+              )}
 
-                  {/* Seznam položek */}
-                  <div className="space-y-1 mb-6">
-                    {cartItems.map((item) => (
-                      <CheckoutItem key={item.id} item={item} />
-                    ))}
+              {/* Info o Stripe */}
+              <div className="flex items-start gap-3 p-4 mb-6 bg-blue-50 border border-blue-200 rounded-lg">
+                <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-blue-800">
+                  Po kliknutí na tlačítko budeš přesměrován/a na bezpečnou platební bránu Stripe,
+                  kde zadáš platební údaje.
+                </p>
+              </div>
+
+              {/* Platební tlačítko */}
+              <Button
+                onClick={handleCheckout}
+                variant="green"
+                size="lg"
+                fullWidth
+                disabled={isProcessing}
+                className="mb-4"
+              >
+                {isProcessing ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Přesměrovávám na platbu...
                   </div>
+                ) : (
+                  `Zaplatit ${cartTotal.toLocaleString()} Kč`
+                )}
+              </Button>
 
-                  {/* Cenový souhrn */}
-                  <div className="space-y-3 mb-6 pt-4 border-t border-gray-200">
-                    <div className="flex justify-between text-sm text-black">
-                      <span>Mezisoučet ({itemCount} {itemCount === 1 ? 'položka' : itemCount < 5 ? 'položky' : 'položek'}):</span>
-                      <span>{subtotal.toLocaleString()} Kč</span>
-                    </div>
-                    <div className="flex justify-between text-sm text-gray-600">
-                      <span>DPH (21%):</span>
-                      <span>Zahrnuto v ceně</span>
-                    </div>
-                    <div className="flex justify-between text-lg font-bold text-black pt-3 border-t border-gray-300">
-                      <span>Celkem k úhradě:</span>
-                      <span className="text-green-800">{total.toLocaleString()} Kč</span>
-                    </div>
-                  </div>
-
-                  {/* Objednat tlačítko */}
-                  <Button
-                    onClick={handleSubmit}
-                    variant="green"
-                    size="lg"
-                    fullWidth
-                    disabled={isSubmitting}
-                    className="mb-4"
-                  >
-                    {isSubmitting ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Zpracovávám...
-                      </div>
-                    ) : (
-                      `Objednat za ${total.toLocaleString()} Kč`
-                    )}
-                  </Button>
-
-                  {/* Podmínky */}
-                  <p className="text-xs text-gray-500 text-center">
-                    Objednávkou souhlasíš s našimi{' '}
-                    <a href="#" className="text-green-600 hover:text-green-700">obchodními podmínkami</a>
-                  </p>
+              {/* Bezpečnostní info */}
+              <div className="flex items-center justify-center gap-4 text-xs text-gray-500">
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  SSL šifrování
+                </div>
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.594-7.305h.003z"/>
+                  </svg>
+                  Powered by Stripe
                 </div>
               </div>
+
+              {/* Podmínky */}
+              <p className="text-xs text-gray-500 text-center mt-4">
+                Pokračováním souhlasíš s našimi{' '}
+                <a href="#" className="text-green-600 hover:text-green-700">obchodními podmínkami</a>
+              </p>
             </div>
           </div>
         </section>

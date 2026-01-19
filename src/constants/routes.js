@@ -6,6 +6,7 @@ export const ROUTES = {
   SALZBURG_ITINERARY: '/salzburg-vikend',
   CUSTOM_ITINERARY_DETAIL: '/cestovni-pruvodci/itinerar-na-miru',
   CUSTOM_ITINERARY_FORM: '/cestovni-pruvodci/itinerar-na-miru/dotaznik',
+  CUSTOM_ITINERARY_PREVIEW: '/cestovni-pruvodci/itinerar-na-miru/nahled/:id',
   CHECKOUT: '/cestovni-pruvodci/objednavka',
   ORDER_CONFIRMATION: '/cestovni-pruvodci/objednavka/potvrzeni',
   INSPIRATION: '/inspirace',

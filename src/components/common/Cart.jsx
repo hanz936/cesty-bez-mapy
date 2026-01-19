@@ -1,29 +1,14 @@
+// ================================================
+// Cart Component - Slide-over košík
+// ================================================
+// Zobrazuje položky z CartContext
+// ================================================
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../ui';
 import { BASE_PATH, ROUTES } from '../../constants';
-
-// Statická data itinerářů pro košík (mockup)
-const MOCK_CART_ITEMS = [
-  {
-    id: 1,
-    title: 'Roadtrip po Itálii na 20 dní',
-    price: 699,
-    image: `${BASE_PATH}/images/guide-italy-roadtrip.png`,
-    alt: 'Malebná italská krajina s cestou vedoucí mezi kopci',
-    duration: '20 dní',
-    quantity: 1
-  },
-  {
-    id: 0,
-    title: 'Itinerář na míru – cesta šitá jen pro tebe',
-    price: 999,
-    image: `${BASE_PATH}/images/custom-itinerary.png`,
-    alt: 'Otevřená mapa s tužkou a poznámkami pro plánování cesty na míru',
-    duration: 'Dle potřeb',
-    quantity: 1
-  }
-];
+import { useCart } from '../../contexts';
 
 const CartItem = React.memo(({ item, onRemove }) => {
   const [imageError, setImageError] = useState(false);
@@ -32,13 +17,20 @@ const CartItem = React.memo(({ item, onRemove }) => {
     setImageError(true);
   }, []);
 
+  // Sestavení URL obrázku
+  const imageUrl = item.image?.startsWith('http')
+    ? item.image
+    : item.image
+      ? `${BASE_PATH}${item.image}`
+      : null;
+
   return (
     <div className="flex gap-4 py-4 border-b border-gray-100 last:border-b-0">
       <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
-        {!imageError ? (
-          <img 
-            src={item.image} 
-            alt={item.alt}
+        {imageUrl && !imageError ? (
+          <img
+            src={imageUrl}
+            alt={item.alt || item.title}
             className="w-full h-full object-cover"
             onError={handleImageError}
             loading="lazy"
@@ -49,14 +41,16 @@ const CartItem = React.memo(({ item, onRemove }) => {
           </div>
         )}
       </div>
-      
+
       <div className="flex-1 min-w-0">
         <h4 className="text-sm font-medium text-black line-clamp-2 leading-tight mb-1">
           {item.title}
         </h4>
-        <p className="text-xs text-gray-600 mb-2">
-          📅 {item.duration}
-        </p>
+        {item.duration && (
+          <p className="text-xs text-gray-600 mb-2">
+            📅 {item.duration}
+          </p>
+        )}
         <div className="flex items-center justify-between">
           <span className="text-lg font-bold text-green-800">
             {item.price.toLocaleString()} Kč
@@ -79,21 +73,15 @@ const CartItem = React.memo(({ item, onRemove }) => {
 CartItem.displayName = 'CartItem';
 
 const Cart = React.memo(({ isOpen, onClose }) => {
-  const [cartItems, setCartItems] = useState(MOCK_CART_ITEMS);
+  const { cartItems, cartTotal, itemCount, removeFromCart } = useCart();
   const cartRef = useRef(null);
   const previousFocusRef = useRef(null);
   const navigate = useNavigate();
 
-  // Výpočty
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const _vat = Math.round(subtotal * 0.21); // 21% DPH - pro budoucí použití
-  const total = subtotal;
-  const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-
   // Odebrání položky z košíku
   const handleRemoveItem = useCallback((itemId) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== itemId));
-  }, []);
+    removeFromCart(itemId);
+  }, [removeFromCart]);
 
   // Zavření košíku
   const handleClose = useCallback(() => {
@@ -119,13 +107,13 @@ const Cart = React.memo(({ isOpen, onClose }) => {
       if (e.key === 'Escape') {
         handleClose();
       }
-      
+
       // Focus trap
       if (e.key === 'Tab') {
         const focusableElements = cartRef.current?.querySelectorAll(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
         );
-        
+
         if (focusableElements?.length) {
           const firstElement = focusableElements[0];
           const lastElement = focusableElements[focusableElements.length - 1];
@@ -142,7 +130,7 @@ const Cart = React.memo(({ isOpen, onClose }) => {
     };
 
     document.addEventListener('keydown', handleKeyDown);
-    
+
     // Focus na košík při otevření
     setTimeout(() => {
       const closeButton = cartRef.current?.querySelector('button[aria-label*="Zavřít"]');
@@ -172,14 +160,14 @@ const Cart = React.memo(({ isOpen, onClose }) => {
   return (
     <>
       {/* Overlay */}
-      <div 
+      <div
         className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-200 ease-out"
         onClick={handleClose}
         aria-hidden="true"
       />
-      
+
       {/* Cart Panel */}
-      <div 
+      <div
         ref={cartRef}
         className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-out flex flex-col"
         role="dialog"
@@ -218,8 +206,8 @@ const Cart = React.memo(({ isOpen, onClose }) => {
               <p className="text-gray-600 text-sm mb-6">
                 Přidej si nějaký itinerář a začni plánovat svou další cestu.
               </p>
-              <Button 
-                variant="green" 
+              <Button
+                variant="green"
                 size="md"
                 onClick={handleClose}
               >
@@ -247,7 +235,7 @@ const Cart = React.memo(({ isOpen, onClose }) => {
             <div className="space-y-3 mb-6">
               <div className="flex justify-between text-sm text-black">
                 <span>Mezisoučet:</span>
-                <span>{subtotal.toLocaleString()} Kč</span>
+                <span>{cartTotal.toLocaleString()} Kč</span>
               </div>
               <div className="flex justify-between text-sm text-gray-600">
                 <span>DPH (21%):</span>
@@ -255,7 +243,7 @@ const Cart = React.memo(({ isOpen, onClose }) => {
               </div>
               <div className="flex justify-between text-lg font-bold text-black pt-3 border-t border-gray-300">
                 <span>Celkem:</span>
-                <span className="text-green-800">{total.toLocaleString()} Kč</span>
+                <span className="text-green-800">{cartTotal.toLocaleString()} Kč</span>
               </div>
             </div>
 
@@ -269,7 +257,7 @@ const Cart = React.memo(({ isOpen, onClose }) => {
             >
               Přejít k objednávce
             </Button>
-            
+
             <Button
               variant="secondary"
               size="md"
@@ -284,12 +272,12 @@ const Cart = React.memo(({ isOpen, onClose }) => {
               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
-              Bezpečná platba
+              Bezpečná platba přes Stripe
             </div>
           </div>
         )}
       </div>
-      
+
     </>
   );
 });

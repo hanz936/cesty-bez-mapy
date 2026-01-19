@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Button } from './components/ui';
 import { ROUTES } from './constants';
+import { CartProvider } from './contexts';
 import ScrollToTop from './components/common/ScrollToTop';
 import Home from './pages/Home';
 import MyStory from './pages/MyStory';
@@ -12,6 +13,7 @@ import TravelGuides from './pages/TravelGuides';
 import ProductDetail from './pages/ProductDetail';
 import CustomItineraryDetail from './pages/CustomItineraryDetail';
 import CustomItineraryForm from './pages/CustomItineraryForm';
+import CustomItineraryPreview from './pages/CustomItineraryPreview';
 import Checkout from './pages/Checkout';
 import OrderConfirmation from './pages/OrderConfirmation';
 import FAQ from './pages/FAQ';
@@ -80,27 +82,30 @@ function App() {
 
   return (
     <AppErrorBoundary>
-      <Router>
-        <ScrollToTop />
-        <Routes>
-          <Route path={ROUTES.HOME} element={<Home />} />
-          <Route path={ROUTES.MY_STORY} element={<MyStory />} />
-          <Route path={ROUTES.PLAN_YOUR_DREAM_TRIP} element={<PlanYourDreamTrip />} />
-          <Route path={ROUTES.TRAVEL_GUIDES} element={<TravelGuides />} />
-          <Route path="/cestovni-pruvodci/:slug" element={<ProductDetail />} />
-          <Route path={ROUTES.SALZBURG_ITINERARY} element={<SalzburgItinerary />} />
-          <Route path={ROUTES.CUSTOM_ITINERARY_DETAIL} element={<CustomItineraryDetail />} />
-          <Route path={ROUTES.CUSTOM_ITINERARY_FORM} element={<CustomItineraryForm />} />
-          <Route path={ROUTES.CHECKOUT} element={<Checkout />} />
-          <Route path={ROUTES.ORDER_CONFIRMATION} element={<OrderConfirmation />} />
-          <Route path={ROUTES.INSPIRATION} element={<TravelInspiration />} />
-          <Route path={ROUTES.COLLABORATION} element={<Collaboration />} />
-          <Route path={ROUTES.FAQ} element={<FAQ />} />
-          <Route path={ROUTES.REVIEWS} element={<Reviews />} />
-          <Route path={ROUTES.CONTACT} element={<Contact />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Router>
+      <CartProvider>
+        <Router>
+          <ScrollToTop />
+          <Routes>
+            <Route path={ROUTES.HOME} element={<Home />} />
+            <Route path={ROUTES.MY_STORY} element={<MyStory />} />
+            <Route path={ROUTES.PLAN_YOUR_DREAM_TRIP} element={<PlanYourDreamTrip />} />
+            <Route path={ROUTES.TRAVEL_GUIDES} element={<TravelGuides />} />
+            <Route path="/cestovni-pruvodci/:slug" element={<ProductDetail />} />
+            <Route path={ROUTES.SALZBURG_ITINERARY} element={<SalzburgItinerary />} />
+            <Route path={ROUTES.CUSTOM_ITINERARY_DETAIL} element={<CustomItineraryDetail />} />
+            <Route path={ROUTES.CUSTOM_ITINERARY_FORM} element={<CustomItineraryForm />} />
+            <Route path={ROUTES.CUSTOM_ITINERARY_PREVIEW} element={<CustomItineraryPreview />} />
+            <Route path={ROUTES.CHECKOUT} element={<Checkout />} />
+            <Route path={ROUTES.ORDER_CONFIRMATION} element={<OrderConfirmation />} />
+            <Route path={ROUTES.INSPIRATION} element={<TravelInspiration />} />
+            <Route path={ROUTES.COLLABORATION} element={<Collaboration />} />
+            <Route path={ROUTES.FAQ} element={<FAQ />} />
+            <Route path={ROUTES.REVIEWS} element={<Reviews />} />
+            <Route path={ROUTES.CONTACT} element={<Contact />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Router>
+      </CartProvider>
     </AppErrorBoundary>
   )
 }

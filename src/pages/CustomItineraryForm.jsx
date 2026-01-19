@@ -1,14 +1,16 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import jsPDF from 'jspdf';
 import Layout from '../components/layout/Layout';
-import { Button, Input, TextArea, MultiStepForm, CustomCheckbox, CustomRadio } from '../components/ui';
+import { Input, TextArea, MultiStepForm, CustomCheckbox, CustomRadio } from '../components/ui';
 import { ROUTES } from '../constants';
 import { BASE_PATH } from '../constants/app';
+import { supabase } from '../lib/supabase';
+
+// TODO: Add Cloudflare Turnstile spam protection when site keys are available
+// import { Turnstile } from '@marsidev/react-turnstile';
 
 const CustomItineraryForm = React.memo(() => {
   const navigate = useNavigate();
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -72,153 +74,8 @@ const CustomItineraryForm = React.memo(() => {
     navigate(ROUTES.CUSTOM_ITINERARY_DETAIL);
   }, [navigate]);
 
-  const generatePDF = useCallback(() => {
-    const doc = new jsPDF();
-
-    // PDF styling
-    doc.setFontSize(20);
-    doc.setTextColor(22, 101, 52); // Green-800
-    doc.text('Tvůj cestovní profil - Itinerář na míru', 20, 30);
-
-    doc.setFontSize(12);
-    doc.setTextColor(0, 0, 0);
-
-    let yPosition = 50;
-    const lineHeight = 7;
-
-    // Helper function to add text with wrapping
-    const addWrappedText = (text, maxWidth = 170) => {
-      if (!text || text.trim() === '') return;
-      const splitText = doc.splitTextToSize(text, maxWidth);
-      doc.text(splitText, 20, yPosition);
-      yPosition += splitText.length * lineHeight;
-    };
-
-    // Basic information
-    doc.setFontSize(14);
-    doc.setTextColor(22, 101, 52);
-    addWrappedText('Základní informace');
-    yPosition += 5;
-
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    addWrappedText(`Jméno: ${formData.name}`);
-    addWrappedText(`Email: ${formData.email}`);
-    yPosition += 10;
-
-    // Travel preferences
-    doc.setFontSize(14);
-    doc.setTextColor(22, 101, 52);
-    addWrappedText('Cestovní preference');
-    yPosition += 5;
-
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    if (formData.vacationType.length > 0) {
-      addWrappedText(`Typ dovolené: ${formData.vacationType.join(', ')}`);
-    }
-    if (formData.vacationTypeOther) {
-      addWrappedText(`Jiný typ: ${formData.vacationTypeOther}`);
-    }
-    if (formData.duration) {
-      addWrappedText(`Délka pobytu: ${formData.duration}`);
-    }
-    if (formData.customDuration) {
-      addWrappedText(`Počet dní: ${formData.customDuration}`);
-    }
-    yPosition += 10;
-
-    // Travel details
-    doc.setFontSize(14);
-    doc.setTextColor(22, 101, 52);
-    addWrappedText('Cestování a termín');
-    yPosition += 5;
-
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    addWrappedText(`Cestovní skupina: ${formData.travelGroup || 'Neuvedeno'}`);
-    if (formData.familyDetails) {
-      addWrappedText(`Podrobnosti o rodině: ${formData.familyDetails}`);
-    }
-    if (formData.friendsCount) {
-      addWrappedText(`Počet přátel: ${formData.friendsCount}`);
-    }
-    if (formData.preferredTerm.length > 0) {
-      addWrappedText(`Preferovaný termín: ${formData.preferredTerm.join(', ')}`);
-    }
-    if (formData.specificTerm) {
-      addWrappedText(`Konkrétní termín: ${formData.specificTerm}`);
-    }
-    if (formData.budgetCategory) {
-      addWrappedText(`Rozpočet: ${formData.budgetCategory}`);
-    }
-    if (formData.budgetAmount) {
-      addWrappedText(`Orientační částka: ${formData.budgetAmount}`);
-    }
-    if (formData.transportation.length > 0) {
-      addWrappedText(`Doprava: ${formData.transportation.join(', ')}`);
-    }
-    if (formData.transportationOther) {
-      addWrappedText(`Jiná doprava: ${formData.transportationOther}`);
-    }
-    yPosition += 10;
-
-    // Destinations
-    doc.setFontSize(14);
-    doc.setTextColor(22, 101, 52);
-    addWrappedText('Destinace a preference');
-    yPosition += 5;
-
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    addWrappedText(`Konkrétní destinace: ${formData.specificDestination || 'Neuvedeno'}`);
-    addWrappedText(`Otevřený návrhům: ${formData.openToSuggestions || 'Neuvedeno'}`);
-    addWrappedText(`Preferované kontinenty: ${formData.preferredContinents || 'Neuvedeno'}`);
-    addWrappedText(`Klimatické preference: ${formData.climatePreferences || 'Neuvedeno'}`);
-    addWrappedText(`Kultura vs příroda: ${formData.cultureVsNature || 'Neuvedeno'}`);
-    addWrappedText(`Specifické faktory: ${formData.specificFactors || 'Neuvedeno'}`);
-    yPosition += 10;
-
-    // Activities and interests
-    doc.setFontSize(14);
-    doc.setTextColor(22, 101, 52);
-    addWrappedText('Zájmy a aktivity');
-    yPosition += 5;
-
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    addWrappedText(`Hlavní zájmy: ${formData.mainInterests || 'Neuvedeno'}`);
-    addWrappedText(`Specifické aktivity: ${formData.specificActivities || 'Neuvedeno'}`);
-    addWrappedText(`Požadavky na ubytování: ${formData.accommodationRequirements || 'Neuvedeno'}`);
-    addWrappedText(`Preference stravování: ${formData.diningPreferences || 'Neuvedeno'}`);
-    addWrappedText(`Organizované výlety: ${formData.organizedTours || 'Neuvedeno'}`);
-    yPosition += 10;
-
-    // Additional information
-    doc.setFontSize(14);
-    doc.setTextColor(22, 101, 52);
-    addWrappedText('Dodatečné informace');
-    yPosition += 5;
-
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    addWrappedText(`Zdravotní omezení: ${formData.healthRestrictions || 'Žádné'}`);
-    addWrappedText(`Cestování s mazlíčkem: ${formData.travelWithPet || 'Ne'}`);
-    addWrappedText(`Dodatečné informace: ${formData.additionalInfo || 'Žádné'}`);
-
-    // Add date
-    yPosition += 10;
-    addWrappedText(`Datum vyplnění: ${new Date().toLocaleDateString('cs-CZ')}`);
-
-    // Footer
-    yPosition += 20;
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    addWrappedText('Vygenerováno aplikací Cesty bez mapy - www.cestybelmapy.cz');
-
-    // Save PDF
-    doc.save('itinerar-na-miru-dotaznik.pdf');
-  }, [formData]);
+  // State for submission loading
+  const [_isSubmitting, setIsSubmitting] = useState(false);
 
   // Toast notification state
   const [notification, setNotification] = useState({ show: false, message: '', type: 'info' });
@@ -231,25 +88,119 @@ const CustomItineraryForm = React.memo(() => {
     }, 4000);
   }, []);
 
-  const handleComplete = useCallback(() => {
+  const handleComplete = useCallback(async () => {
     // Basic validation
     if (!formData.name.trim() || !formData.email.trim()) {
       showNotification('Prosím vyplň jméno a email.', 'error');
       return;
     }
 
-    try {
-      // Generate PDF
-      generatePDF();
+    setIsSubmitting(true);
 
-      // Show success message
-      setShowSuccessMessage(true);
-      showNotification('PDF bylo úspěšně vygenerováno!', 'success');
+    try {
+      // STEP 1: Get or create anonymous user session
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+      let userId;
+
+      if (sessionError || !sessionData.session) {
+        // No session exists - create anonymous user
+        const { data: authData, error: authError } = await supabase.auth.signInAnonymously({
+          options: {
+            data: {
+              is_anonymous: true
+            }
+          }
+        });
+
+        if (authError) {
+          console.error('Chyba při vytváření anonymního uživatele:', authError);
+          showNotification('Chyba při odesílání formuláře. Zkuste to prosím znovu.', 'error');
+          setIsSubmitting(false);
+          return;
+        }
+
+        userId = authData.user.id;
+      } else {
+        // Use existing session
+        userId = sessionData.session.user.id;
+      }
+
+      // STEP 2: Prepare data for database (form_data as JSONB)
+      const requestData = {
+        auth_user_id: userId,
+        customer_name: formData.name.trim(),
+        customer_email: formData.email.trim(),
+
+        // All form data stored in JSONB field
+        form_data: {
+          // Travel preferences
+          vacation_type: formData.vacationType,
+          vacation_type_other: formData.vacationTypeOther || null,
+          duration: formData.duration || null,
+          custom_duration: formData.customDuration ? parseInt(formData.customDuration) : null,
+
+          // Travel details
+          travel_group: formData.travelGroup || null,
+          family_details: formData.familyDetails || null,
+          friends_count: formData.friendsCount || null,
+          preferred_term: formData.preferredTerm,
+          specific_term: formData.specificTerm || null,
+          budget_category: formData.budgetCategory || null,
+          budget_amount: formData.budgetAmount || null,
+          transportation: formData.transportation,
+          transportation_other: formData.transportationOther || null,
+
+          // Destinations
+          specific_destination: formData.specificDestination || null,
+          open_to_suggestions: formData.openToSuggestions || null,
+          preferred_continents: formData.preferredContinents || null,
+          climate_preferences: formData.climatePreferences || null,
+          culture_vs_nature: formData.cultureVsNature || null,
+          specific_factors: formData.specificFactors || null,
+
+          // Interests and activities
+          main_interests: formData.mainInterests || null,
+          specific_activities: formData.specificActivities || null,
+          accommodation_requirements: formData.accommodationRequirements || null,
+          dining_preferences: formData.diningPreferences || null,
+          organized_tours: formData.organizedTours || null,
+
+          // Additional info
+          health_restrictions: formData.healthRestrictions || null,
+          travel_with_pet: formData.travelWithPet || null,
+          additional_info: formData.additionalInfo || null
+        },
+
+        // Status (according to CHECK constraint: 'new', 'in_progress', 'completed', 'cancelled')
+        status: 'new'
+      };
+
+      // STEP 3: Insert into custom_itinerary_requests
+      const { data: insertedRequest, error: insertError } = await supabase
+        .from('custom_itinerary_requests')
+        .insert(requestData)
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Chyba při ukládání požadavku:', insertError);
+        showNotification('Chyba při odesílání formuláře. Zkuste to prosím znovu.', 'error');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // STEP 4: Navigate to preview page with request ID
+      showNotification('Požadavek byl úspěšně uložen!', 'success');
+      navigate(`/cestovni-pruvodci/itinerar-na-miru/nahled/${insertedRequest.id}`);
+
     } catch (error) {
-      console.error('Chyba při generování PDF:', error);
-      showNotification('Chyba při generování PDF. Zkuste to prosím znovu.', 'error');
+      console.error('Neočekávaná chyba:', error);
+      showNotification('Chyba při odesílání formuláře. Zkuste to prosím znovu.', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [formData, generatePDF, showNotification]);
+  }, [formData, showNotification, navigate]);
 
   // Step configuration
   const stepLabels = [
@@ -264,49 +215,6 @@ const CustomItineraryForm = React.memo(() => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
-
-  // Success message component
-  if (showSuccessMessage) {
-    return (
-      <Layout>
-        <div className="min-h-screen bg-white flex items-center justify-center px-4">
-          <div className="max-w-2xl w-full text-center">
-            <div className="bg-white rounded-3xl shadow-xl p-8 sm:p-12">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-10">
-                <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-bold text-black mb-10">
-                Díky!
-              </h1>
-              <p className="text-lg text-black mb-8 leading-relaxed">
-                Teď už mám od tebe vše potřebné a můžu se pustit do plánování tvé cesty. Po dokončení objednávky ti přijde potvrzení na email.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button
-                  onClick={() => navigate(ROUTES.CHECKOUT)}
-                  variant="green"
-                  size="lg"
-                  className="px-8"
-                >
-                  Přejít do košíku
-                </Button>
-                <Button
-                  onClick={handleBackToItinerary}
-                  variant="secondary"
-                  size="lg"
-                  className="px-8"
-                >
-                  Zpět na itinerář
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
 
   // Multi-step form steps configuration
   const steps = [
@@ -1156,7 +1064,7 @@ const CustomItineraryForm = React.memo(() => {
               Před dokončením
             </h5>
             <p className="text-green-700 mb-4">
-              Po kliknutí na "Přidat do košíku" se automaticky vytvoří PDF souhrn vašeho dotazníku a zobrazí se potvrzovací zpráva.
+              Po kliknutí na "Odeslat" uložíme tvé odpovědi a zobrazíme ti náhled, který si budeš moct vytisknout nebo uložit jako PDF.
             </p>
           </div>
         </div>
