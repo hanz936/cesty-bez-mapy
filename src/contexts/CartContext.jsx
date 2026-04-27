@@ -78,6 +78,7 @@ export function CartProvider({ children }) {
         duration: product.duration || '',
         slug: product.slug,
         quantity: 1, // Vždy 1 ks
+        customItineraryRequestId: product.customItineraryRequestId || null,
       };
 
       console.log('Přidávám do košíku:', newItem.title);

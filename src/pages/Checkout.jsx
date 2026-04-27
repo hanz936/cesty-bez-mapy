@@ -118,6 +118,7 @@ const Checkout = React.memo(() => {
       const lineItems = cartItems.map(item => ({
         product_id: item.id,
         quantity: item.quantity || 1,
+        custom_itinerary_request_id: item.customItineraryRequestId || null,
       }));
 
       // Sestavení URL pro success a cancel

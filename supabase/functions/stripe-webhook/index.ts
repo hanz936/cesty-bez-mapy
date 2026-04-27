@@ -29,13 +29,6 @@ function generateToken(length: number = 32): string {
   return token;
 }
 
-// Pomocná funkce pro generování čísla objednávky
-function generateOrderNumber(): string {
-  const year = new Date().getFullYear();
-  const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
-  return `CBM-${year}-${randomPart}`;
-}
-
 Deno.serve(async (req) => {
   // Stripe posílá POST requesty
   if (req.method !== "POST") {
@@ -76,7 +69,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Zpracování různých typů událostí
-    let result: { success: boolean; error?: string; orderId?: string } = { success: true };
+    let result: { success: boolean; error?: string; orderId?: string; retryable?: boolean } = { success: true };
 
     switch (event.type) {
       case "checkout.session.completed": {
@@ -100,17 +93,44 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case "charge.refunded": {
+        const charge = event.data.object as Stripe.Charge;
+        const paymentIntentId = charge.payment_intent as string;
+        if (paymentIntentId) {
+          const { error } = await supabase
+            .from("orders")
+            .update({ status: "refunded" })
+            .eq("stripe_payment_id", paymentIntentId);
+          if (error) {
+            console.error("Failed to update order status to refunded:", error);
+          } else {
+            console.log(`Order refunded for payment intent: ${paymentIntentId}`);
+          }
+        }
+        break;
+      }
+
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
 
-    // Pokud se order nevytvořil, vrátíme chybu (Stripe bude opakovat)
+    // Pokud se order nevytvořil, rozlišujeme retryable vs permanent chyby
     if (!result.success) {
       console.error(`Webhook processing failed: ${result.error}`);
-      return new Response(
-        JSON.stringify({ received: true, error: result.error }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
+      if (result.retryable) {
+        // Retryable chyba (DB dočasně nedostupná, timeout) - vrátit 500 aby Stripe opakoval
+        return new Response(
+          JSON.stringify({ received: true, error: "Dočasná chyba, zkuste znovu" }),
+          { status: 500, headers: { "Content-Type": "application/json" } }
+        );
+      } else {
+        // Permanentní chyba (nevalidní data, produkt neexistuje) - vrátit 200 aby Stripe neopakoval
+        console.error(`Permanent error, will not retry: ${result.error}`);
+        return new Response(
+          JSON.stringify({ received: true, error: "Permanentní chyba zpracování" }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
     }
 
     return new Response(JSON.stringify({ received: true, orderId: result.orderId }), {
@@ -121,7 +141,7 @@ Deno.serve(async (req) => {
     console.error("Webhook processing error:", error);
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "Interní chyba serveru",
       }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
@@ -133,11 +153,11 @@ async function handleCheckoutCompleted(
   // deno-lint-ignore no-explicit-any
   supabase: any,
   session: Stripe.Checkout.Session
-): Promise<{ success: boolean; error?: string; orderId?: string }> {
+): Promise<{ success: boolean; error?: string; orderId?: string; retryable?: boolean }> {
   console.log(`Processing completed checkout: ${session.id}`);
-  console.log(`Session metadata:`, JSON.stringify(session.metadata));
+  console.log(`Session metadata: product_ids=${session.metadata?.product_ids}, user=${session.metadata?.supabase_user_id || 'anonymous'}, custom_requests=${session.metadata?.custom_requests || 'none'}`);
   console.log(`Payment intent:`, session.payment_intent);
-  console.log(`Customer details:`, JSON.stringify(session.customer_details));
+  console.log(`Customer email domain: ${session.customer_details?.email?.split('@')[1] || 'unknown'}`);
 
   // Získání metadata
   const metadata = session.metadata || {};
@@ -149,6 +169,21 @@ async function handleCheckoutCompleted(
     "Neznámý zákazník";
   const customerEmail =
     session.customer_details?.email || session.customer_email || "";
+
+  // Parsování mapy product_id -> custom_itinerary_request_id z metadata.
+  // Při chybě JSON parse jen zalogujeme a pokračujeme s prázdnou mapou
+  // (položky se nepropojí, ale objednávka se stejně vytvoří).
+  let customRequestsMapping: Record<string, string> = {};
+  if (metadata.custom_requests) {
+    try {
+      customRequestsMapping = JSON.parse(metadata.custom_requests);
+    } catch (parseError) {
+      console.warn(
+        "Failed to parse custom_requests metadata, treating as empty:",
+        parseError
+      );
+    }
+  }
 
   // Pokud nemáme product_ids z metadata, zkusíme je získat z line_items
   if (productIds.length === 0) {
@@ -177,7 +212,7 @@ async function handleCheckoutCompleted(
   if (productIds.length === 0) {
     const error = "No product_ids found in session metadata or line_items";
     console.error(error);
-    return { success: false, error };
+    return { success: false, error, retryable: false };
   }
 
   // Kontrola, zda objednávka už neexistuje (idempotence)
@@ -198,7 +233,7 @@ async function handleCheckoutCompleted(
   console.log(`Loading products from database: ${productIds.join(", ")}`);
   const { data: products, error: productsError } = await supabase
     .from("products")
-    .select("id, title, price, vat_rate, pdf_url")
+    .select("id, title, price, vat_rate, pdf_url, slug, stripe_price_id")
     .in("id", productIds);
 
   console.log(`Products query result:`, { products, error: productsError });
@@ -206,44 +241,72 @@ async function handleCheckoutCompleted(
   if (productsError) {
     const error = `Failed to load products: ${JSON.stringify(productsError)}`;
     console.error(error);
-    return { success: false, error };
+    return { success: false, error, retryable: true };
   }
 
   if (!products || products.length === 0) {
     const error = `No products found for IDs: ${productIds.join(", ")}`;
     console.error(error);
-    return { success: false, error };
+    return { success: false, error, retryable: false };
   }
 
   // Hledání nebo vytvoření zákazníka
   let customerId: string | null = null;
 
   if (customerEmail) {
-    // Hledání existujícího zákazníka
+    // Hledání existujícího zákazníka podle emailu
     const { data: existingCustomer } = await supabase
       .from("customers")
-      .select("id")
+      .select("id, name, email")
       .eq("email", customerEmail)
       .single();
 
     if (existingCustomer) {
+      // Použít existujícího zákazníka
       customerId = existingCustomer.id;
-    } else {
-      // Vytvoření nového zákazníka s vygenerovaným UUID
-      const newCustomerId = crypto.randomUUID();
+      // Aktualizovat jméno pokud se změnilo
+      if (customerName && existingCustomer.name !== customerName) {
+        await supabase
+          .from("customers")
+          .update({ name: customerName })
+          .eq("id", existingCustomer.id);
+      }
+    } else if (supabaseUserId) {
+      // Nový zákazník s přihlášeným uživatelem - použít auth user ID jako customer ID
+      // (zachovává invariantu customers.id = auth.users.id z migrace 013)
       const { data: newCustomer, error: customerError } = await supabase
         .from("customers")
         .insert({
-          id: newCustomerId,
+          id: supabaseUserId,
           email: customerEmail,
-          name: customerName,
-          total_spent: 0,
+          name: customerName || "Zákazník",
         })
         .select("id")
         .single();
 
       if (customerError) {
         console.error("Failed to create customer:", customerError);
+        // Zákazník může už existovat s tímto ID ale jiným emailem
+        customerId = supabaseUserId;
+      } else {
+        customerId = newCustomer.id;
+      }
+    } else {
+      // Guest checkout bez přihlášení - vytvořit zákazníka s náhodným UUID
+      const guestId = crypto.randomUUID();
+      const { data: newCustomer, error: customerError } = await supabase
+        .from("customers")
+        .insert({
+          id: guestId,
+          email: customerEmail,
+          name: customerName || "Host",
+        })
+        .select("id")
+        .single();
+
+      if (customerError) {
+        console.error("Failed to create guest customer:", customerError);
+        customerId = null;
       } else {
         customerId = newCustomer.id;
       }
@@ -276,20 +339,42 @@ async function handleCheckoutCompleted(
   if (orderError) {
     const error = `Failed to create order: ${JSON.stringify(orderError)}`;
     console.error(error);
-    return { success: false, error };
+    return { success: false, error, retryable: true };
   }
 
   console.log(`Order created: ${order.id}`);
 
+  // Načtení Stripe line items pro správné quantity a zaplacené ceny
+  let stripeLineItems: Stripe.LineItem[] = [];
+  try {
+    const lineItemsResponse = await stripe.checkout.sessions.listLineItems(session.id);
+    stripeLineItems = lineItemsResponse.data;
+    console.log(`Loaded ${stripeLineItems.length} Stripe line items for quantity/price resolution`);
+  } catch (lineItemsError) {
+    console.error("Failed to fetch Stripe line items for order_items:", lineItemsError);
+  }
+
   // Vytvoření order_items
   const orderItems = products.map(
-    (product: { id: string; price: number; vat_rate: number }) => ({
-      order_id: order.id,
-      product_id: product.id,
-      quantity: 1,
-      price_at_purchase: product.price,
-      vat_rate_at_purchase: product.vat_rate || 21.0,
-    })
+    (product: { id: string; price: number; vat_rate: number; slug?: string; stripe_price_id?: string }) => {
+      const stripeItem = stripeLineItems.find(
+        (item) => item.price?.id === product.stripe_price_id
+      );
+      const quantity = stripeItem?.quantity ?? 1;
+      // amount_total je celková cena za položku v haléřích (quantity * jednotková cena)
+      const paidAmount = stripeItem ? stripeItem.amount_total / 100 : product.price;
+      const pricePerUnit = paidAmount / quantity;
+
+      return {
+        order_id: order.id,
+        product_id: product.id,
+        quantity,
+        price_at_purchase: pricePerUnit,
+        vat_rate_at_purchase: product.vat_rate || 21.0,
+        // Propojení s konkrétním záznamem custom_itinerary_requests podle product_id
+        custom_itinerary_request_id: customRequestsMapping[product.id] || null,
+      };
+    }
   );
 
   const { error: itemsError } = await supabase
@@ -300,6 +385,42 @@ async function handleCheckoutCompleted(
     console.error("Failed to create order items:", itemsError);
   } else {
     console.log(`Created ${orderItems.length} order items`);
+
+    // Aktualizovat status u všech propojených custom_itinerary_requests na "paid".
+    // Guard .eq("status", "new") je idempotentní a chrání před přepsáním stavu,
+    // který už Jana ručně posunula dál (např. "in_progress").
+    const linkedRequestIds = [
+      ...new Set(
+        orderItems
+          .map((item: { custom_itinerary_request_id: string | null }) => item.custom_itinerary_request_id)
+          .filter((id: string | null): id is string => !!id)
+      ),
+    ];
+
+    for (const requestId of linkedRequestIds) {
+      const { data: updated, error: updateError } = await supabase
+        .from("custom_itinerary_requests")
+        .update({
+          status: "paid",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", requestId)
+        .eq("status", "new")
+        .select("id");
+
+      if (updateError) {
+        console.error(
+          `Failed to update custom itinerary request ${requestId}:`,
+          updateError
+        );
+      } else if (updated && updated.length > 0) {
+        console.log(`Updated custom itinerary request ${requestId} to "paid"`);
+      } else {
+        console.log(
+          `Custom itinerary request ${requestId} not in status "new" - skipping (no-op)`
+        );
+      }
+    }
   }
 
   // Vytvoření jediného download tokenu pro celou objednávku

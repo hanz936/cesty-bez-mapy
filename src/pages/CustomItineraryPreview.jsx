@@ -4,13 +4,18 @@ import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui';
 import { ROUTES } from '../constants';
 import { supabase } from '../lib/supabase';
+import { useCart } from '../contexts';
 
 const CustomItineraryPreview = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { addToCart, removeFromCart, isInCart } = useCart();
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [product, setProduct] = useState(null);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [cartError, setCartError] = useState(null);
 
   useEffect(() => {
     const fetchRequest = async () => {
@@ -46,13 +51,63 @@ const CustomItineraryPreview = () => {
     }
   }, [id]);
 
+  // Načtení produktu "Itinerář na míru" pro zobrazení ceny
+  useEffect(() => {
+    const fetchProduct = async () => {
+      const { data } = await supabase
+        .from('products')
+        .select('id, title, price, slug, stripe_price_id, image_url, duration')
+        .eq('slug', 'itinerar-na-miru')
+        .eq('is_active', true)
+        .eq('is_deleted', false)
+        .single();
+      setProduct(data);
+    };
+    fetchProduct();
+  }, []);
+
   const handlePrint = () => {
     window.print();
   };
 
-  const handleAddToCart = () => {
-    // TODO: Add custom itinerary to cart
-    navigate(ROUTES.CHECKOUT);
+  const handleAddToCart = async () => {
+    setIsAddingToCart(true);
+    setCartError(null);
+
+    try {
+      // Ověřit že máme produkt a request
+      if (!product) {
+        throw new Error('Produkt "Itinerář na míru" nebyl nalezen');
+      }
+
+      if (!product.stripe_price_id) {
+        throw new Error('Produkt není nakonfigurován pro platby');
+      }
+
+      if (!request?.id) {
+        throw new Error('Chybí ID požadavku');
+      }
+
+      // Pokud je produkt už v košíku, odebrat ho (může mít jiné request_id)
+      if (isInCart(product.id)) {
+        removeFromCart(product.id);
+      }
+
+      // Přidat do košíku s novým request ID
+      addToCart({
+        ...product,
+        customItineraryRequestId: request.id
+      });
+
+      // Přesměrovat na checkout
+      navigate(ROUTES.CHECKOUT);
+
+    } catch (err) {
+      console.error('Error adding to cart:', err);
+      setCartError(err.message);
+    } finally {
+      setIsAddingToCart(false);
+    }
   };
 
   if (loading) {
@@ -126,9 +181,17 @@ const CustomItineraryPreview = () => {
                 onClick={handleAddToCart}
                 variant="green"
                 size="md"
+                disabled={isAddingToCart || !product}
               >
-                Přidat do košíku
+                {isAddingToCart
+                  ? 'Načítám...'
+                  : product
+                    ? `Zaplatit ${product.price.toLocaleString()} Kč`
+                    : 'Načítám cenu...'}
               </Button>
+              {cartError && (
+                <p className="text-red-600 text-sm mt-2">{cartError}</p>
+              )}
             </div>
           </div>
         </div>

@@ -15,15 +15,40 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
   apiVersion: "2025-12-15.clover",
 });
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+const allowedOrigins = [
+  "https://cesty-bez-mapy-admin.vercel.app",
+  "https://cesty-bez-mapy-git-development-jana-novakovas-projects.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:5174",
+];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("Origin") || "";
+  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
+
+const allowedUrlPrefixes = [
+  "https://cesty-bez-mapy-git-development-jana-novakovas-projects.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:5174",
+];
+
+function isAllowedUrl(url: string): boolean {
+  return allowedUrlPrefixes.some(
+    (prefix) => url.startsWith(prefix + "/") || url === prefix
+  );
+}
 
 interface LineItem {
   product_id: string;
   quantity?: number;
+  custom_itinerary_request_id?: string | null;
 }
 
 interface CreateCheckoutRequest {
@@ -32,13 +57,12 @@ interface CreateCheckoutRequest {
   customer_name?: string;
   success_url: string;
   cancel_url: string;
-  user_id?: string; // Supabase auth user ID (může být anonymous)
 }
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: getCorsHeaders(req) });
   }
 
   try {
@@ -50,8 +74,20 @@ Deno.serve(async (req) => {
       customer_name,
       success_url,
       cancel_url,
-      user_id,
     } = body;
+
+    // Extract user_id from JWT (not from body - prevents spoofing)
+    let userId: string | null = null;
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader) {
+      const supabaseAuth = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        { global: { headers: { Authorization: authHeader } } }
+      );
+      const { data: { user } } = await supabaseAuth.auth.getUser();
+      userId = user?.id ?? null;
+    }
 
     // Validace
     if (!line_items || !Array.isArray(line_items) || line_items.length === 0) {
@@ -61,7 +97,7 @@ Deno.serve(async (req) => {
         }),
         {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
         }
       );
     }
@@ -73,13 +109,25 @@ Deno.serve(async (req) => {
         }),
         {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    if (!isAllowedUrl(success_url) || !isAllowedUrl(cancel_url)) {
+      return new Response(
+        JSON.stringify({
+          error: "Nepovolená URL adresa",
+        }),
+        {
+          status: 400,
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
         }
       );
     }
 
     console.log(
-      `Vytvářím Checkout Session pro ${line_items.length} položek, user: ${user_id || "anonymous"}`
+      `Vytvářím Checkout Session pro ${line_items.length} položek, user: ${userId || "anonymous"}`
     );
 
     // Vytvoření Supabase klienta pro načtení produktů
@@ -105,7 +153,7 @@ Deno.serve(async (req) => {
         }),
         {
           status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
         }
       );
     }
@@ -117,7 +165,7 @@ Deno.serve(async (req) => {
         }),
         {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
         }
       );
     }
@@ -135,7 +183,7 @@ Deno.serve(async (req) => {
         }),
         {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
         }
       );
     }
@@ -163,13 +211,27 @@ Deno.serve(async (req) => {
     };
 
     // Přidání user_id pokud existuje (anonymous nebo registered)
-    if (user_id) {
-      metadata.supabase_user_id = user_id;
+    if (userId) {
+      metadata.supabase_user_id = userId;
     }
 
     // Přidání customer info pokud existuje
     if (customer_name) {
       metadata.customer_name = customer_name;
+    }
+
+    // Mapování product_id -> custom_itinerary_request_id pro položky košíku,
+    // které vznikly z formuláře "itinerář na míru". Webhook podle toho propojí
+    // order_items s původním záznamem v custom_itinerary_requests.
+    const customRequestsMapping: Record<string, string> = {};
+    for (const item of line_items) {
+      if (item.custom_itinerary_request_id) {
+        customRequestsMapping[item.product_id] = item.custom_itinerary_request_id;
+      }
+    }
+
+    if (Object.keys(customRequestsMapping).length > 0) {
+      metadata.custom_requests = JSON.stringify(customRequestsMapping);
     }
 
     // Vytvoření Stripe Checkout Session
@@ -207,33 +269,19 @@ Deno.serve(async (req) => {
       }),
       {
         status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       }
     );
   } catch (error) {
     console.error("Chyba při vytváření Checkout Session:", error);
 
-    // Specifické chyby od Stripe
-    if (error instanceof Stripe.errors.StripeError) {
-      return new Response(
-        JSON.stringify({
-          error: `Stripe chyba: ${error.message}`,
-          code: error.code,
-        }),
-        {
-          status: error.statusCode || 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : "Neznámá chyba",
+        error: "Nepodařilo se vytvořit platební session",
       }),
       {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       }
     );
   }
