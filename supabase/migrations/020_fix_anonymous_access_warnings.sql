@@ -32,14 +32,17 @@ SET search_path = ''
 AS $$
   SELECT
     -- Must have is_admin = true in JWT (from custom_access_token_hook)
+    -- COALESCE: if null/missing, treat as false (not admin) = fail closed
     COALESCE((auth.jwt()->>'is_admin')::boolean, false)
     AND
     -- Must NOT be an anonymous user (explicit check for Supabase Advisor)
-    NOT COALESCE((auth.jwt()->>'is_anonymous')::boolean, false);
+    -- IS FALSE: if null/missing, returns false (deny access) = fail closed
+    -- This follows Supabase docs pattern for anonymous access control
+    (auth.jwt()->>'is_anonymous')::boolean IS FALSE;
 $$;
 
 COMMENT ON FUNCTION is_admin() IS
-  'Checks if current user is admin AND not anonymous. Reads from JWT (fast, no DB query). Updated in migration 020 to satisfy Supabase Database Advisor.';
+  'Checks if current user is admin AND not anonymous. Uses "fail closed" pattern - unknown/null values deny access. Reads from JWT (fast, no DB query). Updated in migration 020.';
 
 -- ================================================
 -- PART 2: Update Storage Policies
@@ -51,24 +54,11 @@ COMMENT ON FUNCTION is_admin() IS
 --       you must update these policies manually via Supabase Dashboard:
 --       Storage → Policies → Edit each policy → Add: AND NOT (auth.jwt()->>'is_anonymous')::boolean
 
--- Helper: Create a function for storage admin check (avoids repetition)
-CREATE OR REPLACE FUNCTION storage_is_admin()
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SET search_path = ''
-AS $$
-  SELECT
-    COALESCE((auth.jwt()->>'is_admin')::boolean, false)
-    AND NOT COALESCE((auth.jwt()->>'is_anonymous')::boolean, false);
-$$;
-
-COMMENT ON FUNCTION storage_is_admin() IS
-  'Storage-specific admin check. Identical to is_admin() but in public schema for storage policies.';
-
 -- ================================================
 -- PART 2A: Blog Images Bucket Policies
 -- ================================================
+-- NOTE: Using public.is_admin() with full schema qualification
+--       to ensure correct resolution in storage schema context
 
 DO $$
 BEGIN
@@ -84,7 +74,7 @@ BEGIN
     TO authenticated
     WITH CHECK (
       bucket_id = 'blog-images'
-      AND (SELECT storage_is_admin())
+      AND (SELECT public.is_admin())
     );
 
   CREATE POLICY "blog_images_admin_update"
@@ -93,11 +83,11 @@ BEGIN
     TO authenticated
     USING (
       bucket_id = 'blog-images'
-      AND (SELECT storage_is_admin())
+      AND (SELECT public.is_admin())
     )
     WITH CHECK (
       bucket_id = 'blog-images'
-      AND (SELECT storage_is_admin())
+      AND (SELECT public.is_admin())
     );
 
   CREATE POLICY "blog_images_admin_delete"
@@ -106,7 +96,7 @@ BEGIN
     TO authenticated
     USING (
       bucket_id = 'blog-images'
-      AND (SELECT storage_is_admin())
+      AND (SELECT public.is_admin())
     );
 
   RAISE NOTICE '✅ Updated blog-images storage policies';
@@ -132,7 +122,7 @@ BEGIN
     TO authenticated
     WITH CHECK (
       bucket_id = 'products-images'
-      AND (SELECT storage_is_admin())
+      AND (SELECT public.is_admin())
     );
 
   CREATE POLICY "products_images_admin_update"
@@ -141,11 +131,11 @@ BEGIN
     TO authenticated
     USING (
       bucket_id = 'products-images'
-      AND (SELECT storage_is_admin())
+      AND (SELECT public.is_admin())
     )
     WITH CHECK (
       bucket_id = 'products-images'
-      AND (SELECT storage_is_admin())
+      AND (SELECT public.is_admin())
     );
 
   CREATE POLICY "products_images_admin_delete"
@@ -154,7 +144,7 @@ BEGIN
     TO authenticated
     USING (
       bucket_id = 'products-images'
-      AND (SELECT storage_is_admin())
+      AND (SELECT public.is_admin())
     );
 
   RAISE NOTICE '✅ Updated products-images storage policies';
@@ -181,7 +171,7 @@ BEGIN
     TO authenticated
     WITH CHECK (
       bucket_id = 'products-pdfs'
-      AND (SELECT storage_is_admin())
+      AND (SELECT public.is_admin())
     );
 
   CREATE POLICY "products_pdfs_admin_update"
@@ -190,11 +180,11 @@ BEGIN
     TO authenticated
     USING (
       bucket_id = 'products-pdfs'
-      AND (SELECT storage_is_admin())
+      AND (SELECT public.is_admin())
     )
     WITH CHECK (
       bucket_id = 'products-pdfs'
-      AND (SELECT storage_is_admin())
+      AND (SELECT public.is_admin())
     );
 
   CREATE POLICY "products_pdfs_admin_delete"
@@ -203,7 +193,7 @@ BEGIN
     TO authenticated
     USING (
       bucket_id = 'products-pdfs'
-      AND (SELECT storage_is_admin())
+      AND (SELECT public.is_admin())
     );
 
   CREATE POLICY "products_pdfs_admin_select"
@@ -212,7 +202,7 @@ BEGIN
     TO authenticated
     USING (
       bucket_id = 'products-pdfs'
-      AND (SELECT storage_is_admin())
+      AND (SELECT public.is_admin())
     );
 
   RAISE NOTICE '✅ Updated products-pdfs storage policies';
@@ -234,8 +224,7 @@ BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '🔧 CHANGES MADE:';
   RAISE NOTICE '   1. Updated is_admin() function to check NOT is_anonymous';
-  RAISE NOTICE '   2. Created storage_is_admin() helper for storage policies';
-  RAISE NOTICE '   3. Recreated storage.objects policies with explicit check';
+  RAISE NOTICE '   2. Recreated storage.objects policies using public.is_admin()';
   RAISE NOTICE '';
   RAISE NOTICE '📋 TABLES AUTOMATICALLY FIXED (via is_admin() update):';
   RAISE NOTICE '   ✅ blog_posts';
