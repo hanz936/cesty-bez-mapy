@@ -215,19 +215,9 @@ async function handleCheckoutCompleted(
     return { success: false, error, retryable: false };
   }
 
-  // Kontrola, zda objednávka už neexistuje (idempotence)
-  const { data: existingOrder } = await supabase
-    .from("orders")
-    .select("id")
-    .eq("stripe_payment_id", session.payment_intent as string)
-    .single();
-
-  if (existingOrder) {
-    console.log(
-      `Order already exists for payment ${session.payment_intent}, skipping`
-    );
-    return { success: true, orderId: existingOrder.id };
-  }
+  // Idempotence řeší atomicky RPC create_order_with_items přes ON CONFLICT
+  // na stripe_payment_id - žádná předběžná kontrola tu není, aby retry
+  // mohl doplnit položky, které by jinak chyběly z částečně neúspěšného běhu.
 
   // Načtení produktů z databáze
   console.log(`Loading products from database: ${productIds.join(", ")}`);
@@ -321,29 +311,6 @@ async function handleCheckoutCompleted(
         0
       );
 
-  // Vytvoření objednávky
-  const { data: order, error: orderError } = await supabase
-    .from("orders")
-    .insert({
-      auth_user_id: supabaseUserId,
-      customer_id: customerId,
-      customer_email: customerEmail,
-      customer_name: customerName,
-      total_amount: totalAmount,
-      stripe_payment_id: session.payment_intent as string,
-      status: "completed",
-    })
-    .select("id")
-    .single();
-
-  if (orderError) {
-    const error = `Failed to create order: ${JSON.stringify(orderError)}`;
-    console.error(error);
-    return { success: false, error, retryable: true };
-  }
-
-  console.log(`Order created: ${order.id}`);
-
   // Načtení Stripe line items pro správné quantity a zaplacené ceny
   let stripeLineItems: Stripe.LineItem[] = [];
   try {
@@ -354,7 +321,7 @@ async function handleCheckoutCompleted(
     console.error("Failed to fetch Stripe line items for order_items:", lineItemsError);
   }
 
-  // Vytvoření order_items
+  // Sestavení položek pro RPC (kvantita a cena z Stripe line items)
   const orderItems = products.map(
     (product: { id: string; price: number; vat_rate: number; slug?: string; stripe_price_id?: string }) => {
       const stripeItem = stripeLineItems.find(
@@ -366,7 +333,6 @@ async function handleCheckoutCompleted(
       const pricePerUnit = paidAmount / quantity;
 
       return {
-        order_id: order.id,
         product_id: product.id,
         quantity,
         price_at_purchase: pricePerUnit,
@@ -377,109 +343,46 @@ async function handleCheckoutCompleted(
     }
   );
 
-  const { error: itemsError } = await supabase
-    .from("order_items")
-    .insert(orderItems);
-
-  if (itemsError) {
-    console.error("Failed to create order items:", itemsError);
-  } else {
-    console.log(`Created ${orderItems.length} order items`);
-
-    // Aktualizovat status u všech propojených custom_itinerary_requests na "paid".
-    // Guard .eq("status", "new") je idempotentní a chrání před přepsáním stavu,
-    // který už Jana ručně posunula dál (např. "in_progress").
-    const linkedRequestIds = [
-      ...new Set(
-        orderItems
-          .map((item: { custom_itinerary_request_id: string | null }) => item.custom_itinerary_request_id)
-          .filter((id: string | null): id is string => !!id)
-      ),
-    ];
-
-    for (const requestId of linkedRequestIds) {
-      const { data: updated, error: updateError } = await supabase
-        .from("custom_itinerary_requests")
-        .update({
-          status: "paid",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", requestId)
-        .eq("status", "new")
-        .select("id");
-
-      if (updateError) {
-        console.error(
-          `Failed to update custom itinerary request ${requestId}:`,
-          updateError
-        );
-      } else if (updated && updated.length > 0) {
-        console.log(`Updated custom itinerary request ${requestId} to "paid"`);
-      } else {
-        console.log(
-          `Custom itinerary request ${requestId} not in status "new" - skipping (no-op)`
-        );
-      }
-    }
-  }
-
-  // Vytvoření jediného download tokenu pro celou objednávku
-  // Token umožňuje stažení všech PDF z objednávky přes order_items
+  // Download token generujeme jen pokud je v objednávce alespoň jeden produkt s PDF
   const hasProductsWithPdf = products.some(
     (product: { pdf_url?: string }) => product.pdf_url
   );
+  const downloadTokenString = hasProductsWithPdf ? generateToken(48) : null;
+  const downloadExpiresAt = hasProductsWithPdf
+    ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 dní
+    : null;
 
-  if (hasProductsWithPdf) {
-    const downloadToken = {
-      order_id: order.id,
-      token: generateToken(48),
-      expires_at: new Date(
-        Date.now() + 7 * 24 * 60 * 60 * 1000
-      ).toISOString(), // 7 dní
-    };
+  // Atomické vytvoření objednávky + položek + souvisejících updateů.
+  // RPC je idempotentní podle stripe_payment_id, retry vždy konverguje
+  // do stejného finálního stavu.
+  const payload = {
+    stripe_payment_id: session.payment_intent as string,
+    auth_user_id: supabaseUserId,
+    customer_id: customerId,
+    customer_email: customerEmail,
+    customer_name: customerName,
+    total_amount: totalAmount,
+    items: orderItems,
+    download_token: downloadTokenString,
+    download_expires_at: downloadExpiresAt,
+  };
 
-    const { error: tokenError } = await supabase
-      .from("download_tokens")
-      .insert(downloadToken);
-
-    if (tokenError) {
-      console.error("Failed to create download token:", tokenError);
-    } else {
-      console.log(`Created download token for order: ${downloadToken.token.substring(0, 8)}...`);
-    }
-  }
-
-  // Aktualizace total_spent u zákazníka
-  if (customerId) {
-    const { error: updateError } = await supabase.rpc("increment_customer_spent", {
-      p_customer_id: customerId,
-      p_amount: totalAmount,
-    });
-
-    // Pokud RPC neexistuje, použijeme klasický update
-    if (updateError) {
-      console.log("RPC not available, using direct update");
-      const { data: customer } = await supabase
-        .from("customers")
-        .select("total_spent")
-        .eq("id", customerId)
-        .single();
-
-      if (customer) {
-        await supabase
-          .from("customers")
-          .update({
-            total_spent: (customer.total_spent || 0) + totalAmount,
-            last_purchase_at: new Date().toISOString(),
-          })
-          .eq("id", customerId);
-      }
-    }
-  }
-
-  console.log(
-    `Checkout processing completed for session ${session.id}, order ${order.id}`
+  const { data: rpcResult, error: rpcError } = await supabase.rpc(
+    "create_order_with_items",
+    { p_payload: payload }
   );
 
-  return { success: true, orderId: order.id };
+  if (rpcError) {
+    const error = `create_order_with_items RPC failed: ${JSON.stringify(rpcError)}`;
+    console.error(error);
+    return { success: false, error, retryable: true };
+  }
+
+  const orderId = rpcResult?.order_id as string;
+  const wasCreated = rpcResult?.was_created as boolean;
+  console.log(
+    `Checkout processing completed for session ${session.id}, order ${orderId} (${wasCreated ? "created" : "already existed"})`
+  );
+
+  return { success: true, orderId };
 }
