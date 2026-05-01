@@ -24,7 +24,6 @@ secrets.json
 
 # Supabase specific
 supabase/.env
-supabase/config.toml
 .supabase/
 supabase/.temp/
 supabase/.branches/
