@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
-import { Button, Form, Input, TextArea, Dropdown } from '../components/ui';
+import { Button, Form, Input, TextArea, Dropdown, TurnstileField } from '../components/ui';
 import { BASE_PATH } from '../constants';
 
 const Contact = () => {
@@ -14,6 +14,7 @@ const Contact = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [errors, setErrors] = useState({});
+  const [captchaToken, setCaptchaToken] = useState(null);
 
   const subjectOptions = [
     'Obecný dotaz',
@@ -46,27 +47,60 @@ const Contact = () => {
 
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
-    
+
     const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-    
+
+    if (!captchaToken) {
+      setErrors({ submit: 'Počkej prosím na bezpečnostní ověření.' });
+      return;
+    }
+
     setIsSubmitting(true);
     setErrors({});
-    
-    // Simulace odeslání (nahradíme skutečným API)
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/submit-contact-form`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
+          form_type: 'contact',
+          name: formData.name,
+          email: formData.email,
+          subject: formData.subject,
+          message: formData.message,
+          captchaToken,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 403) {
+          setErrors({ submit: 'Bezpečnostní ověření selhalo. Obnov stránku a zkus to znovu.' });
+        } else if (res.status === 503) {
+          setErrors({ submit: 'Ověření momentálně není dostupné. Zkus to za chvíli.' });
+        } else {
+          setErrors({ submit: data.error === 'invalid_message' ? 'Zpráva je příliš krátká.' : 'Něco se pokazilo. Zkus to znovu.' });
+        }
+        return;
+      }
+
       setIsSubmitted(true);
       setFormData({ name: '', email: '', subject: 'Obecný dotaz', message: '' });
+      setCaptchaToken(null);
     } catch {
-      setErrors({ submit: 'Něco se pokazilo. Zkus to znovu.' });
+      setErrors({ submit: 'Chyba sítě. Zkontroluj připojení a zkus to znovu.' });
     } finally {
       setIsSubmitting(false);
     }
-  }, [validateForm]);
+  }, [validateForm, formData, captchaToken]);
 
   const handleInputChange = useCallback((field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -220,14 +254,20 @@ const Contact = () => {
                   error={errors.message}
                 />
 
+                <TurnstileField
+                  onVerify={setCaptchaToken}
+                  onExpire={() => setCaptchaToken(null)}
+                  onError={() => setCaptchaToken(null)}
+                />
+
                 {/* Odeslat */}
                 <div className="pt-2 sm:pt-4">
-                  <Button 
-                    type="submit" 
-                    variant="green" 
+                  <Button
+                    type="submit"
+                    variant="green"
                     size="lg"
                     fullWidth
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !captchaToken}
                   >
                     {isSubmitting ? (
                       <div className="flex items-center gap-2">
