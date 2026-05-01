@@ -9,3 +9,4 @@ export { default as MultiStepForm } from './MultiStepForm.jsx';
 export { default as CustomCheckbox } from './CustomCheckbox.jsx';
 export { default as CustomRadio } from './CustomRadio.jsx';
 export { default as ReviewCard } from './ReviewCard.jsx';
+export { default as TurnstileField } from './TurnstileField.jsx';
