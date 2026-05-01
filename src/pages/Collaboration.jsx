@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
-import { Button, Form, Input, TextArea } from '../components/ui';
+import { Button, Form, Input, TextArea, TurnstileField } from '../components/ui';
 import { BASE_PATH } from '../constants';
 import logger from '../utils/logger';
 
@@ -33,6 +33,7 @@ const Collaboration = () => {
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState(null);
 
   const validateForm = useCallback((data) => {
     const errors = {};
@@ -78,27 +79,59 @@ const Collaboration = () => {
 
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
-    
+
     const errors = validateForm(formData);
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       return;
     }
-    
+
+    if (!captchaToken) {
+      setFormErrors({ submit: 'Počkej prosím na bezpečnostní ověření.' });
+      return;
+    }
+
     setIsSubmitting(true);
-    
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/submit-contact-form`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
+          form_type: 'collaboration',
+          name: formData.name,
+          email: formData.email,
+          message: formData.message,
+          captchaToken,
+        }),
+      });
+
+      if (!res.ok) {
+        if (res.status === 403) {
+          setFormErrors({ submit: 'Bezpečnostní ověření selhalo. Obnov stránku a zkus to znovu.' });
+        } else if (res.status === 503) {
+          setFormErrors({ submit: 'Ověření momentálně není dostupné. Zkus to za chvíli.' });
+        } else {
+          setFormErrors({ submit: 'Při odesílání se vyskytla chyba. Zkuste to prosím znovu.' });
+        }
+        return;
+      }
+
       setSubmitSuccess(true);
       setFormData({ name: '', email: '', message: '' });
       setFormErrors({});
+      setCaptchaToken(null);
     } catch (error) {
       logger.error('Form submission error:', error, { formData: { email: formData.email } });
       setFormErrors({ submit: 'Při odesílání se vyskytla chyba. Zkuste to prosím znovu.' });
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, validateForm]);
+  }, [formData, validateForm, captchaToken]);
 
 
   return (
@@ -240,10 +273,16 @@ const Collaboration = () => {
                 </div>
               )}
               
+              <TurnstileField
+                onVerify={setCaptchaToken}
+                onExpire={() => setCaptchaToken(null)}
+                onError={() => setCaptchaToken(null)}
+              />
+
               <div className="flex justify-center">
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !captchaToken}
                   variant="green"
                   size="md"
                   className="disabled:bg-gray-400 disabled:cursor-not-allowed"
