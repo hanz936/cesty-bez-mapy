@@ -7,7 +7,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
-import { Button } from '../components/ui';
+import { Button, TurnstileField } from '../components/ui';
 import { BASE_PATH, ROUTES } from '../constants';
 import { useCart } from '../contexts';
 import { supabase } from '../lib/supabase';
@@ -74,6 +74,7 @@ const Checkout = React.memo(() => {
   const { cartItems, cartTotal, itemCount } = useCart();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState(null);
+  const [captchaToken, setCaptchaToken] = useState(null);
 
   // Automatické poescrollování na vrchol při načtení stránky
   useEffect(() => {
@@ -103,8 +104,15 @@ const Checkout = React.memo(() => {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        // Anonymní přihlášení pro guest checkout
-        const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+        // Anonymní přihlášení pro guest checkout - vyžaduje Turnstile token
+        if (!captchaToken) {
+          setError('Počkej prosím na bezpečnostní ověření.');
+          setIsProcessing(false);
+          return;
+        }
+        const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously({
+          options: { captchaToken },
+        });
         if (anonError) {
           console.error('Anonymous sign-in error:', anonError);
         } else {
@@ -152,7 +160,7 @@ const Checkout = React.memo(() => {
       setError(err.message || 'Nastala chyba při zpracování platby. Zkus to prosím znovu.');
       setIsProcessing(false);
     }
-  }, [cartItems]);
+  }, [cartItems, captchaToken]);
 
   // Prázdný košík - přesměrování probíhá v useEffect
   if (cartItems.length === 0) {
@@ -273,13 +281,20 @@ const Checkout = React.memo(() => {
                 </p>
               </div>
 
+              {/* Turnstile bezpečnostní ověření */}
+              <TurnstileField
+                onVerify={setCaptchaToken}
+                onExpire={() => setCaptchaToken(null)}
+                onError={() => setCaptchaToken(null)}
+              />
+
               {/* Platební tlačítko */}
               <Button
                 onClick={handleCheckout}
                 variant="green"
                 size="lg"
                 fullWidth
-                disabled={isProcessing}
+                disabled={isProcessing || !captchaToken}
                 className="mb-4"
               >
                 {isProcessing ? (
