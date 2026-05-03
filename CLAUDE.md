@@ -115,6 +115,24 @@ VITE_DEBUG=true
 - `custom_itinerary_requests`
 - `blog_posts`
 - `user_roles`
+- `contact_messages` (zprávy z Contact + Collaboration formulářů, viz Cloudflare Turnstile níže)
+
+## Cloudflare Turnstile
+
+Veřejné formuláře a anonymní auth jsou chráněné Cloudflare Turnstile (managed mode).
+
+- Reusable komponenta: [`src/components/ui/TurnstileField.jsx`](src/components/ui/TurnstileField.jsx)
+- Site key env: `VITE_TURNSTILE_SITE_KEY` (veřejný, v bundle)
+- Secret key env (Edge Function): `TURNSTILE_SECRET_KEY` (Supabase secrets)
+- Edge Function: [`supabase/functions/submit-contact-form/index.ts`](supabase/functions/submit-contact-form/index.ts) (verify_jwt=false, public endpoint)
+- Sdílený verifier: [`supabase/functions/_shared/verifyTurnstile.ts`](supabase/functions/_shared/verifyTurnstile.ts) — volá Cloudflare siteverify
+- Auth integrace: konfigurováno v Supabase Dashboard → Authentication → CAPTCHA (ne v kódu)
+- Production setup: [`docs/MANUAL_SETUP_TURNSTILE.md`](docs/MANUAL_SETUP_TURNSTILE.md)
+
+Chráněné submission flows:
+- `Contact.jsx` + `Collaboration.jsx` → POST na `submit-contact-form` Edge Function → INSERT do `contact_messages`
+- `Checkout.jsx` → `signInAnonymously({ options: { captchaToken } })` před vytvořením orderu
+- `CustomItineraryForm.jsx` → widget jen na posledním wizard stepu (token freshness; 5min TTL)
 
 ## Deployment
 
