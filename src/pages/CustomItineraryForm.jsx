@@ -1,13 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
-import { Input, TextArea, MultiStepForm, CustomCheckbox, CustomRadio } from '../components/ui';
+import { Input, TextArea, MultiStepForm, CustomCheckbox, CustomRadio, TurnstileField } from '../components/ui';
 import { ROUTES } from '../constants';
 import { BASE_PATH } from '../constants/app';
 import { supabase } from '../lib/supabase';
-
-// TODO: Add Cloudflare Turnstile spam protection when site keys are available
-// import { Turnstile } from '@marsidev/react-turnstile';
 
 const CustomItineraryForm = React.memo(() => {
   const navigate = useNavigate();
@@ -77,6 +74,9 @@ const CustomItineraryForm = React.memo(() => {
   // State for submission loading
   const [_isSubmitting, setIsSubmitting] = useState(false);
 
+  // Cloudflare Turnstile captcha token (set when user completes widget on last step)
+  const [captchaToken, setCaptchaToken] = useState(null);
+
   // Toast notification state
   const [notification, setNotification] = useState({ show: false, message: '', type: 'info' });
 
@@ -95,6 +95,12 @@ const CustomItineraryForm = React.memo(() => {
       return;
     }
 
+    if (!captchaToken) {
+      showNotification('Počkej prosím na bezpečnostní ověření.', 'error');
+      setIsSubmitting(false);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -107,6 +113,7 @@ const CustomItineraryForm = React.memo(() => {
         // No session exists - create anonymous user
         const { data: authData, error: authError } = await supabase.auth.signInAnonymously({
           options: {
+            captchaToken,
             data: {
               is_anonymous: true
             }
@@ -200,7 +207,7 @@ const CustomItineraryForm = React.memo(() => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, showNotification, navigate]);
+  }, [formData, captchaToken, showNotification, navigate]);
 
   // Step configuration
   const stepLabels = [
@@ -1066,6 +1073,15 @@ const CustomItineraryForm = React.memo(() => {
             <p className="text-green-700 mb-4">
               Po kliknutí na "Odeslat" uložíme tvé odpovědi a zobrazíme ti náhled, který si budeš moct vytisknout nebo uložit jako PDF.
             </p>
+          </div>
+
+          {/* Turnstile rendered only on the last step so token is fresh at submit time */}
+          <div className="mt-8 flex justify-center">
+            <TurnstileField
+              onVerify={setCaptchaToken}
+              onExpire={() => setCaptchaToken(null)}
+              onError={() => setCaptchaToken(null)}
+            />
           </div>
         </div>
       )
