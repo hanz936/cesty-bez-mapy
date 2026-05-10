@@ -1,8 +1,9 @@
 {
   "imports": {
-    "react-email": "npm:react-email@6",
     "react": "npm:react@18",
-    "resend": "npm:resend@6"
+    "react-email": "npm:react-email@6",
+    "resend": "npm:resend@6",
+    "vokativ": "npm:vokativ@1"
   },
   "nodeModulesDir": "auto"
 }

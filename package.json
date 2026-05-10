@@ -21,7 +21,8 @@
     "react-email": "^6.1.1",
     "react-router-dom": "^7.7.1",
     "resend": "^6.12.3",
-    "tailwindcss": "^4.1.11"
+    "tailwindcss": "^4.1.11",
+    "vokativ": "^1.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
