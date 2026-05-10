@@ -1,14 +1,9 @@
-import { Heading, Text, Section, Button } from "react-email";
+import { Text, Section, Button } from "react-email";
 import * as React from "react";
 import { BrandLayout } from "./BrandLayout.tsx";
 import { colors, sizes, spacing } from "./styles.ts";
+import { vocativeFirstName } from "../vocative.ts";
 import type { CustomItineraryDeliveredProps } from "../types.ts";
-
-const headingStyle: React.CSSProperties = {
-  color: colors.primary,
-  fontSize: sizes.h1,
-  margin: `0 0 ${spacing.md}`,
-};
 
 const textStyle: React.CSSProperties = {
   fontSize: sizes.bodyText,
@@ -24,53 +19,59 @@ const calloutStyle: React.CSSProperties = {
   margin: `${spacing.lg} 0`,
 };
 
-const buttonContainer: React.CSSProperties = {
+const buttonContainerStyle: React.CSSProperties = {
   textAlign: "center",
-  padding: `${spacing.xl} 0`,
+  paddingTop: spacing.lg,
+  paddingBottom: spacing.md,
 };
 
 const buttonStyle: React.CSSProperties = {
   backgroundColor: colors.primary,
   color: "#ffffff",
-  fontSize: sizes.buttonText,
-  fontWeight: "bold",
-  padding: `${spacing.md} ${spacing.xl}`,
+  fontSize: "15px",
+  fontWeight: 600,
+  padding: "12px 24px",
   borderRadius: "6px",
   textDecoration: "none",
   display: "inline-block",
 };
 
-export function CustomItineraryDelivered(props: CustomItineraryDeliveredProps): React.ReactElement {
-  return (
-    <BrandLayout preview={`Tvůj individuální itinerář pro ${props.destination} je hotový!`}>
-      <Heading style={headingStyle}>Tvůj individuální itinerář je hotový!</Heading>
-      <Text style={textStyle}>
-        Ahoj {props.customerName},
-      </Text>
-      <Text style={textStyle}>
-        Dokončila jsem pro tebe individuální itinerář pro <strong>{props.destination}</strong>. Den po dni, podle tvých přání. Můžeš ho stáhnout kliknutím na tlačítko níže.
-      </Text>
+const fallbackTextStyle: React.CSSProperties = {
+  fontSize: sizes.smallText,
+  lineHeight: 1.5,
+  color: colors.textMuted,
+  textAlign: "center",
+  margin: 0,
+};
 
-      <Section style={buttonContainer}>
+const fallbackUrlStyle: React.CSSProperties = {
+  wordBreak: "break-all",
+};
+
+export function CustomItineraryDelivered(props: CustomItineraryDeliveredProps): React.ReactElement {
+  const greeting = vocativeFirstName(props.customerName);
+  return (
+    <BrandLayout
+      preview={`Tvůj individuální itinerář pro ${props.destination} je hotový!`}
+      heroHeading={`Tvůj individuální itinerář je hotový, ${greeting}!`}
+      heroIntro={`Dokončila jsem pro tebe individuální itinerář pro ${props.destination}. Den po dni, podle tvých přání.`}
+    >
+      <Section style={buttonContainerStyle}>
         <Button href={props.downloadUrl} style={buttonStyle}>
           Stáhnout itinerář
         </Button>
       </Section>
-
       <Section style={calloutStyle}>
         <Text style={{ ...textStyle, margin: 0 }}>
           <strong>Tip:</strong> Stáhni si PDF i do mobilu, ať ho máš po ruce na cestě i offline.
         </Text>
       </Section>
-
       <Text style={textStyle}>
         Pokud najdeš v itineráři něco, co chceš upravit nebo doplnit, dej mi vědět. Přeju ti skvělou cestu!
       </Text>
-
-      <Text style={{ ...textStyle, fontSize: sizes.smallText, color: colors.textMuted }}>
-        Pokud tlačítko nefunguje, zkopíruj tento odkaz do prohlížeče:
-        <br />
-        {props.downloadUrl}
+      <Text style={fallbackTextStyle}>
+        Pokud tlačítko nefunguje, zkopíruj tento odkaz:<br />
+        <span style={fallbackUrlStyle}>{props.downloadUrl}</span>
       </Text>
     </BrandLayout>
   );
@@ -79,7 +80,7 @@ export function CustomItineraryDelivered(props: CustomItineraryDeliveredProps): 
 export default CustomItineraryDelivered;
 
 CustomItineraryDelivered.PreviewProps = {
-  customerName: "Jana",
+  customerName: "Jana Nováková",
   destination: "Toskánsko",
   downloadUrl: "https://cestybezmapy.cz/stahnout?token=preview456",
-} satisfies import("../types.ts").CustomItineraryDeliveredProps;
+} satisfies CustomItineraryDeliveredProps;

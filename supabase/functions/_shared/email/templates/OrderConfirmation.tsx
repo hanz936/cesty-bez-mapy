@@ -9,49 +9,67 @@ import {
 import * as React from "react";
 import { BrandLayout } from "./BrandLayout.tsx";
 import { colors, sizes, spacing } from "./styles.ts";
+import { vocativeFirstName } from "../vocative.ts";
 import type { OrderConfirmationProps } from "../types.ts";
 
-const headingStyle: React.CSSProperties = {
+const sectionHeadingStyle: React.CSSProperties = {
   color: colors.primary,
-  fontSize: sizes.h1,
-  margin: `0 0 ${spacing.md}`,
+  fontSize: sizes.h2,
+  fontWeight: 700,
+  margin: `0 0 ${spacing.lg}`,
+  textAlign: "center",
 };
 
 const textStyle: React.CSSProperties = {
   fontSize: sizes.bodyText,
   lineHeight: 1.6,
   color: colors.text,
-  margin: `0 0 ${spacing.md}`,
+  margin: 0,
 };
 
 const itemRowStyle: React.CSSProperties = {
-  paddingTop: spacing.sm,
-  paddingBottom: spacing.sm,
+  paddingTop: spacing.md,
+  paddingBottom: spacing.md,
   borderBottom: `1px solid ${colors.border}`,
 };
 
-const totalStyle: React.CSSProperties = {
-  ...textStyle,
-  fontWeight: "bold",
-  fontSize: sizes.h2,
+const totalRowStyle: React.CSSProperties = {
   paddingTop: spacing.md,
 };
 
-const buttonContainer: React.CSSProperties = {
+const totalLabelStyle: React.CSSProperties = {
+  ...textStyle,
+  fontWeight: 700,
+  fontSize: sizes.h2,
+};
+
+const buttonContainerStyle: React.CSSProperties = {
   textAlign: "center",
-  padding: `${spacing.xl} 0`,
+  paddingTop: spacing.xl,
+  paddingBottom: spacing.md,
 };
 
 const buttonStyle: React.CSSProperties = {
   backgroundColor: colors.primary,
   color: "#ffffff",
-  fontSize: sizes.buttonText,
-  fontWeight: "bold",
-  padding: `${spacing.md} ${spacing.xl}`,
+  fontSize: "15px",
+  fontWeight: 600,
+  padding: "12px 24px",
   borderRadius: "6px",
   textDecoration: "none",
-  minHeight: sizes.buttonMinHeight,
   display: "inline-block",
+};
+
+const fallbackTextStyle: React.CSSProperties = {
+  fontSize: sizes.smallText,
+  lineHeight: 1.5,
+  color: colors.textMuted,
+  textAlign: "center",
+  margin: 0,
+};
+
+const fallbackUrlStyle: React.CSSProperties = {
+  wordBreak: "break-all",
 };
 
 function formatCZK(amount: number): string {
@@ -59,52 +77,49 @@ function formatCZK(amount: number): string {
 }
 
 export function OrderConfirmation(props: OrderConfirmationProps): React.ReactElement {
+  const greeting = vocativeFirstName(props.customerName);
   return (
-    <BrandLayout preview={`Tvůj průvodce je připraven ke stažení (objednávka #${props.orderId})`}>
-      <Heading style={headingStyle}>Děkujeme za nákup, {props.customerName}!</Heading>
-      <Text style={textStyle}>
-        Tvůj průvodce je připraven ke stažení. Klikni na tlačítko níže — odkaz funguje bez časového omezení.
-      </Text>
-
-      <Section style={{ paddingTop: spacing.lg, paddingBottom: spacing.lg }}>
-        <Text style={{ ...textStyle, fontWeight: "bold", marginBottom: spacing.sm }}>
-          Objednávka #{props.orderId}
-        </Text>
+    <BrandLayout
+      preview={`Tvůj průvodce je připraven ke stažení (objednávka #${props.orderId})`}
+      heroHeading={`Děkujeme za nákup, ${greeting}!`}
+      heroIntro="Tvůj průvodce je připraven ke stažení. Klikni níže — odkaz funguje bez časového omezení."
+    >
+      <Heading as="h2" style={sectionHeadingStyle}>Shrnutí objednávky</Heading>
+      <Section>
         {props.items.map((item, idx) => (
           <Row key={idx} style={itemRowStyle}>
             <Column style={{ width: "70%" }}>
-              <Text style={{ ...textStyle, margin: 0 }}>
+              <Text style={textStyle}>
                 {item.productTitle}
                 {item.quantity > 1 ? ` × ${item.quantity}` : ""}
               </Text>
             </Column>
             <Column style={{ width: "30%", textAlign: "right" }}>
-              <Text style={{ ...textStyle, margin: 0 }}>
+              <Text style={textStyle}>
                 {formatCZK(item.priceAtPurchase * item.quantity)}
               </Text>
             </Column>
           </Row>
         ))}
-        <Row>
+        <Row style={totalRowStyle}>
           <Column style={{ width: "70%" }}>
-            <Text style={totalStyle}>Celkem</Text>
+            <Text style={totalLabelStyle}>Celkem</Text>
           </Column>
           <Column style={{ width: "30%", textAlign: "right" }}>
-            <Text style={totalStyle}>{formatCZK(props.totalAmount)}</Text>
+            <Text style={totalLabelStyle}>{formatCZK(props.totalAmount)}</Text>
           </Column>
         </Row>
       </Section>
 
-      <Section style={buttonContainer}>
+      <Section style={buttonContainerStyle}>
         <Button href={props.downloadUrl} style={buttonStyle}>
           Stáhnout průvodce
         </Button>
       </Section>
 
-      <Text style={{ ...textStyle, fontSize: sizes.smallText, color: colors.textMuted }}>
-        Pokud tlačítko nefunguje, zkopíruj tento odkaz do prohlížeče:
-        <br />
-        {props.downloadUrl}
+      <Text style={fallbackTextStyle}>
+        Pokud tlačítko nefunguje, zkopíruj tento odkaz:<br />
+        <span style={fallbackUrlStyle}>{props.downloadUrl}</span>
       </Text>
     </BrandLayout>
   );
@@ -113,7 +128,7 @@ export function OrderConfirmation(props: OrderConfirmationProps): React.ReactEle
 export default OrderConfirmation;
 
 OrderConfirmation.PreviewProps = {
-  customerName: "Jana",
+  customerName: "Jana Nováková",
   orderId: "ord-12345",
   items: [
     { productTitle: "Toskánsko – cestovní průvodce", quantity: 1, priceAtPurchase: 199 },
@@ -121,4 +136,4 @@ OrderConfirmation.PreviewProps = {
   ],
   totalAmount: 597,
   downloadUrl: "https://cestybezmapy.cz/stahnout?token=preview123",
-} satisfies import("../types.ts").OrderConfirmationProps;
+} satisfies OrderConfirmationProps;

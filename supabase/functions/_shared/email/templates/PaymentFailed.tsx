@@ -1,14 +1,9 @@
-import { Heading, Text, Section, Button } from "react-email";
+import { Text, Section, Button } from "react-email";
 import * as React from "react";
 import { BrandLayout } from "./BrandLayout.tsx";
 import { colors, sizes, spacing } from "./styles.ts";
+import { vocativeFirstName } from "../vocative.ts";
 import type { PaymentFailedProps } from "../types.ts";
-
-const headingStyle: React.CSSProperties = {
-  color: colors.primary,
-  fontSize: sizes.h1,
-  margin: `0 0 ${spacing.md}`,
-};
 
 const textStyle: React.CSSProperties = {
   fontSize: sizes.bodyText,
@@ -17,20 +12,29 @@ const textStyle: React.CSSProperties = {
   margin: `0 0 ${spacing.md}`,
 };
 
-const buttonContainer: React.CSSProperties = {
+const buttonContainerStyle: React.CSSProperties = {
   textAlign: "center",
-  padding: `${spacing.xl} 0`,
+  paddingTop: spacing.lg,
+  paddingBottom: spacing.md,
 };
 
 const buttonStyle: React.CSSProperties = {
   backgroundColor: colors.primary,
   color: "#ffffff",
-  fontSize: sizes.buttonText,
-  fontWeight: "bold",
-  padding: `${spacing.md} ${spacing.xl}`,
+  fontSize: "15px",
+  fontWeight: 600,
+  padding: "12px 24px",
   borderRadius: "6px",
   textDecoration: "none",
   display: "inline-block",
+};
+
+const noteStyle: React.CSSProperties = {
+  ...textStyle,
+  fontSize: sizes.smallText,
+  color: colors.textMuted,
+  textAlign: "center",
+  margin: 0,
 };
 
 function formatCZK(amount: number): string {
@@ -38,24 +42,22 @@ function formatCZK(amount: number): string {
 }
 
 export function PaymentFailed(props: PaymentFailedProps): React.ReactElement {
+  const greeting = vocativeFirstName(props.customerName);
   return (
-    <BrandLayout preview={`Tvá platba se nezdařila — můžeš to zkusit znovu.`}>
-      <Heading style={headingStyle}>Tvá platba se nezdařila</Heading>
-      <Text style={textStyle}>
-        Ahoj {props.customerName},
-      </Text>
-      <Text style={textStyle}>
-        Pokus o platbu <strong>{formatCZK(props.amount)}</strong> za objednávku <strong>#{props.orderId}</strong> nebyl úspěšný. Z tvého účtu se nic nestrhlo.
-      </Text>
+    <BrandLayout
+      preview="Tvá platba se nezdařila — můžeš to zkusit znovu."
+      heroHeading={`Tvá platba se nezdařila, ${greeting}`}
+      heroIntro={`Pokus o platbu ${formatCZK(props.amount)} za objednávku #${props.orderId} nebyl úspěšný. Z tvého účtu se nic nestrhlo.`}
+    >
       <Text style={textStyle}>
         Nejčastější důvody: nedostatek prostředků, zamítnutí kartou nebo problém s 3D Secure ověřením. Můžeš to zkusit znovu — případně s jinou kartou.
       </Text>
-      <Section style={buttonContainer}>
+      <Section style={buttonContainerStyle}>
         <Button href="https://cestybezmapy.cz/cestovni-pruvodci" style={buttonStyle}>
           Zkusit znovu
         </Button>
       </Section>
-      <Text style={{ ...textStyle, fontSize: sizes.smallText, color: colors.textMuted }}>
+      <Text style={noteStyle}>
         Pokud máš s platbou opakovaný problém, ozvi se mi a najdeme řešení.
       </Text>
     </BrandLayout>
@@ -65,7 +67,7 @@ export function PaymentFailed(props: PaymentFailedProps): React.ReactElement {
 export default PaymentFailed;
 
 PaymentFailed.PreviewProps = {
-  customerName: "Jana",
+  customerName: "Jana Nováková",
   orderId: "ord-12345",
   amount: 199,
-} satisfies import("../types.ts").PaymentFailedProps;
+} satisfies PaymentFailedProps;
