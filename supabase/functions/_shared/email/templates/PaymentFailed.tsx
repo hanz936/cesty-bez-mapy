@@ -1,5 +1,5 @@
-import { Heading, Text, Section, Button } from "npm:react-email@6";
-import * as React from "npm:react@18";
+import { Heading, Text, Section, Button } from "react-email";
+import * as React from "react";
 import { BrandLayout } from "./BrandLayout.tsx";
 import { colors, sizes, spacing } from "./styles.ts";
 import type { PaymentFailedProps } from "../types.ts";
@@ -61,3 +61,11 @@ export function PaymentFailed(props: PaymentFailedProps): React.ReactElement {
     </BrandLayout>
   );
 }
+
+export default PaymentFailed;
+
+PaymentFailed.PreviewProps = {
+  customerName: "Jana",
+  orderId: "ord-12345",
+  amount: 199,
+} satisfies import("../types.ts").PaymentFailedProps;

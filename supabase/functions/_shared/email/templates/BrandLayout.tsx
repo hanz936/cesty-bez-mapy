@@ -16,8 +16,8 @@ import {
   Text,
   Hr,
   Link,
-} from "npm:react-email@6";
-import * as React from "npm:react@18";
+} from "react-email";
+import * as React from "react";
 import { colors, fontStack, sizes, spacing, logoUrl, websiteUrl, supportEmail } from "./styles.ts";
 
 interface BrandLayoutProps {
@@ -103,3 +103,10 @@ export function BrandLayout({ preview, children }: BrandLayoutProps): React.Reac
     </Html>
   );
 }
+
+export default BrandLayout;
+
+BrandLayout.PreviewProps = {
+  preview: "Náhled layoutu",
+  children: null,
+};

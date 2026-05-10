@@ -6,7 +6,7 @@
 // on 4xx. Logs success/failure as structured JSON to console (Supabase logs).
 // ================================================
 
-import { Resend } from "npm:resend@6";
+import { Resend } from "resend";
 import { OrderConfirmation } from "./templates/OrderConfirmation.tsx";
 import { CustomItineraryReceived } from "./templates/CustomItineraryReceived.tsx";
 import { Refund } from "./templates/Refund.tsx";

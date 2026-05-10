@@ -5,8 +5,8 @@ import {
   Button,
   Row,
   Column,
-} from "npm:react-email@6";
-import * as React from "npm:react@18";
+} from "react-email";
+import * as React from "react";
 import { BrandLayout } from "./BrandLayout.tsx";
 import { colors, sizes, spacing } from "./styles.ts";
 import type { OrderConfirmationProps } from "../types.ts";
@@ -109,3 +109,16 @@ export function OrderConfirmation(props: OrderConfirmationProps): React.ReactEle
     </BrandLayout>
   );
 }
+
+export default OrderConfirmation;
+
+OrderConfirmation.PreviewProps = {
+  customerName: "Jana",
+  orderId: "ord-12345",
+  items: [
+    { productTitle: "Toskánsko – cestovní průvodce", quantity: 1, priceAtPurchase: 199 },
+    { productTitle: "Provence – cestovní průvodce", quantity: 2, priceAtPurchase: 199 },
+  ],
+  totalAmount: 597,
+  downloadUrl: "https://cestybezmapy.cz/stahnout?token=preview123",
+} satisfies import("../types.ts").OrderConfirmationProps;

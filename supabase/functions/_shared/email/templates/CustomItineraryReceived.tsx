@@ -1,5 +1,5 @@
-import { Heading, Text, Section } from "npm:react-email@6";
-import * as React from "npm:react@18";
+import { Heading, Text, Section } from "react-email";
+import * as React from "react";
 import { BrandLayout } from "./BrandLayout.tsx";
 import { colors, sizes, spacing } from "./styles.ts";
 import type { CustomItineraryReceivedProps } from "../types.ts";
@@ -49,3 +49,12 @@ export function CustomItineraryReceived(props: CustomItineraryReceivedProps): Re
     </BrandLayout>
   );
 }
+
+export default CustomItineraryReceived;
+
+CustomItineraryReceived.PreviewProps = {
+  customerName: "Jana",
+  orderId: "ord-67890",
+  totalAmount: 2999,
+  destination: "Toskánsko",
+} satisfies import("../types.ts").CustomItineraryReceivedProps;

@@ -1,5 +1,5 @@
-import { Heading, Text } from "npm:react-email@6";
-import * as React from "npm:react@18";
+import { Heading, Text } from "react-email";
+import * as React from "react";
 import { BrandLayout } from "./BrandLayout.tsx";
 import { colors, sizes, spacing } from "./styles.ts";
 import type { RefundProps } from "../types.ts";
@@ -37,3 +37,11 @@ export function Refund(props: RefundProps): React.ReactElement {
     </BrandLayout>
   );
 }
+
+export default Refund;
+
+Refund.PreviewProps = {
+  customerName: "Jana",
+  orderId: "ord-12345",
+  amount: 199,
+} satisfies import("../types.ts").RefundProps;
