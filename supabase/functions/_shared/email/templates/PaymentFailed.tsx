@@ -48,6 +48,7 @@ export function PaymentFailed(props: PaymentFailedProps): React.ReactElement {
       preview="Tvoje platba neprošla. Klidně to zkus znovu."
       heroHeading={`Platba neprošla, ${greeting}`}
       heroIntro={`Pokus o platbu ${formatCZK(props.amount)} za objednávku #${props.orderId} nebyl úspěšný. Z tvého účtu se nic nestrhlo.`}
+      footerSignoff="Měj se hezky,"
     >
       <Text style={textStyle}>
         Nejčastější důvody jsou nedostatek prostředků na účtu, zamítnutí kartou nebo problém s 3D Secure ověřením. Klidně to zkus znovu, případně s jinou kartou.

@@ -30,6 +30,7 @@ export function Refund(props: RefundProps): React.ReactElement {
       preview={`Vrátili jsme ti ${formatCZK(props.amount)} za objednávku #${props.orderId}.`}
       heroHeading={`Vrátili jsme ti peníze, ${greeting}`}
       heroIntro={`Právě jsme ti vrátili ${formatCZK(props.amount)} za objednávku #${props.orderId}.`}
+      footerSignoff="Měj se hezky,"
     >
       <Text style={textStyle}>
         Peníze by se měly objevit na tvém účtu během několika pracovních dnů. Záleží to na tvojí bance.

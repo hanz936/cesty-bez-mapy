@@ -50,11 +50,18 @@ const fallbackUrlStyle: React.CSSProperties = {
 
 export function CustomItineraryDelivered(props: CustomItineraryDeliveredProps): React.ReactElement {
   const greeting = vocativeFirstName(props.customerName);
+  const preview = props.destination
+    ? `Tvůj individuální itinerář pro ${props.destination} je hotový!`
+    : `Tvůj individuální itinerář je hotový!`;
+  const heroIntro = props.destination
+    ? `Dokončila jsem pro tebe individuální itinerář pro ${props.destination}. Plánovala jsem ho den po dni přesně podle tvých přání.`
+    : `Dokončila jsem pro tebe individuální itinerář. Plánovala jsem ho den po dni přesně podle tvých přání.`;
   return (
     <BrandLayout
-      preview={`Tvůj individuální itinerář pro ${props.destination} je hotový!`}
+      preview={preview}
       heroHeading={`Tvůj individuální itinerář je hotový, ${greeting}!`}
-      heroIntro={`Dokončila jsem pro tebe individuální itinerář pro ${props.destination}. Plánovala jsem ho den po dni přesně podle tvých přání.`}
+      heroIntro={heroIntro}
+      footerSignoff="Šťastnou cestu,"
     >
       <Section style={buttonContainerStyle}>
         <Button href={props.downloadUrl} style={buttonStyle}>

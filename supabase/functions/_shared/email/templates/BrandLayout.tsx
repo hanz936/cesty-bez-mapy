@@ -22,6 +22,7 @@ interface BrandLayoutProps {
   preview: string;
   heroHeading: string;
   heroIntro: string;
+  footerSignoff: string;
   children: React.ReactNode;
 }
 
@@ -96,7 +97,7 @@ const footerLinkStyle: React.CSSProperties = {
   textDecoration: "underline",
 };
 
-export function BrandLayout({ preview, heroHeading, heroIntro, children }: BrandLayoutProps): React.ReactElement {
+export function BrandLayout({ preview, heroHeading, heroIntro, footerSignoff, children }: BrandLayoutProps): React.ReactElement {
   return (
     <Html lang="cs">
       <Head />
@@ -116,7 +117,7 @@ export function BrandLayout({ preview, heroHeading, heroIntro, children }: Brand
           <Hr style={hrStyle} />
           <Section style={footerStyle}>
             <Text style={{ margin: 0 }}>
-              Šťastnou cestu,<br />Jana z Cesty bez mapy
+              {footerSignoff}<br />Jana z Cesty bez mapy
             </Text>
             <Text style={{ marginTop: spacing.md, marginBottom: 0 }}>
               <Link href={`mailto:${supportEmail}`} style={footerLinkStyle}>
@@ -141,5 +142,6 @@ BrandLayout.PreviewProps = {
   preview: "Náhled layoutu",
   heroHeading: "Vítej v Cesty bez mapy",
   heroIntro: "Tady se zobrazí krátký intro paragraph s kontextem emailu.",
+  footerSignoff: "Měj se hezky,",
   children: null,
 };

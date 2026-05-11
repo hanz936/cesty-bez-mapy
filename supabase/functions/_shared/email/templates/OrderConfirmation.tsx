@@ -90,6 +90,7 @@ export function OrderConfirmation(props: OrderConfirmationProps): React.ReactEle
       preview={`Tvůj průvodce je připraven ke stažení (objednávka #${props.orderId})`}
       heroHeading={`Děkujeme za nákup, ${greeting}!`}
       heroIntro="Tvůj nový průvodce je připraven. Stáhni si ho a vyraž na cestu!"
+      footerSignoff="Šťastnou cestu,"
     >
       <Heading as="h2" style={sectionHeadingStyle}>Shrnutí objednávky</Heading>
       <Section>

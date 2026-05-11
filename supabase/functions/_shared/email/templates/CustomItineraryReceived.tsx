@@ -40,11 +40,18 @@ function formatCZK(amount: number): string {
 
 export function CustomItineraryReceived(props: CustomItineraryReceivedProps): React.ReactElement {
   const greeting = vocativeFirstName(props.customerName);
+  const preview = props.destination
+    ? `Děkujeme za platbu, plánuju tvůj individuální itinerář pro ${props.destination}.`
+    : `Děkujeme za platbu, plánuju tvůj individuální itinerář.`;
+  const heroIntro = props.destination
+    ? `Tvoje platba ${formatCZK(props.totalAmount)} dorazila a já se hned vrhám na plánování individuálního itineráře pro ${props.destination}.`
+    : `Tvoje platba ${formatCZK(props.totalAmount)} dorazila a já se hned vrhám na plánování tvého individuálního itineráře.`;
   return (
     <BrandLayout
-      preview={`Děkujeme za platbu, plánuju tvůj individuální itinerář pro ${props.destination}.`}
+      preview={preview}
       heroHeading={`Děkujeme za platbu, ${greeting}!`}
-      heroIntro={`Tvoje platba ${formatCZK(props.totalAmount)} dorazila a já se hned vrhám na plánování individuálního itineráře pro ${props.destination}.`}
+      heroIntro={heroIntro}
+      footerSignoff="Brzy se ozvu,"
     >
       <Heading as="h2" style={sectionHeadingStyle}>Co bude dál?</Heading>
       <Text style={textStyle}>

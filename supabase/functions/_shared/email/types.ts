@@ -29,7 +29,12 @@ export interface CustomItineraryReceivedProps {
   customerName: string;
   orderId: string;
   totalAmount: number;
-  destination: string; // e.g. "Toskánsko" — from custom request form_data
+  /**
+   * From custom_itinerary_requests.form_data.specific_destination.
+   * NULL when the customer chose "open to suggestions" instead of
+   * typing a specific destination — templates drop the "pro X" clause.
+   */
+  destination: string | null;
 }
 
 export interface RefundProps {
@@ -46,7 +51,12 @@ export interface PaymentFailedProps {
 
 export interface CustomItineraryDeliveredProps {
   customerName: string;
-  destination: string;
+  /**
+   * From custom_itinerary_requests.form_data.specific_destination.
+   * NULL when the customer chose "open to suggestions". Templates
+   * drop the "pro X" clause in heading/intro/preview when null.
+   */
+  destination: string | null;
   downloadUrl: string;
 }
 
