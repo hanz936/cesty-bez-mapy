@@ -28,14 +28,14 @@ export function Refund(props: RefundProps): React.ReactElement {
   return (
     <BrandLayout
       preview={`Vrátili jsme ti ${formatCZK(props.amount)} za objednávku #${props.orderId}.`}
-      heroHeading={`Refund proběhl, ${greeting}`}
+      heroHeading={`Vrátili jsme ti peníze, ${greeting}`}
       heroIntro={`Právě jsme ti vrátili ${formatCZK(props.amount)} za objednávku #${props.orderId}.`}
     >
       <Text style={textStyle}>
-        Peníze by se měly objevit na tvém účtu během několika pracovních dnů — záleží na tvojí bance.
+        Peníze by se měly objevit na tvém účtu během několika pracovních dnů. Záleží to na tvojí bance.
       </Text>
       <Text style={noteStyle}>
-        Pokud máš k refundu jakékoliv otázky, ozvi se mi. Děkuji za pochopení.
+        Pokud máš jakékoli otázky, ozvi se mi. Děkuju za pochopení.
       </Text>
     </BrandLayout>
   );

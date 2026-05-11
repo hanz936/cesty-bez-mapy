@@ -54,7 +54,7 @@ export function CustomItineraryDelivered(props: CustomItineraryDeliveredProps): 
     <BrandLayout
       preview={`Tvůj individuální itinerář pro ${props.destination} je hotový!`}
       heroHeading={`Tvůj individuální itinerář je hotový, ${greeting}!`}
-      heroIntro={`Dokončila jsem pro tebe individuální itinerář pro ${props.destination}. Den po dni, podle tvých přání.`}
+      heroIntro={`Dokončila jsem pro tebe individuální itinerář pro ${props.destination}. Plánovala jsem ho den po dni přesně podle tvých přání.`}
     >
       <Section style={buttonContainerStyle}>
         <Button href={props.downloadUrl} style={buttonStyle}>
@@ -63,7 +63,7 @@ export function CustomItineraryDelivered(props: CustomItineraryDeliveredProps): 
       </Section>
       <Section style={calloutStyle}>
         <Text style={{ ...textStyle, margin: 0 }}>
-          <strong>Tip:</strong> Stáhni si PDF i do mobilu, ať ho máš po ruce na cestě i offline.
+          <strong>Tip:</strong> Než vyrazíš, ulož si průvodce do mobilu. Bude ti dělat společnost i tam, kde nemáš signál.
         </Text>
       </Section>
       <Text style={textStyle}>

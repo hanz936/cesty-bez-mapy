@@ -116,7 +116,7 @@ export function BrandLayout({ preview, heroHeading, heroIntro, children }: Brand
           <Hr style={hrStyle} />
           <Section style={footerStyle}>
             <Text style={{ margin: 0 }}>
-              S láskou,<br />Jana z Cesty bez mapy
+              Šťastnou cestu,<br />Jana z Cesty bez mapy
             </Text>
             <Text style={{ marginTop: spacing.md, marginBottom: 0 }}>
               <Link href={`mailto:${supportEmail}`} style={footerLinkStyle}>

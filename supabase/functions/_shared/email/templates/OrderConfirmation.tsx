@@ -60,6 +60,13 @@ const buttonStyle: React.CSSProperties = {
   display: "inline-block",
 };
 
+const tipCalloutStyle: React.CSSProperties = {
+  backgroundColor: colors.containerBg,
+  padding: spacing.lg,
+  borderRadius: "6px",
+  margin: `${spacing.md} 0 ${spacing.lg}`,
+};
+
 const fallbackTextStyle: React.CSSProperties = {
   fontSize: sizes.smallText,
   lineHeight: 1.5,
@@ -82,7 +89,7 @@ export function OrderConfirmation(props: OrderConfirmationProps): React.ReactEle
     <BrandLayout
       preview={`Tvůj průvodce je připraven ke stažení (objednávka #${props.orderId})`}
       heroHeading={`Děkujeme za nákup, ${greeting}!`}
-      heroIntro="Tvůj průvodce je připraven ke stažení. Klikni níže — odkaz funguje bez časového omezení."
+      heroIntro="Tvůj nový průvodce je připraven. Stáhni si ho a vyraž na cestu!"
     >
       <Heading as="h2" style={sectionHeadingStyle}>Shrnutí objednávky</Heading>
       <Section>
@@ -115,6 +122,12 @@ export function OrderConfirmation(props: OrderConfirmationProps): React.ReactEle
         <Button href={props.downloadUrl} style={buttonStyle}>
           Stáhnout průvodce
         </Button>
+      </Section>
+
+      <Section style={tipCalloutStyle}>
+        <Text style={{ ...textStyle, margin: 0 }}>
+          <strong>Tip:</strong> Hoď si průvodce do telefonu. Budeš ho mít po ruce i tam, kde tě signál opustí.
+        </Text>
       </Section>
 
       <Text style={fallbackTextStyle}>

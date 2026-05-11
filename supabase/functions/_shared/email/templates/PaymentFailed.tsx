@@ -45,12 +45,12 @@ export function PaymentFailed(props: PaymentFailedProps): React.ReactElement {
   const greeting = vocativeFirstName(props.customerName);
   return (
     <BrandLayout
-      preview="Tvá platba se nezdařila — můžeš to zkusit znovu."
-      heroHeading={`Tvá platba se nezdařila, ${greeting}`}
+      preview="Tvoje platba neprošla. Klidně to zkus znovu."
+      heroHeading={`Platba neprošla, ${greeting}`}
       heroIntro={`Pokus o platbu ${formatCZK(props.amount)} za objednávku #${props.orderId} nebyl úspěšný. Z tvého účtu se nic nestrhlo.`}
     >
       <Text style={textStyle}>
-        Nejčastější důvody: nedostatek prostředků, zamítnutí kartou nebo problém s 3D Secure ověřením. Můžeš to zkusit znovu — případně s jinou kartou.
+        Nejčastější důvody jsou nedostatek prostředků na účtu, zamítnutí kartou nebo problém s 3D Secure ověřením. Klidně to zkus znovu, případně s jinou kartou.
       </Text>
       <Section style={buttonContainerStyle}>
         <Button href="https://cestybezmapy.cz/cestovni-pruvodci" style={buttonStyle}>
