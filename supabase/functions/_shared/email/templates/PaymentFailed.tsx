@@ -67,7 +67,7 @@ export function PaymentFailed(props: PaymentFailedProps): React.ReactElement {
         Pokud máš s platbou opakovaný problém, ozvi se mi a najdeme řešení.
       </Text>
       <Text style={orderNoteStyle}>
-        Číslo objednávky: #{props.orderId}
+        Reference platby: {props.referenceId}
       </Text>
     </BrandLayout>
   );
@@ -77,5 +77,5 @@ export default PaymentFailed;
 
 PaymentFailed.PreviewProps = {
   customerName: "Jana Nováková",
-  orderId: "ord-12345",
+  referenceId: "pi_3OoExample123",
 } satisfies PaymentFailedProps;

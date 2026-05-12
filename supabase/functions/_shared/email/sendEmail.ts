@@ -36,8 +36,8 @@ const SUBJECT_BUILDERS: Record<EmailType, (props: any) => string> = {
     `Děkujeme za platbu – plánuju tvůj individuální itinerář`,
   'refund': (p) =>
     `Vrátili jsme ti peníze za objednávku #${p.orderId}`,
-  'payment-failed': (p) =>
-    `Tvá platba se nezdařila – objednávka #${p.orderId}`,
+  'payment-failed': (_p) =>
+    `Tvá platba se nezdařila`,
   'custom-itinerary-delivered': (_p) =>
     `Tvůj individuální itinerář je hotový`,
 };

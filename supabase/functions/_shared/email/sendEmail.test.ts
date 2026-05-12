@@ -84,8 +84,8 @@ Deno.test("sendEmail retries on 500 with exponential backoff and eventually fail
     () => sendEmail(client, {
       type: 'payment-failed',
       to: 'customer@example.com',
-      idempotencyKey: 'payment-failed/order-3',
-      templateProps: { customerName: 'Jan', orderId: 'order-3', amount: 199 },
+      idempotencyKey: 'payment-failed/pi_3Oo123',
+      templateProps: { customerName: 'Jan', referenceId: 'pi_3Oo123' },
     }, { maxRetries: 3, baseDelayMs: 10 }),
     Error,
     "Server error",

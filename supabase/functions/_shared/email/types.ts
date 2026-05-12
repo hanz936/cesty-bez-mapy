@@ -38,7 +38,9 @@ export interface RefundProps {
 
 export interface PaymentFailedProps {
   customerName: string;
-  orderId: string;
+  // Stripe PaymentIntent id (e.g. "pi_3Oo...") shown to the customer as a
+  // support-lookup reference — no order exists yet at the time we send this.
+  referenceId: string;
 }
 
 export interface CustomItineraryDeliveredProps {
