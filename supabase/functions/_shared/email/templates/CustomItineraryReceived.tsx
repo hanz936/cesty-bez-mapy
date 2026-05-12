@@ -34,23 +34,13 @@ const orderNoteStyle: React.CSSProperties = {
   marginBottom: 0,
 };
 
-function formatCZK(amount: number): string {
-  return new Intl.NumberFormat("cs-CZ", { style: "currency", currency: "CZK", maximumFractionDigits: 0 }).format(amount);
-}
-
 export function CustomItineraryReceived(props: CustomItineraryReceivedProps): React.ReactElement {
   const greeting = vocativeFirstName(props.customerName);
-  const preview = props.destination
-    ? `Děkujeme za platbu, plánuju tvůj individuální itinerář pro ${props.destination}.`
-    : `Děkujeme za platbu, plánuju tvůj individuální itinerář.`;
-  const heroIntro = props.destination
-    ? `Tvoje platba ${formatCZK(props.totalAmount)} dorazila a já se hned vrhám na plánování individuálního itineráře pro ${props.destination}.`
-    : `Tvoje platba ${formatCZK(props.totalAmount)} dorazila a já se hned vrhám na plánování tvého individuálního itineráře.`;
   return (
     <BrandLayout
-      preview={preview}
+      preview="Děkujeme za platbu, plánuju tvůj individuální itinerář."
       heroHeading={`Děkujeme za platbu, ${greeting}!`}
-      heroIntro={heroIntro}
+      heroIntro="Tvoje platba dorazila a já se hned vrhám na plánování tvého individuálního itineráře."
       footerSignoff="Brzy se ozvu,"
     >
       <Heading as="h2" style={sectionHeadingStyle}>Co bude dál?</Heading>
@@ -72,6 +62,4 @@ export default CustomItineraryReceived;
 CustomItineraryReceived.PreviewProps = {
   customerName: "Jana Nováková",
   orderId: "ord-67890",
-  totalAmount: 2999,
-  destination: "Toskánsko",
 } satisfies CustomItineraryReceivedProps;

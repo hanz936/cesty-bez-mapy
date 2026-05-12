@@ -5,6 +5,7 @@ import {
   Button,
   Row,
   Column,
+  Link,
 } from "react-email";
 import * as React from "react";
 import { BrandLayout } from "./BrandLayout.tsx";
@@ -75,8 +76,19 @@ const fallbackTextStyle: React.CSSProperties = {
   margin: 0,
 };
 
-const fallbackUrlStyle: React.CSSProperties = {
+const fallbackLinkStyle: React.CSSProperties = {
+  color: colors.primary,
+  textDecoration: "underline",
   wordBreak: "break-all",
+};
+
+const orderNoteStyle: React.CSSProperties = {
+  fontSize: sizes.smallText,
+  lineHeight: 1.5,
+  color: colors.textMuted,
+  textAlign: "center",
+  marginTop: spacing.xl,
+  marginBottom: 0,
 };
 
 function formatCZK(amount: number): string {
@@ -127,13 +139,17 @@ export function OrderConfirmation(props: OrderConfirmationProps): React.ReactEle
 
       <Section style={tipCalloutStyle}>
         <Text style={{ ...textStyle, margin: 0 }}>
-          <strong>Tip:</strong> Hoď si průvodce do telefonu. Budeš ho mít po ruce i tam, kde tě signál opustí.
+          <strong>Tip:</strong> Než vyrazíš, ulož si průvodce do mobilu. Bude ti dělat společnost i tam, kde nemáš signál.
         </Text>
       </Section>
 
       <Text style={fallbackTextStyle}>
-        Pokud tlačítko nefunguje, zkopíruj tento odkaz:<br />
-        <span style={fallbackUrlStyle}>{props.downloadUrl}</span>
+        Pokud tlačítko nefunguje, klikni na tento odkaz:<br />
+        <Link href={props.downloadUrl} style={fallbackLinkStyle}>{props.downloadUrl}</Link>
+      </Text>
+
+      <Text style={orderNoteStyle}>
+        Číslo objednávky: #{props.orderId}
       </Text>
     </BrandLayout>
   );

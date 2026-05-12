@@ -37,9 +37,14 @@ const noteStyle: React.CSSProperties = {
   margin: 0,
 };
 
-function formatCZK(amount: number): string {
-  return new Intl.NumberFormat("cs-CZ", { style: "currency", currency: "CZK", maximumFractionDigits: 0 }).format(amount);
-}
+const orderNoteStyle: React.CSSProperties = {
+  fontSize: sizes.smallText,
+  lineHeight: 1.5,
+  color: colors.textMuted,
+  textAlign: "center",
+  marginTop: spacing.xl,
+  marginBottom: 0,
+};
 
 export function PaymentFailed(props: PaymentFailedProps): React.ReactElement {
   const greeting = vocativeFirstName(props.customerName);
@@ -47,7 +52,7 @@ export function PaymentFailed(props: PaymentFailedProps): React.ReactElement {
     <BrandLayout
       preview="Tvoje platba neprošla. Klidně to zkus znovu."
       heroHeading={`Platba neprošla, ${greeting}`}
-      heroIntro={`Pokus o platbu ${formatCZK(props.amount)} za objednávku #${props.orderId} nebyl úspěšný. Z tvého účtu se nic nestrhlo.`}
+      heroIntro="Tvoje platba neprošla. Z účtu se nic nestrhlo, takže můžeš zkusit znovu."
       footerSignoff="Měj se hezky,"
     >
       <Text style={textStyle}>
@@ -61,6 +66,9 @@ export function PaymentFailed(props: PaymentFailedProps): React.ReactElement {
       <Text style={noteStyle}>
         Pokud máš s platbou opakovaný problém, ozvi se mi a najdeme řešení.
       </Text>
+      <Text style={orderNoteStyle}>
+        Číslo objednávky: #{props.orderId}
+      </Text>
     </BrandLayout>
   );
 }
@@ -70,5 +78,4 @@ export default PaymentFailed;
 PaymentFailed.PreviewProps = {
   customerName: "Jana Nováková",
   orderId: "ord-12345",
-  amount: 199,
 } satisfies PaymentFailedProps;

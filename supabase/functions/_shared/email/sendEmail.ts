@@ -38,8 +38,8 @@ const SUBJECT_BUILDERS: Record<EmailType, (props: any) => string> = {
     `Vrátili jsme ti peníze za objednávku #${p.orderId}`,
   'payment-failed': (p) =>
     `Tvá platba se nezdařila – objednávka #${p.orderId}`,
-  'custom-itinerary-delivered': (p) =>
-    `Tvůj individuální itinerář – ${p.destination}`,
+  'custom-itinerary-delivered': (_p) =>
+    `Tvůj individuální itinerář je hotový`,
 };
 
 // deno-lint-ignore no-explicit-any

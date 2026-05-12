@@ -1,4 +1,4 @@
-import { Text, Section, Button } from "react-email";
+import { Text, Section, Button, Link } from "react-email";
 import * as React from "react";
 import { BrandLayout } from "./BrandLayout.tsx";
 import { colors, sizes, spacing } from "./styles.ts";
@@ -44,23 +44,28 @@ const fallbackTextStyle: React.CSSProperties = {
   margin: 0,
 };
 
-const fallbackUrlStyle: React.CSSProperties = {
+const fallbackLinkStyle: React.CSSProperties = {
+  color: colors.primary,
+  textDecoration: "underline",
   wordBreak: "break-all",
+};
+
+const orderNoteStyle: React.CSSProperties = {
+  fontSize: sizes.smallText,
+  lineHeight: 1.5,
+  color: colors.textMuted,
+  textAlign: "center",
+  marginTop: spacing.xl,
+  marginBottom: 0,
 };
 
 export function CustomItineraryDelivered(props: CustomItineraryDeliveredProps): React.ReactElement {
   const greeting = vocativeFirstName(props.customerName);
-  const preview = props.destination
-    ? `Tvůj individuální itinerář pro ${props.destination} je hotový!`
-    : `Tvůj individuální itinerář je hotový!`;
-  const heroIntro = props.destination
-    ? `Dokončila jsem pro tebe individuální itinerář pro ${props.destination}. Plánovala jsem ho den po dni přesně podle tvých přání.`
-    : `Dokončila jsem pro tebe individuální itinerář. Plánovala jsem ho den po dni přesně podle tvých přání.`;
   return (
     <BrandLayout
-      preview={preview}
+      preview="Tvůj individuální itinerář je hotový!"
       heroHeading={`Tvůj individuální itinerář je hotový, ${greeting}!`}
-      heroIntro={heroIntro}
+      heroIntro="Dokončila jsem pro tebe individuální itinerář. Plánovala jsem ho den po dni přesně podle tvých přání."
       footerSignoff="Šťastnou cestu,"
     >
       <Section style={buttonContainerStyle}>
@@ -77,8 +82,11 @@ export function CustomItineraryDelivered(props: CustomItineraryDeliveredProps): 
         Pokud najdeš v itineráři něco, co chceš upravit nebo doplnit, dej mi vědět. Přeju ti skvělou cestu!
       </Text>
       <Text style={fallbackTextStyle}>
-        Pokud tlačítko nefunguje, zkopíruj tento odkaz:<br />
-        <span style={fallbackUrlStyle}>{props.downloadUrl}</span>
+        Pokud tlačítko nefunguje, klikni na tento odkaz:<br />
+        <Link href={props.downloadUrl} style={fallbackLinkStyle}>{props.downloadUrl}</Link>
+      </Text>
+      <Text style={orderNoteStyle}>
+        Číslo objednávky: #{props.requestId}
       </Text>
     </BrandLayout>
   );
@@ -88,6 +96,6 @@ export default CustomItineraryDelivered;
 
 CustomItineraryDelivered.PreviewProps = {
   customerName: "Jana Nováková",
-  destination: "Toskánsko",
+  requestId: "req-98765",
   downloadUrl: "https://cestybezmapy.cz/stahnout?token=preview456",
 } satisfies CustomItineraryDeliveredProps;
