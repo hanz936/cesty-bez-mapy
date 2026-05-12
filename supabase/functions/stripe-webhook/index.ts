@@ -476,19 +476,30 @@ async function handleCheckoutCompleted(
   // (nebo selhaly trvale — Resend idempotencyKey je zachytí, kdyby se přesto
   // znovu pokusily projít).
   if (wasCreated) {
-    await sendCheckoutEmails({
-      supabase,
-      sessionId: session.id,
-      orderId,
-      customerEmail,
-      customerName,
-      totalAmount,
-      products,
-      orderItems,
-      productIds,
-      customRequestsMapping,
-      downloadToken: downloadTokenString,
-    });
+    // Webhook musí vrátit 200 i kdyby selhala inicializace Resend klienta
+    // nebo cokoli dalšího kolem e-mailů — objednávka je v DB a Stripe retry
+    // by jen vedl k duplicitním e-mailům (idempotencyKey to sice zachytí,
+    // ale je čistší to vůbec nezkoušet) nebo nekonečnému retry loopu.
+    try {
+      await sendCheckoutEmails({
+        supabase,
+        sessionId: session.id,
+        orderId,
+        customerEmail,
+        customerName,
+        totalAmount,
+        products,
+        orderItems,
+        productIds,
+        customRequestsMapping,
+        downloadToken: downloadTokenString,
+      });
+    } catch (emailError) {
+      console.error(
+        `sendCheckoutEmails failed for order ${orderId}, continuing:`,
+        emailError
+      );
+    }
   }
 
   return { success: true, orderId };
