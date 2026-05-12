@@ -22,7 +22,9 @@ export interface OrderConfirmationProps {
   orderId: string;
   items: OrderItem[];
   totalAmount: number; // CZK
-  downloadUrl: string;
+  // Optional: when missing, the template hides the download CTA + fallback link.
+  // Use case: all-custom-itinerary orders where the download link is delivered later.
+  downloadUrl?: string;
 }
 
 export interface CustomItineraryReceivedProps {

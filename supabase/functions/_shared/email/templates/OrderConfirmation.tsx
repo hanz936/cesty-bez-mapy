@@ -131,22 +131,26 @@ export function OrderConfirmation(props: OrderConfirmationProps): React.ReactEle
         </Row>
       </Section>
 
-      <Section style={buttonContainerStyle}>
-        <Button href={props.downloadUrl} style={buttonStyle}>
-          Stáhnout průvodce
-        </Button>
-      </Section>
+      {props.downloadUrl && (
+        <>
+          <Section style={buttonContainerStyle}>
+            <Button href={props.downloadUrl} style={buttonStyle}>
+              Stáhnout průvodce
+            </Button>
+          </Section>
 
-      <Section style={tipCalloutStyle}>
-        <Text style={{ ...textStyle, margin: 0 }}>
-          <strong>Tip:</strong> Než vyrazíš, ulož si průvodce do mobilu. Bude ti dělat společnost i tam, kde nemáš signál.
-        </Text>
-      </Section>
+          <Section style={tipCalloutStyle}>
+            <Text style={{ ...textStyle, margin: 0 }}>
+              <strong>Tip:</strong> Než vyrazíš, ulož si průvodce do mobilu. Bude ti dělat společnost i tam, kde nemáš signál.
+            </Text>
+          </Section>
 
-      <Text style={fallbackTextStyle}>
-        Pokud tlačítko nefunguje, klikni na tento odkaz:<br />
-        <Link href={props.downloadUrl} style={fallbackLinkStyle}>{props.downloadUrl}</Link>
-      </Text>
+          <Text style={fallbackTextStyle}>
+            Pokud tlačítko nefunguje, klikni na tento odkaz:<br />
+            <Link href={props.downloadUrl} style={fallbackLinkStyle}>{props.downloadUrl}</Link>
+          </Text>
+        </>
+      )}
 
       <Text style={orderNoteStyle}>
         Číslo objednávky: #{props.orderId}
