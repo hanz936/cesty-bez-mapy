@@ -16,6 +16,7 @@ import CustomItineraryForm from './pages/CustomItineraryForm';
 import CustomItineraryPreview from './pages/CustomItineraryPreview';
 import Checkout from './pages/Checkout';
 import OrderConfirmation from './pages/OrderConfirmation';
+import Stahnout from './pages/Stahnout';
 import FAQ from './pages/FAQ';
 import Reviews from './pages/Reviews';
 import SalzburgItinerary from './pages/SalzburgItinerary';
@@ -97,6 +98,7 @@ function App() {
             <Route path={ROUTES.CUSTOM_ITINERARY_PREVIEW} element={<CustomItineraryPreview />} />
             <Route path={ROUTES.CHECKOUT} element={<Checkout />} />
             <Route path={ROUTES.ORDER_CONFIRMATION} element={<OrderConfirmation />} />
+            <Route path={ROUTES.DOWNLOAD} element={<Stahnout />} />
             <Route path={ROUTES.INSPIRATION} element={<TravelInspiration />} />
             <Route path={ROUTES.COLLABORATION} element={<Collaboration />} />
             <Route path={ROUTES.FAQ} element={<FAQ />} />
