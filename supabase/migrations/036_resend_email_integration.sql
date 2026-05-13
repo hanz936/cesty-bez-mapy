@@ -146,3 +146,48 @@ $$;
 
 REVOKE ALL ON FUNCTION public.increment_download_count(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.increment_download_count(uuid) TO service_role;
+
+-- ================================================
+-- PART 6: helper RPC for atomic email_resend_counts increment
+-- ================================================
+
+CREATE OR REPLACE FUNCTION public.increment_email_resend_count(
+  table_name text,
+  row_id uuid,
+  key text
+) RETURNS integer
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = public
+AS $$
+DECLARE
+  new_count integer;
+BEGIN
+  IF table_name = 'orders' THEN
+    UPDATE public.orders
+    SET email_resend_counts = jsonb_set(
+      email_resend_counts,
+      ARRAY[key],
+      to_jsonb(COALESCE((email_resend_counts->>key)::integer, 0) + 1)
+    )
+    WHERE id = row_id
+    RETURNING (email_resend_counts->>key)::integer INTO new_count;
+  ELSIF table_name = 'custom_itinerary_requests' THEN
+    UPDATE public.custom_itinerary_requests
+    SET email_resend_counts = jsonb_set(
+      email_resend_counts,
+      ARRAY[key],
+      to_jsonb(COALESCE((email_resend_counts->>key)::integer, 0) + 1)
+    )
+    WHERE id = row_id
+    RETURNING (email_resend_counts->>key)::integer INTO new_count;
+  ELSE
+    RAISE EXCEPTION 'Unknown table_name: %', table_name;
+  END IF;
+
+  RETURN new_count;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.increment_email_resend_count(text, uuid, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.increment_email_resend_count(text, uuid, text) TO service_role;
