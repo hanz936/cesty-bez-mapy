@@ -122,11 +122,13 @@ Deno.serve(async (req) => {
           .select("id, customer_email, customer_name, refund_email_sent_at")
           .single();
 
-        if (updateError || !order) {
-          console.error(
-            "Failed to mark order as refunded:",
-            updateError,
-            "paymentIntent:",
+        if (updateError) {
+          console.error("Failed to update order on refund:", updateError);
+          break;
+        }
+        if (!order) {
+          console.warn(
+            "No order found for refunded payment_intent:",
             paymentIntentId
           );
           break;
@@ -141,7 +143,7 @@ Deno.serve(async (req) => {
 
         try {
           const amount = charge.amount_refunded / 100;
-          const result = await sendEmail(makeResendClient(), {
+          const emailResult = await sendEmail(makeResendClient(), {
             type: "refund",
             to: order.customer_email,
             idempotencyKey: `refund/${charge.id}`,
@@ -156,7 +158,7 @@ Deno.serve(async (req) => {
             .from("orders")
             .update({
               refund_email_sent_at: new Date().toISOString(),
-              refund_email_message_id: result.messageId,
+              refund_email_message_id: emailResult.messageId,
             })
             .eq("id", order.id);
         } catch (emailError) {
