@@ -1,0 +1,117 @@
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import Layout from '../components/layout/Layout';
+import { supabase } from '../lib/supabase';
+
+export default function Stahnout() {
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get('token');
+  const [state, setState] = useState({ status: 'loading', data: null, error: null });
+
+  useEffect(() => {
+    if (!token) {
+      setState({ status: 'error', data: null, error: 'V URL chybí token. Zkontroluj odkaz v emailu.' });
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-download-url', {
+          body: { token },
+        });
+
+        if (cancelled) return;
+
+        if (error) {
+          setState({
+            status: 'error',
+            data: null,
+            error: error.message || 'Nepodařilo se načíst odkaz ke stažení.',
+          });
+          return;
+        }
+
+        if (!data?.success || !data?.downloads?.length) {
+          setState({
+            status: 'error',
+            data: null,
+            error: data?.error || 'Tento odkaz nelze použít. Pokud potřebuješ pomoc, napiš na info@cestybezmapy.cz.',
+          });
+          return;
+        }
+
+        setState({ status: 'ready', data, error: null });
+      } catch (err) {
+        if (!cancelled) {
+          setState({ status: 'error', data: null, error: err?.message || 'Něco se pokazilo.' });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  const headerByAssetType = state.data?.asset_type === 'custom_itinerary_pdf'
+    ? 'Tvůj individuální itinerář'
+    : 'Tvé průvodce';
+
+  function handleDownload(url) {
+    window.open(url, '_blank');
+  }
+
+  return (
+    <Layout>
+      <main className="min-h-[60vh] bg-[#f7f5f0] flex items-start justify-center px-4 py-16">
+        <div className="max-w-xl w-full bg-white rounded-lg shadow-sm px-8 py-12">
+          {state.status === 'loading' && (
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-green-800 mb-4"></div>
+              <p className="text-gray-700">Připravuji odkaz ke stažení…</p>
+            </div>
+          )}
+
+          {state.status === 'error' && (
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-green-900 mb-4">Něco se pokazilo</h1>
+              <p className="text-gray-700 mb-4">{state.error}</p>
+              <p className="text-gray-700">
+                Pokud problém přetrvává, napiš na{' '}
+                <a href="mailto:info@cestybezmapy.cz" className="text-green-800 hover:text-green-900 font-medium underline">
+                  info@cestybezmapy.cz
+                </a>{' '}
+                — spolu to vyřešíme.
+              </p>
+            </div>
+          )}
+
+          {state.status === 'ready' && (
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-green-900 mb-4">{headerByAssetType}</h1>
+              <p className="text-gray-700 mb-8">Klikni na tlačítko níže pro stažení.</p>
+              <div className="flex flex-col gap-4 mb-8">
+                {state.data.downloads.map((download, idx) => (
+                  <button
+                    key={download.product_id ?? idx}
+                    type="button"
+                    onClick={() => handleDownload(download.download_url)}
+                    className="bg-green-800 hover:bg-green-900 text-white font-bold py-4 px-8 rounded-lg transition-colors duration-200 min-h-12 supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2 focus:outline-none"
+                  >
+                    Stáhnout: {download.product_title}
+                  </button>
+                ))}
+              </div>
+              <p className="text-sm text-gray-500">
+                Odkaz funguje bez časového omezení — můžeš ho použít kdykoliv. Stahuj prosím jen pro vlastní použití.
+              </p>
+            </div>
+          )}
+        </div>
+      </main>
+    </Layout>
+  );
+}
+
+Stahnout.displayName = 'Stahnout';
