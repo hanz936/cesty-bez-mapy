@@ -128,3 +128,21 @@ COMMENT ON COLUMN public.custom_itinerary_requests.delivery_email_message_id IS
   'Resend message ID for delivery email.';
 COMMENT ON COLUMN public.custom_itinerary_requests.email_resend_counts IS
   'Per-email-type retry counter for admin manual resends. Keys: delivery.';
+
+-- ================================================
+-- PART 5: helper RPC for atomic download_count increment
+-- ================================================
+
+CREATE OR REPLACE FUNCTION public.increment_download_count(token_id uuid)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = public
+AS $$
+  UPDATE public.download_tokens
+  SET download_count = download_count + 1
+  WHERE id = token_id;
+$$;
+
+REVOKE ALL ON FUNCTION public.increment_download_count(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.increment_download_count(uuid) TO service_role;
