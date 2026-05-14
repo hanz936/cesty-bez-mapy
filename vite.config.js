@@ -147,6 +147,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.js',
     css: true,
+    // Edge Function tests use https:// imports and run under `deno test`, not Vitest.
+    exclude: ['**/node_modules/**', '**/dist/**', 'supabase/functions/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

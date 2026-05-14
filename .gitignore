@@ -31,6 +31,10 @@ supabase/temp/
 *_backup.sql
 schema_dump.sql
 
+# Deno lockfiles (Edge Functions resolve deps from import maps in deno.json;
+# lockfiles are generated locally when running `deno test`/`deno run`)
+supabase/functions/**/deno.lock
+
 # Security and certificates
 *.key
 *.pem
