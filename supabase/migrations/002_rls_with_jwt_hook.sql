@@ -111,6 +111,24 @@ REVOKE EXECUTE ON FUNCTION public.custom_access_token_hook(jsonb)
   FROM authenticated, anon, public;
 
 -- ================================================
+-- HELPER FUNCTION: Check if user is admin
+-- ================================================
+-- Reads from JWT token (fast!) instead of database
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  SELECT COALESCE(
+    (auth.jwt()->>'is_admin')::boolean,
+    false
+  );
+$$;
+
+COMMENT ON FUNCTION is_admin() IS 'Checks if current user is admin by reading JWT token (fast, no DB query)';
+
+-- ================================================
 -- RLS ON user_roles TABLE
 -- ================================================
 
@@ -156,24 +174,6 @@ CREATE POLICY "user_roles_admin_delete"
   FOR DELETE
   TO authenticated
   USING ((SELECT is_admin()));
-
--- ================================================
--- HELPER FUNCTION: Check if user is admin
--- ================================================
--- Reads from JWT token (fast!) instead of database
-CREATE OR REPLACE FUNCTION is_admin()
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SET search_path = ''
-AS $$
-  SELECT COALESCE(
-    (auth.jwt()->>'is_admin')::boolean,
-    false
-  );
-$$;
-
-COMMENT ON FUNCTION is_admin() IS 'Checks if current user is admin by reading JWT token (fast, no DB query)';
 
 -- ================================================
 -- TABLE: products

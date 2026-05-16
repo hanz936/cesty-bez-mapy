@@ -1,15 +1,16 @@
 // ================================================
-// Supabase Edge Function: Get Download URL
+// Supabase Edge Function: Get Download URL (unified)
 // ================================================
-// Generuje signed URLs pro stažení PDF z objednávky
-// - Ověří download token (není expirovaný)
-// - Načte všechny produkty z objednávky přes order_items
-// - Vygeneruje signed URLs pro každé PDF (1 hodina)
+// Validates download token, generates 1-hour signed URLs for assets in
+// either products-pdfs (standard) or custom-itinerary-pdfs (custom)
+// based on asset_type discriminator. Tokens are perpetual (no expiration).
+// Audit columns (download_count, last_downloaded_at) updated on each call.
 // ================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const allowedOrigins = [
+  "https://cestybezmapy.cz",
   "https://cesty-bez-mapy-admin.vercel.app",
   "https://cesty-bez-mapy-git-development-jana-novakovas-projects.vercel.app",
   "http://localhost:5173",
@@ -32,180 +33,168 @@ interface GetDownloadRequest {
 }
 
 interface DownloadItem {
-  product_id: string;
+  product_id: string | null;
   product_title: string;
   download_url: string;
 }
 
+interface GetDownloadResponse {
+  success: true;
+  asset_type: 'product_pdf' | 'custom_itinerary_pdf';
+  downloads: DownloadItem[];
+  expires_in: number;
+}
+
+const SIGNED_URL_TTL_SECONDS = 3600;
+
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: getCorsHeaders(req) });
   }
 
   try {
-    // Parse request body
     const body: GetDownloadRequest = await req.json();
     const { token } = body;
 
-    // Validace
     if (!token) {
-      return new Response(
-        JSON.stringify({
-          error: "Chybí download token",
-        }),
-        {
-          status: 400,
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        }
-      );
+      return jsonResponse(req, 400, { error: "Chybí download token" });
     }
 
     console.log(`Verifying download token: ${token.substring(0, 8)}...`);
 
-    // Vytvoření Supabase klienta s service_role pro přístup ke storage
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Načtení download tokenu z databáze
-    const { data: downloadToken, error: tokenError } = await supabase
-      .from("download_tokens")
-      .select(`
-        id,
-        token,
-        expires_at,
-        order_id
-      `)
-      .eq("token", token)
-      .single();
-
-    if (tokenError || !downloadToken) {
-      console.error("Token not found:", tokenError);
-      return new Response(
-        JSON.stringify({
-          error: "Neplatný download token",
-        }),
-        {
-          status: 404,
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Kontrola expirace
-    const expiresAt = new Date(downloadToken.expires_at);
-    if (expiresAt < new Date()) {
-      console.log(`Token expired at ${downloadToken.expires_at}`);
-      return new Response(
-        JSON.stringify({
-          error: "Download token vypršel. Kontaktujte nás pro nový odkaz.",
-          expired: true,
-        }),
-        {
-          status: 410, // Gone
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Načtení produktů z objednávky přes order_items
-    const { data: orderItems, error: orderItemsError } = await supabase
-      .from("order_items")
-      .select(`
-        product_id,
-        products (
-          id,
-          title,
-          pdf_url
-        )
-      `)
-      .eq("order_id", downloadToken.order_id);
-
-    if (orderItemsError || !orderItems || orderItems.length === 0) {
-      console.error("Order items not found:", orderItemsError);
-      return new Response(
-        JSON.stringify({
-          error: "Položky objednávky nebyly nalezeny",
-        }),
-        {
-          status: 404,
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    console.log(`Found ${orderItems.length} items in order ${downloadToken.order_id}`);
-
-    // Generování signed URLs pro každý produkt s PDF
-    const downloads: DownloadItem[] = [];
-
-    for (const item of orderItems) {
-      // deno-lint-ignore no-explicit-any
-      const product = item.products as any;
-
-      if (!product || !product.pdf_url) {
-        console.log(`Skipping product without PDF: ${product?.title || "unknown"}`);
-        continue;
-      }
-
-      console.log(`Generating signed URL for: ${product.pdf_url}`);
-
-      // Generování signed URL pro Storage (1 hodina = 3600 sekund)
-      const { data: signedUrl, error: signedUrlError } = await supabase.storage
-        .from("products-pdfs")
-        .createSignedUrl(product.pdf_url, 3600);
-
-      if (signedUrlError || !signedUrl) {
-        console.error(`Failed to generate signed URL for ${product.title}:`, signedUrlError);
-        continue;
-      }
-
-      downloads.push({
-        product_id: product.id,
-        product_title: product.title,
-        download_url: signedUrl.signedUrl,
-      });
-
-      console.log(`Signed URL generated successfully for: ${product.title}`);
-    }
-
-    if (downloads.length === 0) {
-      return new Response(
-        JSON.stringify({
-          error: "Žádné PDF soubory nejsou dostupné ke stažení",
-        }),
-        {
-          status: 404,
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Vrácení všech signed URLs
-    return new Response(
-      JSON.stringify({
-        success: true,
-        downloads: downloads,
-        expires_in: 3600, // sekundy
-        order_id: downloadToken.order_id,
-      }),
-      {
-        status: 200,
-        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-      }
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    const { data: tokenRow, error: tokenError } = await supabase
+      .from("download_tokens")
+      .select("id, token, asset_type, order_id, custom_itinerary_request_id")
+      .eq("token", token)
+      .maybeSingle();
+
+    if (tokenError || !tokenRow) {
+      console.error("Token not found:", tokenError?.message);
+      return jsonResponse(req, 404, { error: "Neplatný download token" });
+    }
+
+    let response: GetDownloadResponse;
+
+    if (tokenRow.asset_type === 'product_pdf') {
+      response = await buildProductDownloads(supabase, tokenRow.order_id);
+    } else if (tokenRow.asset_type === 'custom_itinerary_pdf') {
+      response = await buildCustomItineraryDownload(supabase, tokenRow.custom_itinerary_request_id);
+    } else {
+      return jsonResponse(req, 500, { error: "Unknown asset_type" });
+    }
+
+    if (response.downloads.length === 0) {
+      return jsonResponse(req, 404, { error: "Žádné PDF soubory nejsou dostupné ke stažení" });
+    }
+
+    await supabase
+      .from("download_tokens")
+      .update({ last_downloaded_at: new Date().toISOString() })
+      .eq("id", tokenRow.id);
+
+    await supabase.rpc('increment_download_count', { token_id: tokenRow.id });
+
+    return jsonResponse(req, 200, response);
+
   } catch (error) {
     console.error("Error generating download URLs:", error);
-
-    return new Response(
-      JSON.stringify({
-        error: "Nepodařilo se vygenerovat odkaz ke stažení",
-      }),
-      {
-        status: 500,
-        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-      }
-    );
+    return jsonResponse(req, 500, { error: "Nepodařilo se vygenerovat odkaz ke stažení" });
   }
 });
+
+function jsonResponse(req: Request, status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
+  });
+}
+
+async function buildProductDownloads(
+  supabase: ReturnType<typeof createClient>,
+  orderId: string,
+): Promise<GetDownloadResponse> {
+  const { data: orderItems, error } = await supabase
+    .from("order_items")
+    .select(`
+      product_id,
+      products (
+        id,
+        title,
+        pdf_url
+      )
+    `)
+    .eq("order_id", orderId);
+
+  if (error || !orderItems) {
+    console.error("Order items not found:", error?.message);
+    return { success: true, asset_type: 'product_pdf', downloads: [], expires_in: SIGNED_URL_TTL_SECONDS };
+  }
+
+  const downloads: DownloadItem[] = [];
+  for (const item of orderItems) {
+    // deno-lint-ignore no-explicit-any
+    const product = item.products as any;
+    if (!product?.pdf_url) continue;
+
+    const { data: signed, error: signError } = await supabase.storage
+      .from("products-pdfs")
+      .createSignedUrl(product.pdf_url, SIGNED_URL_TTL_SECONDS);
+
+    if (signError || !signed) {
+      console.error(`Failed to sign URL for ${product.title}:`, signError?.message);
+      continue;
+    }
+
+    downloads.push({
+      product_id: product.id,
+      product_title: product.title,
+      download_url: signed.signedUrl,
+    });
+  }
+
+  return { success: true, asset_type: 'product_pdf', downloads, expires_in: SIGNED_URL_TTL_SECONDS };
+}
+
+async function buildCustomItineraryDownload(
+  supabase: ReturnType<typeof createClient>,
+  requestId: string,
+): Promise<GetDownloadResponse> {
+  const { data: request, error } = await supabase
+    .from("custom_itinerary_requests")
+    .select("id, final_pdf_url, form_data")
+    .eq("id", requestId)
+    .single();
+
+  if (error || !request?.final_pdf_url) {
+    console.error("Custom request not found or no PDF:", error?.message);
+    return { success: true, asset_type: 'custom_itinerary_pdf', downloads: [], expires_in: SIGNED_URL_TTL_SECONDS };
+  }
+
+  const { data: signed, error: signError } = await supabase.storage
+    .from("custom-itinerary-pdfs")
+    .createSignedUrl(request.final_pdf_url, SIGNED_URL_TTL_SECONDS);
+
+  if (signError || !signed) {
+    console.error(`Failed to sign URL for custom itinerary ${requestId}:`, signError?.message);
+    return { success: true, asset_type: 'custom_itinerary_pdf', downloads: [], expires_in: SIGNED_URL_TTL_SECONDS };
+  }
+
+  // deno-lint-ignore no-explicit-any
+  const destination = (request.form_data as any)?.specific_destination || "Tvůj individuální itinerář";
+
+  return {
+    success: true,
+    asset_type: 'custom_itinerary_pdf',
+    downloads: [{
+      product_id: null,
+      product_title: destination,
+      download_url: signed.signedUrl,
+    }],
+    expires_in: SIGNED_URL_TTL_SECONDS,
+  };
+}

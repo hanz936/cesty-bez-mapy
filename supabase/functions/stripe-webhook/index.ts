@@ -9,12 +9,19 @@
 
 import Stripe from "https://esm.sh/stripe@20?target=denonext";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendEmail, makeResendClient } from "../_shared/email/sendEmail.ts";
+import {
+  decideEmailTypes,
+  buildOrderConfirmationItems,
+} from "./lib.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
   apiVersion: "2025-12-15.clover",
 });
 
 const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
+
+const SITE_URL = Deno.env.get("SITE_URL") ?? "https://cestybezmapy.cz";
 
 // Pomocná funkce pro generování náhodného tokenu
 function generateToken(length: number = 32): string {
@@ -90,22 +97,72 @@ Deno.serve(async (req) => {
           `Payment failed for ${paymentIntent.id}:`,
           paymentIntent.last_payment_error?.message
         );
+        try {
+          await sendPaymentFailedEmail(paymentIntent);
+        } catch (emailError) {
+          // Webhook must still return 200 — Stripe shouldn't retry the
+          // whole webhook just because an email send glitched.
+          console.error("Failed to send PaymentFailed email:", emailError);
+        }
         break;
       }
 
       case "charge.refunded": {
         const charge = event.data.object as Stripe.Charge;
         const paymentIntentId = charge.payment_intent as string;
-        if (paymentIntentId) {
-          const { error } = await supabase
+        if (!paymentIntentId) {
+          console.warn("charge.refunded without payment_intent, skipping");
+          break;
+        }
+
+        const { data: order, error: updateError } = await supabase
+          .from("orders")
+          .update({ status: "refunded" })
+          .eq("stripe_payment_id", paymentIntentId)
+          .select("id, customer_email, customer_name, refund_email_sent_at")
+          .single();
+
+        if (updateError) {
+          console.error("Failed to update order on refund:", updateError);
+          break;
+        }
+        if (!order) {
+          console.warn(
+            "No order found for refunded payment_intent:",
+            paymentIntentId
+          );
+          break;
+        }
+
+        console.log(`Order refunded for payment intent: ${paymentIntentId}`);
+
+        if (order.refund_email_sent_at) {
+          console.log(`Refund email already sent for order ${order.id}, skipping`);
+          break;
+        }
+
+        try {
+          const amount = charge.amount_refunded / 100;
+          const emailResult = await sendEmail(makeResendClient(), {
+            type: "refund",
+            to: order.customer_email,
+            idempotencyKey: `refund/${charge.id}`,
+            templateProps: {
+              customerName: order.customer_name,
+              orderId: order.id,
+              amount,
+            },
+          });
+
+          await supabase
             .from("orders")
-            .update({ status: "refunded" })
-            .eq("stripe_payment_id", paymentIntentId);
-          if (error) {
-            console.error("Failed to update order status to refunded:", error);
-          } else {
-            console.log(`Order refunded for payment intent: ${paymentIntentId}`);
-          }
+            .update({
+              refund_email_sent_at: new Date().toISOString(),
+              refund_email_message_id: emailResult.messageId,
+            })
+            .eq("id", order.id);
+        } catch (emailError) {
+          console.error("Failed to send Refund email:", emailError);
         }
         break;
       }
@@ -147,6 +204,38 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+// Send PaymentFailed email for a failed PaymentIntent. We look up the
+// Checkout Session by PI to recover the customer's email + name, because
+// the PaymentIntent itself doesn't carry billing_details until success.
+async function sendPaymentFailedEmail(pi: Stripe.PaymentIntent): Promise<void> {
+  const sessions = await stripe.checkout.sessions.list({
+    payment_intent: pi.id,
+    limit: 1,
+  });
+  const session = sessions.data[0];
+  const email = session?.customer_details?.email;
+  if (!email) {
+    console.log(
+      `No checkout session / customer email for PI ${pi.id}, skipping PaymentFailed email`
+    );
+    return;
+  }
+
+  // Empty customer name is OK — vocative helper handles missing names.
+  const customerName = session.customer_details?.name?.trim() || "";
+
+  const result = await sendEmail(makeResendClient(), {
+    type: "payment-failed",
+    to: email,
+    idempotencyKey: `payment-failed/${pi.id}`,
+    templateProps: { customerName, referenceId: pi.id },
+  });
+
+  console.log(
+    `PaymentFailed email sent for PI ${pi.id}, messageId=${result.messageId}`
+  );
+}
 
 // Zpracování úspěšně dokončené checkout session
 async function handleCheckoutCompleted(
@@ -384,5 +473,127 @@ async function handleCheckoutCompleted(
     `Checkout processing completed for session ${session.id}, order ${orderId} (${wasCreated ? "created" : "already existed"})`
   );
 
+  // Email odešleme jen při prvním vytvoření objednávky. Při Stripe retry
+  // (wasCreated=false) je objednávka už uložená a e-maily už byly poslané
+  // (nebo selhaly trvale — Resend idempotencyKey je zachytí, kdyby se přesto
+  // znovu pokusily projít).
+  if (wasCreated) {
+    // Webhook musí vrátit 200 i kdyby selhala inicializace Resend klienta
+    // nebo cokoli dalšího kolem e-mailů — objednávka je v DB a Stripe retry
+    // by jen vedl k duplicitním e-mailům (idempotencyKey to sice zachytí,
+    // ale je čistší to vůbec nezkoušet) nebo nekonečnému retry loopu.
+    try {
+      await sendCheckoutEmails({
+        supabase,
+        sessionId: session.id,
+        orderId,
+        customerEmail,
+        customerName,
+        totalAmount,
+        products,
+        orderItems,
+        productIds,
+        customRequestsMapping,
+        downloadToken: downloadTokenString,
+      });
+    } catch (emailError) {
+      console.error(
+        `sendCheckoutEmails failed for order ${orderId}, continuing:`,
+        emailError
+      );
+    }
+  }
+
   return { success: true, orderId };
+}
+
+interface CheckoutEmailContext {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  sessionId: string;
+  orderId: string;
+  customerEmail: string;
+  customerName: string;
+  totalAmount: number;
+  products: Array<{ id: string; title: string }>;
+  orderItems: Array<{ product_id: string; quantity: number; price_at_purchase: number }>;
+  productIds: string[];
+  customRequestsMapping: Record<string, string>;
+  downloadToken: string | null;
+}
+
+// Odeslání e-mailů po dokončení checkoutu. Každý send je v samostatném
+// try/catch — selhání jednoho e-mailu nesmí shodit zpracování webhooku.
+// Idempotency je zajištěna na 3 úrovních: wasCreated flag (handler nahoře),
+// Resend idempotencyKey (per event-type), confirmation_email_sent_at (DB).
+async function sendCheckoutEmails(ctx: CheckoutEmailContext): Promise<void> {
+  if (!ctx.customerEmail) {
+    console.warn(`No customer email for order ${ctx.orderId}, skipping emails`);
+    return;
+  }
+
+  const decision = decideEmailTypes(ctx.productIds, ctx.customRequestsMapping);
+  const items = buildOrderConfirmationItems(
+    ctx.products,
+    ctx.orderItems,
+    decision.standardProductIds
+  );
+  const downloadUrl = ctx.downloadToken
+    ? `${SITE_URL}/download/${ctx.downloadToken}`
+    : undefined;
+
+  const resend = makeResendClient();
+  let primaryMessageId: string | null = null;
+
+  if (decision.hasStandardProducts) {
+    try {
+      const result = await sendEmail(resend, {
+        type: "order-confirmation",
+        to: ctx.customerEmail,
+        idempotencyKey: `checkout.session.completed/${ctx.sessionId}/order-confirmation`,
+        templateProps: {
+          customerName: ctx.customerName,
+          orderId: ctx.orderId,
+          items,
+          totalAmount: ctx.totalAmount,
+          downloadUrl,
+        },
+      });
+      primaryMessageId = result.messageId;
+    } catch (err) {
+      console.error("Failed to send OrderConfirmation:", err);
+    }
+  }
+
+  if (decision.hasCustomItinerary) {
+    try {
+      const result = await sendEmail(resend, {
+        type: "custom-itinerary-payment-received",
+        to: ctx.customerEmail,
+        idempotencyKey: `checkout.session.completed/${ctx.sessionId}/custom-itinerary-received`,
+        templateProps: {
+          customerName: ctx.customerName,
+          orderId: ctx.orderId,
+        },
+      });
+      // Smíšený košík: OrderConfirmation jde první, takže její messageId
+      // vyhrává. Admin UI (úkol 25) může v případě potřeby zobrazit oba ID.
+      primaryMessageId = primaryMessageId ?? result.messageId;
+    } catch (err) {
+      console.error("Failed to send CustomItineraryReceived:", err);
+    }
+  }
+
+  if (primaryMessageId) {
+    const { error: trackingError } = await ctx.supabase
+      .from("orders")
+      .update({
+        confirmation_email_sent_at: new Date().toISOString(),
+        confirmation_email_message_id: primaryMessageId,
+      })
+      .eq("id", ctx.orderId);
+    if (trackingError) {
+      console.error("Failed to persist email tracking:", trackingError);
+    }
+  }
 }

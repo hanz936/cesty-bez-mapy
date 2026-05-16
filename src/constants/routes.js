@@ -9,6 +9,7 @@ export const ROUTES = {
   CUSTOM_ITINERARY_PREVIEW: '/cestovni-pruvodci/itinerar-na-miru/nahled/:id',
   CHECKOUT: '/cestovni-pruvodci/objednavka',
   ORDER_CONFIRMATION: '/cestovni-pruvodci/objednavka/potvrzeni',
+  DOWNLOAD: '/stahnout',
   INSPIRATION: '/inspirace',
   COLLABORATION: '/spoluprace',
   FAQ: '/caste-dotazy',

@@ -134,7 +134,7 @@ BEGIN
   PERFORM cron.schedule(
     'cleanup-expired-tokens',
     '0 3 * * *',
-    $$SELECT public.cleanup_expired_tokens()$$
+    $cron$SELECT public.cleanup_expired_tokens()$cron$
   );
 
   RAISE NOTICE 'pg_cron job cleanup-expired-tokens scheduled (daily at 03:00)';
@@ -161,7 +161,7 @@ EXCEPTION
         PERFORM cron.schedule(
           'cleanup-expired-tokens',
           '0 3 * * *',
-          $$SELECT public.cleanup_expired_tokens()$$
+          $cron$SELECT public.cleanup_expired_tokens()$cron$
         );
         RAISE NOTICE 'pg_cron job cleanup-expired-tokens scheduled (daily at 03:00)';
       EXCEPTION
