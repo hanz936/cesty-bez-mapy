@@ -110,3 +110,4 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+.vercel
