@@ -15,6 +15,7 @@ import { CustomItineraryDelivered } from "./templates/CustomItineraryDelivered.t
 import { Invoice } from "./templates/Invoice.tsx";
 import { CreditNote } from "./templates/CreditNote.tsx";
 import { InvoiceCorrected } from "./templates/InvoiceCorrected.tsx";
+import { InvoiceAlert } from "./templates/InvoiceAlert.tsx";
 import type { EmailType, PropsForType, SendEmailParams, SendEmailResult } from "./types.ts";
 
 // Allow mocking in tests via parametric client
@@ -49,6 +50,8 @@ const SUBJECT_BUILDERS: Record<EmailType, (props: any) => string> = {
     `Opravný daňový doklad ${p.creditNoteNumber}`,
   'invoice-corrected': (p) =>
     `Opravená faktura ${p.newInvoiceNumber}`,
+  'invoice-alert': (p) =>
+    `[Fakturoid alert] order ${p.orderId.slice(0, 8)}`,
 };
 
 // deno-lint-ignore no-explicit-any
@@ -70,6 +73,8 @@ function renderTemplate<T extends EmailType>(type: T, props: PropsForType<T>): a
       return CreditNote(props as any);
     case 'invoice-corrected':
       return InvoiceCorrected(props as any);
+    case 'invoice-alert':
+      return InvoiceAlert(props as any);
   }
 }
 

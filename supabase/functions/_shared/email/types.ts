@@ -12,7 +12,8 @@ export type EmailType =
   | 'custom-itinerary-delivered'
   | 'invoice'
   | 'credit-note'
-  | 'invoice-corrected';
+  | 'invoice-corrected'
+  | 'invoice-alert';
 
 export interface OrderItem {
   productTitle: string;
@@ -77,6 +78,12 @@ export interface InvoiceCorrectedProps {
   newInvoiceNumber: string;
 }
 
+export interface InvoiceAlertProps {
+  orderId: string;
+  action: string;
+  errorMessage: string;
+}
+
 export interface EmailAttachment {
   filename: string;
   content: string; // base64-encoded
@@ -92,6 +99,7 @@ export type PropsForType<T extends EmailType> =
   : T extends 'invoice' ? InvoiceProps
   : T extends 'credit-note' ? CreditNoteProps
   : T extends 'invoice-corrected' ? InvoiceCorrectedProps
+  : T extends 'invoice-alert' ? InvoiceAlertProps
   : never;
 
 export interface SendEmailParams<T extends EmailType> {

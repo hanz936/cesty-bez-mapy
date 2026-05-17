@@ -39,6 +39,9 @@ const CFG = {
   userAgent: Deno.env.get("FAKTUROID_USER_AGENT")!,
 };
 
+const ALERTS_ENABLED = Deno.env.get("FAKTUROID_ALERTS_ENABLED") === "true";
+const ALERT_TO = Deno.env.get("FAKTUROID_ALERT_EMAIL") || "parma29@seznam.cz";
+
 const persister: TokenPersister = {
   async load() {
     const { data } = await supabase.from("fakturoid_tokens").select("*").maybeSingle();
@@ -65,6 +68,20 @@ async function logIntegration(orderId: string, action: string, success: boolean,
     success,
     metadata: { order_id: orderId, error: error ?? null },
   });
+}
+
+async function sendAlertEmail(orderId: string, action: string, errorMessage: string): Promise<void> {
+  if (!ALERTS_ENABLED) return;
+  try {
+    await sendEmail(resend, {
+      type: "invoice-alert",
+      to: ALERT_TO,
+      idempotencyKey: `invoice-alert/${orderId}/${action}/${Date.now()}`,
+      templateProps: { orderId, action, errorMessage },
+    });
+  } catch (e) {
+    console.error("Failed to send alert email:", e);
+  }
 }
 
 async function loadOrderWithItems(orderId: string): Promise<{ order: OrderRow; items: OrderItemRow[] }> {
@@ -171,6 +188,7 @@ async function actionCreate(orderId: string): Promise<Response> {
     const msg = e instanceof Error ? e.message : String(e);
     await supabase.from("orders").update({ invoice_error: msg }).eq("id", orderId);
     await logIntegration(orderId, "create_invoice", false, msg);
+    await sendAlertEmail(orderId, "create_invoice", msg);
     return jsonOk({ status: "error", error: msg });
   }
 }
@@ -192,6 +210,7 @@ async function actionResendEmail(orderId: string): Promise<Response> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     await logIntegration(orderId, "resend_invoice", false, msg);
+    await sendAlertEmail(orderId, "resend_invoice", msg);
     return jsonOk({ status: "error", error: msg });
   }
 }
@@ -216,6 +235,7 @@ async function actionCreditNote(orderId: string): Promise<Response> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     await logIntegration(orderId, "create_credit_note", false, msg);
+    await sendAlertEmail(orderId, "create_credit_note", msg);
     return jsonOk({ status: "error", error: msg });
   }
 }
@@ -230,6 +250,7 @@ async function actionCancelAndReissue(orderId: string): Promise<Response> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     await logIntegration(orderId, "cancel_invoice", false, msg);
+    await sendAlertEmail(orderId, "cancel_invoice", msg);
     return jsonOk({ status: "cancel_failed", error: msg });
   }
   await supabase.from("orders").update({
