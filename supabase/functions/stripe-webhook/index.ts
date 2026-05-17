@@ -164,6 +164,10 @@ Deno.serve(async (req) => {
         } catch (emailError) {
           console.error("Failed to send Refund email:", emailError);
         }
+
+        // Issue credit note (opravný daňový doklad) for the refunded invoice.
+        // Fire-and-forget — does not block the refund email or webhook ack.
+        await fireCreateCreditNote(supabase, order.id);
         break;
       }
 
@@ -251,6 +255,18 @@ async function fireCreateInvoice(supabase: any, orderId: string): Promise<void> 
   } catch (e) {
     console.error("create-invoice invoke threw:", e);
     // Never re-throw: Stripe webhook must succeed regardless of invoice issuance.
+  }
+}
+
+// deno-lint-ignore no-explicit-any
+async function fireCreateCreditNote(supabase: any, orderId: string): Promise<void> {
+  try {
+    const { error } = await supabase.functions.invoke("create-invoice", {
+      body: { order_id: orderId, action: "credit_note" },
+    });
+    if (error) console.error("create-invoice credit_note invoke failed:", error);
+  } catch (e) {
+    console.error("create-invoice credit_note invoke threw:", e);
   }
 }
 
