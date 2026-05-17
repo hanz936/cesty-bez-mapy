@@ -12,9 +12,9 @@
 //   credit_note         — issue credit note (refund)
 //   cancel_and_reissue  — storno + new invoice (admin edited billing)
 //
-// Server-to-server only (invoked from stripe-webhook). No CORS / no auth wall:
-// callers use the service-role key. If admin-browser invocation is ever added,
-// mirror the admin auth pattern from resend-email/index.ts.
+// Dual-caller: invoked by stripe-webhook (service-role JWT bypass) and by the
+// admin UI via supabase.functions.invoke() (user JWT → is_admin RPC check).
+// No CORS — admin browser uses the Supabase client SDK, which handles it.
 // ================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -28,6 +28,7 @@ import { sendEmail, makeResendClient } from "../_shared/email/sendEmail.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 const resend = makeResendClient();
@@ -273,6 +274,33 @@ function jsonOk(body: unknown): Response {
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+
+  // Dual-auth gate: service-role bypass (stripe-webhook) OR admin user (admin UI).
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  // Service-role bypass: webhook calls use the service-role JWT.
+  // We compare the bearer token to SERVICE_ROLE_KEY directly — simpler and
+  // faster than round-tripping through getUser() which would return null for
+  // the service-role token.
+  const bearer = authHeader.replace(/^Bearer\s+/i, "");
+  const isServiceRole = bearer === SERVICE_ROLE_KEY;
+  if (!isServiceRole) {
+    // Admin role check — same pattern as download-invoice-pdf and resend-email.
+    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user } } = await userClient.auth.getUser();
+    if (!user) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    const { data: isAdmin } = await userClient.rpc("is_admin");
+    if (!isAdmin) {
+      return new Response("Forbidden", { status: 403 });
+    }
+  }
+
   let body: CreateInvoiceRequest;
   try { body = await req.json(); } catch { return new Response("Bad JSON", { status: 400 }); }
   if (!body.order_id || !body.action) {
