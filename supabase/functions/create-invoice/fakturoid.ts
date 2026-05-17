@@ -13,6 +13,7 @@ interface ClientOptions {
   now?: () => Date;
   maxRetries?: number;
   baseDelayMs?: number;
+  persister?: TokenPersister;
 }
 
 type FetchLike = (url: string | URL, init?: RequestInit) => Promise<Response>;
@@ -25,6 +26,11 @@ interface CachedToken {
   expiresAt: Date;
 }
 
+export interface TokenPersister {
+  load(): Promise<CachedToken | null>;
+  save(token: CachedToken): Promise<void>;
+}
+
 export class FakturoidClient {
   #cfg: FakturoidConfig;
   #fetch: FetchLike;
@@ -32,6 +38,7 @@ export class FakturoidClient {
   #maxRetries: number;
   #baseDelayMs: number;
   #cached: CachedToken | null = null;
+  #persister: TokenPersister | undefined;
 
   constructor(cfg: FakturoidConfig, fetchImpl: FetchLike = fetch, opts: ClientOptions = {}) {
     this.#cfg = cfg;
@@ -39,16 +46,30 @@ export class FakturoidClient {
     this.#now = opts.now ?? (() => new Date());
     this.#maxRetries = opts.maxRetries ?? 3;
     this.#baseDelayMs = opts.baseDelayMs ?? 1000;
+    this.#persister = opts.persister;
   }
 
   async getToken(forceRefresh = false): Promise<string> {
     const now = this.#now();
+
+    // 1. In-memory cache hit
     if (
       !forceRefresh && this.#cached &&
       this.#cached.expiresAt.getTime() - now.getTime() > TOKEN_REFRESH_BUFFER_MS
     ) {
       return this.#cached.token;
     }
+
+    // 2. Persister cache hit (cross-invocation)
+    if (!forceRefresh && this.#persister) {
+      const loaded = await this.#persister.load();
+      if (loaded && loaded.expiresAt.getTime() - now.getTime() > TOKEN_REFRESH_BUFFER_MS) {
+        this.#cached = loaded;
+        return loaded.token;
+      }
+    }
+
+    // 3. Fetch fresh
     const auth = btoa(`${this.#cfg.clientId}:${this.#cfg.clientSecret}`);
     const res = await this.#fetch("https://app.fakturoid.cz/api/v3/oauth/token", {
       method: "POST",
@@ -68,6 +89,7 @@ export class FakturoidClient {
       token: data.access_token,
       expiresAt: new Date(now.getTime() + data.expires_in * 1000),
     };
+    if (this.#persister) await this.#persister.save(this.#cached);
     return data.access_token;
   }
 

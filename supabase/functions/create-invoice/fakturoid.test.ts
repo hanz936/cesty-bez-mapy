@@ -145,3 +145,31 @@ Deno.test("FakturoidClient.cancelInvoice — calls /invoices/{id}/cancel.json", 
   assertEquals(calls[1].url, "https://app.fakturoid.cz/api/v3/accounts/test/invoices/42/cancel.json");
   assertEquals(calls[1].init?.method, "POST");
 });
+
+Deno.test("FakturoidClient with persister — loads token from DB on first call", async () => {
+  const { fn, calls } = makeFakeFetch([
+    { status: 201, body: { id: 1, number: "2026-0001", public_html_url: "u", pdf_url: "p", state: "open", total: "499.00" } },
+  ]);
+  const persister = {
+    load: async () => ({ token: "tok_persisted", expiresAt: new Date(Date.now() + 7200_000) }),
+    save: async () => {},
+  };
+  const client = new FakturoidClient(CFG, fn, { persister });
+  await client.createInvoice({} as never);
+  // Only one fetch: invoice POST. No /oauth/token call because persister provided the token.
+  assertEquals(calls.length, 1);
+});
+
+Deno.test("FakturoidClient with persister — saves new token after fetch", async () => {
+  const { fn } = makeFakeFetch([
+    { status: 200, body: { access_token: "tok_fresh", expires_in: 7200, token_type: "Bearer" } },
+  ]);
+  let savedToken: string | null = null;
+  const persister = {
+    load: async () => null,
+    save: async (t: { token: string; expiresAt: Date }) => { savedToken = t.token; },
+  };
+  const client = new FakturoidClient(CFG, fn, { persister });
+  await client.getToken();
+  assertEquals(savedToken, "tok_fresh");
+});
