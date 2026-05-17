@@ -259,6 +259,14 @@ async function handleCheckoutCompleted(
   const customerEmail =
     session.customer_details?.email || session.customer_email || "";
 
+  const isCompany = metadata.is_company === 'true';
+  const companyName = isCompany ? (metadata.company_name || null) : null;
+  const companyIco = isCompany ? (metadata.company_ico || null) : null;
+  const companyDic = isCompany ? (metadata.company_dic || null) : null;
+  const billingStreet = isCompany ? (metadata.billing_street || null) : null;
+  const billingCity = isCompany ? (metadata.billing_city || null) : null;
+  const billingZip = isCompany ? (metadata.billing_zip || null) : null;
+
   // Parsování mapy product_id -> custom_itinerary_request_id z metadata.
   // Při chybě JSON parse jen zalogujeme a pokračujeme s prázdnou mapou
   // (položky se nepropojí, ale objednávka se stejně vytvoří).
@@ -454,6 +462,13 @@ async function handleCheckoutCompleted(
     items: orderItems,
     download_token: downloadTokenString,
     download_expires_at: downloadExpiresAt,
+    is_company: isCompany,
+    company_name: companyName,
+    company_ico: companyIco,
+    company_dic: companyDic,
+    billing_street: billingStreet,
+    billing_city: billingCity,
+    billing_zip: billingZip,
   };
 
   const { data: rpcResult, error: rpcError } = await supabase.rpc(
