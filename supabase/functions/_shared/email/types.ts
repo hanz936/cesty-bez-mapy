@@ -9,7 +9,10 @@ export type EmailType =
   | 'custom-itinerary-payment-received'
   | 'refund'
   | 'payment-failed'
-  | 'custom-itinerary-delivered';
+  | 'custom-itinerary-delivered'
+  | 'invoice'
+  | 'credit-note'
+  | 'invoice-corrected';
 
 export interface OrderItem {
   productTitle: string;
@@ -55,6 +58,30 @@ export interface CustomItineraryDeliveredProps {
   downloadUrl: string;
 }
 
+export interface InvoiceProps {
+  customerName: string;
+  orderId: string;
+  invoiceNumber: string;
+}
+
+export interface CreditNoteProps {
+  customerName: string;
+  orderId: string;
+  creditNoteNumber: string;
+}
+
+export interface InvoiceCorrectedProps {
+  customerName: string;
+  orderId: string;
+  oldInvoiceNumber: string;
+  newInvoiceNumber: string;
+}
+
+export interface EmailAttachment {
+  filename: string;
+  content: string; // base64-encoded
+}
+
 // Maps EmailType → Props type
 export type PropsForType<T extends EmailType> =
   T extends 'order-confirmation' ? OrderConfirmationProps
@@ -62,6 +89,9 @@ export type PropsForType<T extends EmailType> =
   : T extends 'refund' ? RefundProps
   : T extends 'payment-failed' ? PaymentFailedProps
   : T extends 'custom-itinerary-delivered' ? CustomItineraryDeliveredProps
+  : T extends 'invoice' ? InvoiceProps
+  : T extends 'credit-note' ? CreditNoteProps
+  : T extends 'invoice-corrected' ? InvoiceCorrectedProps
   : never;
 
 export interface SendEmailParams<T extends EmailType> {
@@ -69,6 +99,7 @@ export interface SendEmailParams<T extends EmailType> {
   to: string;
   idempotencyKey: string; // format: <event-type>/<entity-id>[/retry-N]
   templateProps: PropsForType<T>;
+  attachments?: EmailAttachment[];
 }
 
 export interface SendEmailResult {

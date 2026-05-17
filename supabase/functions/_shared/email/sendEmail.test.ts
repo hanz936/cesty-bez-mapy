@@ -36,6 +36,23 @@ function mockResendClient(behaviors: Array<
   };
 }
 
+// Mock Resend client that records the last `send` payload for assertions.
+function mockResendClientCapturing(messageId: string): {
+  client: ResendClient;
+  getLastCall: () => Record<string, unknown> | null;
+} {
+  let lastCall: Record<string, unknown> | null = null;
+  const client: ResendClient = {
+    emails: {
+      send: async (params: unknown) => {
+        lastCall = params as Record<string, unknown>;
+        return { data: { id: messageId }, error: null };
+      },
+    },
+  };
+  return { client, getLastCall: () => lastCall };
+}
+
 Deno.test("sendEmail returns messageId on first-attempt success", async () => {
   const client = mockResendClient([{ type: 'success', messageId: 're_abc123' }]);
 
@@ -130,4 +147,85 @@ Deno.test("sendEmail does NOT retry on 409 (idempotency conflict)", async () => 
     Error,
     "Idempotency conflict",
   );
+});
+
+Deno.test("sendEmail renders invoice template with expected subject", async () => {
+  const { client, getLastCall } = mockResendClientCapturing('re_invoice_ok');
+
+  const result = await sendEmail(client, {
+    type: 'invoice',
+    to: 'customer@example.com',
+    idempotencyKey: 'invoice/order-6',
+    templateProps: {
+      customerName: 'Jana Nováková',
+      orderId: 'ord-12345',
+      invoiceNumber: '2026-0042',
+    },
+  });
+
+  assertEquals(result.messageId, 're_invoice_ok');
+  const lastCall = getLastCall();
+  assertEquals(lastCall?.subject, 'Faktura 2026-0042 – Cesty bez mapy');
+});
+
+Deno.test("sendEmail renders credit-note template with expected subject", async () => {
+  const { client, getLastCall } = mockResendClientCapturing('re_credit_ok');
+
+  const result = await sendEmail(client, {
+    type: 'credit-note',
+    to: 'customer@example.com',
+    idempotencyKey: 'credit-note/order-7',
+    templateProps: {
+      customerName: 'Jana Nováková',
+      orderId: 'ord-12345',
+      creditNoteNumber: '2026-D-0001',
+    },
+  });
+
+  assertEquals(result.messageId, 're_credit_ok');
+  const lastCall = getLastCall();
+  assertEquals(lastCall?.subject, 'Opravný daňový doklad 2026-D-0001');
+});
+
+Deno.test("sendEmail renders invoice-corrected template with expected subject", async () => {
+  const { client, getLastCall } = mockResendClientCapturing('re_corrected_ok');
+
+  const result = await sendEmail(client, {
+    type: 'invoice-corrected',
+    to: 'customer@example.com',
+    idempotencyKey: 'invoice-corrected/order-8',
+    templateProps: {
+      customerName: 'Jana Nováková',
+      orderId: 'ord-12345',
+      oldInvoiceNumber: '2026-0042',
+      newInvoiceNumber: '2026-0043',
+    },
+  });
+
+  assertEquals(result.messageId, 're_corrected_ok');
+  const lastCall = getLastCall();
+  assertEquals(lastCall?.subject, 'Opravená faktura 2026-0043');
+});
+
+Deno.test("sendEmail forwards attachments to Resend client when provided", async () => {
+  const { client, getLastCall } = mockResendClientCapturing('re_attach_ok');
+
+  const attachments = [
+    { filename: 'faktura-2026-0042.pdf', content: 'JVBERi0xLjQKJ...' },
+  ];
+
+  await sendEmail(client, {
+    type: 'invoice',
+    to: 'customer@example.com',
+    idempotencyKey: 'invoice/order-9',
+    templateProps: {
+      customerName: 'Jana Nováková',
+      orderId: 'ord-12345',
+      invoiceNumber: '2026-0042',
+    },
+    attachments,
+  });
+
+  const lastCall = getLastCall();
+  assertEquals(lastCall?.attachments, attachments);
 });

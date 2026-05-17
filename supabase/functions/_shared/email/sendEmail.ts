@@ -12,6 +12,9 @@ import { CustomItineraryReceived } from "./templates/CustomItineraryReceived.tsx
 import { Refund } from "./templates/Refund.tsx";
 import { PaymentFailed } from "./templates/PaymentFailed.tsx";
 import { CustomItineraryDelivered } from "./templates/CustomItineraryDelivered.tsx";
+import { Invoice } from "./templates/Invoice.tsx";
+import { CreditNote } from "./templates/CreditNote.tsx";
+import { InvoiceCorrected } from "./templates/InvoiceCorrected.tsx";
 import type { EmailType, PropsForType, SendEmailParams, SendEmailResult } from "./types.ts";
 
 // Allow mocking in tests via parametric client
@@ -40,6 +43,12 @@ const SUBJECT_BUILDERS: Record<EmailType, (props: any) => string> = {
     `Tvá platba se nezdařila`,
   'custom-itinerary-delivered': (_p) =>
     `Tvůj individuální itinerář je hotový`,
+  'invoice': (p) =>
+    `Faktura ${p.invoiceNumber} – Cesty bez mapy`,
+  'credit-note': (p) =>
+    `Opravný daňový doklad ${p.creditNoteNumber}`,
+  'invoice-corrected': (p) =>
+    `Opravená faktura ${p.newInvoiceNumber}`,
 };
 
 // deno-lint-ignore no-explicit-any
@@ -55,6 +64,12 @@ function renderTemplate<T extends EmailType>(type: T, props: PropsForType<T>): a
       return PaymentFailed(props as any);
     case 'custom-itinerary-delivered':
       return CustomItineraryDelivered(props as any);
+    case 'invoice':
+      return Invoice(props as any);
+    case 'credit-note':
+      return CreditNote(props as any);
+    case 'invoice-corrected':
+      return InvoiceCorrected(props as any);
   }
 }
 
@@ -91,6 +106,7 @@ export async function sendEmail<T extends EmailType>(
       subject,
       react: reactElement,
       idempotencyKey: params.idempotencyKey,
+      ...(params.attachments ? { attachments: params.attachments } : {}),
     });
 
     if (data && !error) {
