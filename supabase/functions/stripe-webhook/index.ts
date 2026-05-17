@@ -237,6 +237,23 @@ async function sendPaymentFailedEmail(pi: Stripe.PaymentIntent): Promise<void> {
   );
 }
 
+// deno-lint-ignore no-explicit-any
+async function fireCreateInvoice(supabase: any, orderId: string): Promise<void> {
+  try {
+    // Fire-and-forget: we await invoke() to ensure the request reaches the
+    // function gateway before the webhook returns, but we don't depend on
+    // its outcome. If Fakturoid is down, the invoice can be retried from
+    // the admin UI; the order itself must be considered successful.
+    const { error } = await supabase.functions.invoke("create-invoice", {
+      body: { order_id: orderId, action: "create" },
+    });
+    if (error) console.error("create-invoice invoke failed:", error);
+  } catch (e) {
+    console.error("create-invoice invoke threw:", e);
+    // Never re-throw: Stripe webhook must succeed regardless of invoice issuance.
+  }
+}
+
 // Zpracování úspěšně dokončené checkout session
 async function handleCheckoutCompleted(
   // deno-lint-ignore no-explicit-any
@@ -517,6 +534,11 @@ async function handleCheckoutCompleted(
         emailError
       );
     }
+
+    // Issue invoice for newly created orders only.
+    // Retries (Stripe webhook delivery retries) land here too — idempotency
+    // check inside create-invoice handles them.
+    await fireCreateInvoice(supabase, orderId);
   }
 
   return { success: true, orderId };
