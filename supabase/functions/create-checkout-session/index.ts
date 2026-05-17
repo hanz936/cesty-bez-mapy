@@ -51,12 +51,23 @@ interface LineItem {
   custom_itinerary_request_id?: string | null;
 }
 
+interface BillingFields {
+  is_company?: boolean;
+  company_ico?: string;
+  company_dic?: string;
+  company_name?: string;
+  billing_street?: string;
+  billing_city?: string;
+  billing_zip?: string;
+}
+
 interface CreateCheckoutRequest {
   line_items: LineItem[];
   customer_email?: string;
   customer_name?: string;
   success_url: string;
   cancel_url: string;
+  billing?: BillingFields;
 }
 
 Deno.serve(async (req) => {
@@ -74,6 +85,7 @@ Deno.serve(async (req) => {
       customer_name,
       success_url,
       cancel_url,
+      billing,
     } = body;
 
     // Extract user_id from JWT (not from body - prevents spoofing)
@@ -124,6 +136,28 @@ Deno.serve(async (req) => {
           headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
         }
       );
+    }
+
+    // Validace fakturačních údajů pro B2B (firma = chce fakturu)
+    const b: BillingFields = billing ?? {};
+    if (b.is_company) {
+      if (
+        !b.company_ico ||
+        !b.company_name ||
+        !b.billing_street ||
+        !b.billing_city ||
+        !b.billing_zip
+      ) {
+        return new Response(
+          JSON.stringify({
+            error: "Incomplete billing fields",
+          }),
+          {
+            status: 400,
+            headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
+          }
+        );
+      }
     }
 
     console.log(
@@ -218,6 +252,17 @@ Deno.serve(async (req) => {
     // Přidání customer info pokud existuje
     if (customer_name) {
       metadata.customer_name = customer_name;
+    }
+
+    // Fakturační údaje (B2B / Fakturoid)
+    metadata.is_company = String(!!b.is_company);
+    if (b.is_company) {
+      metadata.company_ico = b.company_ico!;
+      metadata.company_dic = b.company_dic ?? "";
+      metadata.company_name = b.company_name!;
+      metadata.billing_street = b.billing_street!;
+      metadata.billing_city = b.billing_city!;
+      metadata.billing_zip = b.billing_zip!;
     }
 
     // Mapování product_id -> custom_itinerary_request_id pro položky košíku,

@@ -8,6 +8,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button, TurnstileField } from '../components/ui';
+import { BillingForm } from '../components/cart/BillingForm.jsx';
 import { BASE_PATH, ROUTES } from '../constants';
 import { useCart } from '../contexts';
 import { supabase } from '../lib/supabase';
@@ -75,6 +76,7 @@ const Checkout = React.memo(() => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState(null);
   const [captchaToken, setCaptchaToken] = useState(null);
+  const [billing, setBilling] = useState({ is_company: false });
 
   // Automatické poescrollování na vrchol při načtení stránky
   useEffect(() => {
@@ -141,6 +143,7 @@ const Checkout = React.memo(() => {
           success_url: successUrl,
           cancel_url: cancelUrl,
           user_id: userId,
+          billing,
         },
       });
 
@@ -160,7 +163,7 @@ const Checkout = React.memo(() => {
       setError(err.message || 'Nastala chyba při zpracování platby. Zkus to prosím znovu.');
       setIsProcessing(false);
     }
-  }, [cartItems, captchaToken]);
+  }, [cartItems, captchaToken, billing]);
 
   // Prázdný košík - přesměrování probíhá v useEffect
   if (cartItems.length === 0) {
@@ -279,6 +282,11 @@ const Checkout = React.memo(() => {
                   Po kliknutí na tlačítko budeš přesměrován/a na bezpečnou platební bránu Stripe,
                   kde zadáš platební údaje.
                 </p>
+              </div>
+
+              {/* Fakturační údaje (volitelně B2B) */}
+              <div className="mb-6">
+                <BillingForm value={billing} onChange={setBilling} />
               </div>
 
               {/* Turnstile bezpečnostní ověření */}
