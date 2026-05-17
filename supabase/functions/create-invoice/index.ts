@@ -170,6 +170,7 @@ async function actionCreate(orderId: string): Promise<Response> {
     const err = `Invalid IČO: ${order.company_ico}`;
     await supabase.from("orders").update({ invoice_error: err }).eq("id", orderId);
     await logIntegration(orderId, "create_invoice", false, err);
+    await sendAlertEmail(orderId, "create_invoice", err);
     return jsonOk({ status: "validation_error", error: err });
   }
   try {

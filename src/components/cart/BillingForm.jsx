@@ -43,21 +43,25 @@ export function BillingForm({ value, onChange }) {
     }
   }
 
+  const inputClass = "w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-green-700";
+  const labelClass = "block text-sm font-medium text-gray-700 mb-1";
+
   return (
-    <div className="billing-form">
-      <label>
+    <div>
+      <label className="flex items-center gap-2 text-sm text-gray-700">
         <input
           type="checkbox"
           checked={!!value.is_company}
           onChange={(e) => update({ is_company: e.target.checked })}
+          className="h-4 w-4 rounded border-gray-300 text-green-700 focus:ring-green-700"
         />
         Koupit na firmu (chci fakturu)
       </label>
 
       {value.is_company && (
-        <div className="billing-fields">
-          <label>
-            IČO *
+        <div className="mt-4 p-4 bg-gray-50 rounded-md space-y-3">
+          <label className="block">
+            <span className={labelClass}>IČO *</span>
             <input
               type="text"
               inputMode="numeric"
@@ -66,53 +70,59 @@ export function BillingForm({ value, onChange }) {
               onChange={(e) => { setIcoInput(e.target.value); update({ company_ico: e.target.value }); }}
               onBlur={handleIcoBlur}
               required
+              className={inputClass}
             />
-            {loading && <span className="hint">Načítám z ARES…</span>}
-            {icoError && <span className="error">{icoError}</span>}
+            {loading && <span className="block text-xs text-gray-500 mt-1">Načítám z ARES…</span>}
+            {icoError && <span className="block text-xs text-red-600 mt-1">{icoError}</span>}
           </label>
-          <label>
-            Název firmy *
+          <label className="block">
+            <span className={labelClass}>Název firmy *</span>
             <input
               type="text"
               value={value.company_name ?? ''}
               onChange={(e) => update({ company_name: e.target.value })}
               required
+              className={inputClass}
             />
           </label>
-          <label>
-            DIČ
+          <label className="block">
+            <span className={labelClass}>DIČ</span>
             <input
               type="text"
               value={value.company_dic ?? ''}
               onChange={(e) => update({ company_dic: e.target.value })}
+              className={inputClass}
             />
           </label>
-          <label>
-            Ulice a č.p. *
+          <label className="block">
+            <span className={labelClass}>Ulice a č.p. *</span>
             <input
               type="text"
               value={value.billing_street ?? ''}
               onChange={(e) => update({ billing_street: e.target.value })}
               required
+              className={inputClass}
             />
           </label>
-          <label>
-            Město *
+          <label className="block">
+            <span className={labelClass}>Město *</span>
             <input
               type="text"
               value={value.billing_city ?? ''}
               onChange={(e) => update({ billing_city: e.target.value })}
               required
+              className={inputClass}
             />
           </label>
-          <label>
-            PSČ *
+          <label className="block">
+            <span className={labelClass}>PSČ *</span>
             <input
               type="text"
               inputMode="numeric"
               value={value.billing_zip ?? ''}
               onChange={(e) => update({ billing_zip: e.target.value })}
               required
+              className={inputClass}
             />
           </label>
         </div>
