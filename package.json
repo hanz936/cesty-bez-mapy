@@ -16,6 +16,7 @@
     "@supabase/supabase-js": "^2.79.0",
     "@tailwindcss/vite": "^4.1.11",
     "jspdf": "^3.0.2",
+    "pg": "^8.21.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-email": "^6.1.1",

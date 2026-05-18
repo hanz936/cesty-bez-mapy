@@ -71,7 +71,7 @@ Kompletní technická dokumentace se nachází v [docs/](docs/) složce:
 - **[Implementation Plan](docs/CUSTOM_ITINERARY_IMPLEMENTATION.md)** - Kompletní implementační plán pro custom itinerary feature
 - **[Architecture Decisions](docs/ARCHITECTURE_DECISIONS.md)** - Záznam důležitých architektonických rozhodnutí (ADR)
 - **[ROADMAP.md](ROADMAP.md)** - Plán vývoje projektu
-- **[TECH_STACK.md](TECH_STACK.md)** - Detailní přehled použitých technologií
+- **[TECH_STACK.md](docs/archive/TECH_STACK.md)** - Detailní přehled použitých technologií
 
 ## 🛠️ Build
 

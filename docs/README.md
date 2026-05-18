@@ -60,7 +60,7 @@ Each ADR includes:
 ### Root-Level Documentation
 
 - **[../ROADMAP.md](../ROADMAP.md)** - Project roadmap and feature planning
-- **[../TECH_STACK.md](../TECH_STACK.md)** - Technology stack details
+- **[TECH_STACK.md](archive/TECH_STACK.md)** - Technology stack details
 - **[../README.md](../README.md)** - Main project README with setup instructions
 
 ### Database
