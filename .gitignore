@@ -111,3 +111,9 @@ Thumbs.db
 *.sln
 *.sw?
 .vercel
+
+# AI / dev tooling caches
+.playwright-cli/
+
+# Deno lockfile (root only — function-level je řešen samostatně výše)
+/deno.lock

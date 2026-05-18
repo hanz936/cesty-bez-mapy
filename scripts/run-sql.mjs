@@ -3,7 +3,7 @@ const { Client } = pg;
 
 const sql = process.argv[2];
 if (!sql) {
-  console.error('Usage: PGPASSWORD=xxx node run-sql.mjs "SELECT ..."');
+  console.error('Usage: PGPASSWORD=xxx node scripts/run-sql.mjs "SELECT ..."');
   process.exit(1);
 }
 

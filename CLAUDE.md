@@ -29,6 +29,11 @@ src/
 ├── constants/        # Routes, app config, seasons
 ├── styles/           # CSS utilities, print styles
 └── utils/            # Logger a pomocné funkce
+
+scripts/              # Ad-hoc skripty (run-sql.mjs pro DB debug)
+docs/
+├── archive/          # Historické dokumenty (TECH_STACK, audit-results)
+└── ...               # Aktivní docs (ARCHITECTURE_DECISIONS, MANUAL_SETUP_*)
 ```
 
 ## Konvence
