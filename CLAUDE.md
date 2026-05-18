@@ -9,7 +9,6 @@ E-shop s cestovními průvodci a službou plánování cest na míru.
 - **Routing:** React Router 7
 - **Backend:** Supabase (PostgreSQL, Auth, Storage)
 - **Platby:** Stripe Checkout
-- **PDF:** jsPDF
 - **Build:** Vite 7
 - **Testy:** Vitest + React Testing Library
 
