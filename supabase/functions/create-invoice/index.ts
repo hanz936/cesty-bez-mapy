@@ -14,7 +14,7 @@
 //
 // Dual-caller: invoked by stripe-webhook (service-role JWT bypass) and by the
 // admin UI via supabase.functions.invoke() (user JWT → is_admin RPC check).
-// No CORS — admin browser uses the Supabase client SDK, which handles it.
+// CORS configured for admin browser callers; webhook calls (server-to-server) ignore it.
 // ================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -29,6 +29,23 @@ import { sendEmail, makeResendClient } from "../_shared/email/sendEmail.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+const ADMIN_ORIGINS = [
+  "https://cesty-bez-mapy-admin.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:5174",
+];
+
+function corsHeaders(req: Request) {
+  const origin = req.headers.get("Origin") || "";
+  const allowedOrigin = ADMIN_ORIGINS.includes(origin) ? origin : ADMIN_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 const resend = makeResendClient();
@@ -273,12 +290,14 @@ function jsonOk(body: unknown): Response {
 }
 
 Deno.serve(async (req) => {
-  if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+  const cors = corsHeaders(req);
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+  if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: cors });
 
   // Dual-auth gate: service-role bypass (stripe-webhook) OR admin user (admin UI).
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
-    return new Response("Unauthorized", { status: 401 });
+    return new Response("Unauthorized", { status: 401, headers: cors });
   }
   // Service-role bypass: webhook calls use the service-role JWT.
   // We compare the bearer token to SERVICE_ROLE_KEY directly — simpler and
@@ -293,31 +312,40 @@ Deno.serve(async (req) => {
     });
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) {
-      return new Response("Unauthorized", { status: 401 });
+      return new Response("Unauthorized", { status: 401, headers: cors });
     }
     const { data: isAdmin } = await userClient.rpc("is_admin");
     if (!isAdmin) {
-      return new Response("Forbidden", { status: 403 });
+      return new Response("Forbidden", { status: 403, headers: cors });
     }
   }
 
   let body: CreateInvoiceRequest;
-  try { body = await req.json(); } catch { return new Response("Bad JSON", { status: 400 }); }
+  try { body = await req.json(); } catch { return new Response("Bad JSON", { status: 400, headers: cors }); }
   if (!body.order_id || !body.action) {
-    return new Response("Missing order_id or action", { status: 400 });
+    return new Response("Missing order_id or action", { status: 400, headers: cors });
   }
 
+  let resp: Response;
   switch (body.action) {
     case "create":
     case "retry":
-      return await actionCreate(body.order_id);
+      resp = await actionCreate(body.order_id);
+      break;
     case "resend_email":
-      return await actionResendEmail(body.order_id);
+      resp = await actionResendEmail(body.order_id);
+      break;
     case "credit_note":
-      return await actionCreditNote(body.order_id);
+      resp = await actionCreditNote(body.order_id);
+      break;
     case "cancel_and_reissue":
-      return await actionCancelAndReissue(body.order_id);
+      resp = await actionCancelAndReissue(body.order_id);
+      break;
     default:
-      return new Response(`Unknown action: ${body.action}`, { status: 400 });
+      return new Response(`Unknown action: ${body.action}`, { status: 400, headers: cors });
   }
+  for (const [k, v] of Object.entries(cors)) {
+    resp.headers.set(k, v);
+  }
+  return resp;
 });
