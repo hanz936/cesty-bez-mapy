@@ -165,18 +165,38 @@ export class FakturoidClient {
     );
   }
 
-  async downloadPdf(invoiceId: number): Promise<Uint8Array> {
-    const token = await this.getToken();
-    const res = await this.#fetch(
-      `https://app.fakturoid.cz/api/v3/accounts/${this.#cfg.slug}/invoices/${invoiceId}/download.pdf`,
-      {
-        headers: {
-          "User-Agent": this.#cfg.userAgent,
-          "Authorization": `Bearer ${token}`,
+  // Fakturoid v3 generates invoice PDFs asynchronously and returns 204 until ready; retry briefly.
+  async downloadPdf(invoiceId: number, delayMs = 1500): Promise<Uint8Array> {
+    const maxAttempts = 5;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const token = await this.getToken();
+      const res = await this.#fetch(
+        `https://app.fakturoid.cz/api/v3/accounts/${this.#cfg.slug}/invoices/${invoiceId}/download.pdf`,
+        {
+          headers: {
+            "User-Agent": this.#cfg.userAgent,
+            "Authorization": `Bearer ${token}`,
+          },
         },
-      },
-    );
-    if (!res.ok) throw new Error(`Fakturoid PDF download failed: ${res.status}`);
-    return new Uint8Array(await res.arrayBuffer());
+      );
+      if (res.status === 204) {
+        if (attempt < maxAttempts) {
+          await new Promise((r) => setTimeout(r, delayMs));
+          continue;
+        }
+        throw new Error(`Fakturoid PDF not ready after ${maxAttempts} retries`);
+      }
+      if (!res.ok) throw new Error(`Fakturoid PDF download failed: ${res.status}`);
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      if (bytes.length === 0) {
+        if (attempt < maxAttempts) {
+          await new Promise((r) => setTimeout(r, delayMs));
+          continue;
+        }
+        throw new Error(`Fakturoid PDF not ready after ${maxAttempts} retries`);
+      }
+      return bytes;
+    }
+    throw new Error(`Fakturoid PDF not ready after ${maxAttempts} retries`);
   }
 }

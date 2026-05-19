@@ -143,6 +143,42 @@ Deno.test("FakturoidClient.downloadPdf — returns bytes", async () => {
   assertEquals(bytes[0], 37);
 });
 
+Deno.test("FakturoidClient.downloadPdf — retries on 204 and returns bytes once ready", async () => {
+  const pdfBytes = new Uint8Array([37, 80, 68, 70]);
+  const calls: FetchCall[] = [];
+  let pdfAttempts = 0;
+  const fn = async (url: string | URL, init?: RequestInit) => {
+    calls.push({ url: String(url), init });
+    if (String(url).endsWith("/oauth/token")) {
+      return new Response(JSON.stringify({ access_token: "tok", expires_in: 7200, token_type: "Bearer" }), { status: 200 });
+    }
+    pdfAttempts++;
+    if (pdfAttempts < 3) return new Response(null, { status: 204 });
+    return new Response(pdfBytes, { status: 200, headers: { "Content-Type": "application/pdf" } });
+  };
+  const client = new FakturoidClient(CFG, fn);
+  const bytes = await client.downloadPdf(42, 0);
+  assertEquals(bytes.length, 4);
+  assertEquals(pdfAttempts, 3);
+});
+
+Deno.test("FakturoidClient.downloadPdf — throws after exhausting retries on persistent 204", async () => {
+  const calls: FetchCall[] = [];
+  const fn = async (url: string | URL, init?: RequestInit) => {
+    calls.push({ url: String(url), init });
+    if (String(url).endsWith("/oauth/token")) {
+      return new Response(JSON.stringify({ access_token: "tok", expires_in: 7200, token_type: "Bearer" }), { status: 200 });
+    }
+    return new Response(null, { status: 204 });
+  };
+  const client = new FakturoidClient(CFG, fn);
+  await assertRejects(
+    () => client.downloadPdf(42, 0),
+    Error,
+    "not ready",
+  );
+});
+
 Deno.test("FakturoidClient.createCreditNote — calls /invoices/{id}/credit_notes.json", async () => {
   const { fn, calls } = makeFakeFetch([
     { status: 200, body: { access_token: "tok", expires_in: 7200, token_type: "Bearer" } },
