@@ -2,7 +2,7 @@
 // Fakturoid v3 API types — subset we use.
 // Reference: https://www.fakturoid.cz/api/v3
 
-export interface FakturoidSubject {
+export interface FakturoidSubjectPayload {
   name: string;
   email?: string;
   registration_no?: string;  // IČO
@@ -10,7 +10,13 @@ export interface FakturoidSubject {
   street?: string;
   city?: string;
   zip?: string;
-  country?: string;
+  country: string;           // "CZ"
+}
+
+export interface FakturoidSubjectResponse {
+  id: number;
+  name: string;
+  // other fields exist but we only need id
 }
 
 export interface FakturoidLine {
@@ -21,7 +27,7 @@ export interface FakturoidLine {
 }
 
 export interface FakturoidInvoicePayload {
-  subject: FakturoidSubject;
+  subject_id: number;
   lines: FakturoidLine[];
   prices_include_vat: boolean;
   currency: string;

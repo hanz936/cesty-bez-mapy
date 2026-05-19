@@ -55,9 +55,9 @@ Deno.test("FakturoidClient.createInvoice — happy path", async () => {
   ]);
   const client = new FakturoidClient(CFG, fn);
   const invoice = await client.createInvoice({
-    subject: { name: "Test", email: "t@t.cz" },
-    lines: [{ name: "Item", quantity: 1, unit_price: "499", vat_rate: 21 }],
-    prices_include_vat: true, currency: "CZK", language: "cz", payment_method: "card",
+    subject_id: 7,
+    lines: [{ name: "Item", quantity: 1, unit_price: "499", vat_rate: 0 }],
+    prices_include_vat: false, currency: "CZK", language: "cz", payment_method: "card",
     issued_on: "2026-05-16", taxable_fulfillment_due: "2026-05-16", due_on: "2026-05-16",
   });
   assertEquals(invoice.id, 42);
@@ -65,7 +65,26 @@ Deno.test("FakturoidClient.createInvoice — happy path", async () => {
   assertEquals(calls[1].url, "https://app.fakturoid.cz/api/v3/accounts/test/invoices.json");
   assertEquals(calls[1].init?.method, "POST");
   const body = JSON.parse(calls[1].init!.body as string);
-  assertEquals(body.invoice.subject.name, "Test");
+  assertEquals(body.invoice.subject_id, 7);
+});
+
+Deno.test("FakturoidClient.createSubject — POSTs /subjects.json and returns id", async () => {
+  const { fn, calls } = makeFakeFetch([
+    { status: 200, body: { access_token: "tok", expires_in: 7200, token_type: "Bearer" } },
+    { status: 201, body: { id: 555, name: "Jan Novák" } },
+  ]);
+  const client = new FakturoidClient(CFG, fn);
+  const subject = await client.createSubject({
+    name: "Jan Novák",
+    email: "buyer@example.cz",
+    country: "CZ",
+  });
+  assertEquals(subject.id, 555);
+  assertEquals(calls[1].url, "https://app.fakturoid.cz/api/v3/accounts/test/subjects.json");
+  assertEquals(calls[1].init?.method, "POST");
+  const body = JSON.parse(calls[1].init!.body as string);
+  assertEquals(body.name, "Jan Novák");
+  assertEquals(body.country, "CZ");
 });
 
 Deno.test("FakturoidClient.createInvoice — retries 3x on 500", async () => {

@@ -1,5 +1,6 @@
 import type {
-  FakturoidInvoicePayload, FakturoidInvoiceResponse, FakturoidToken,
+  FakturoidInvoicePayload, FakturoidInvoiceResponse,
+  FakturoidSubjectPayload, FakturoidSubjectResponse, FakturoidToken,
 } from "./types.ts";
 
 interface FakturoidConfig {
@@ -126,6 +127,13 @@ export class FakturoidClient {
       throw new Error(`Fakturoid ${res.status}: ${body}`);
     }
     throw lastError ?? new Error("Fakturoid request failed without specific error");
+  }
+
+  async createSubject(payload: FakturoidSubjectPayload): Promise<FakturoidSubjectResponse> {
+    return await this.#request<FakturoidSubjectResponse>("/subjects.json", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   }
 
   async createInvoice(payload: FakturoidInvoicePayload): Promise<FakturoidInvoiceResponse> {

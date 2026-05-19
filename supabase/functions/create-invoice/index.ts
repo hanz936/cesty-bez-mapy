@@ -19,7 +19,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { FakturoidClient, type TokenPersister } from "./fakturoid.ts";
-import { mapOrderToInvoice } from "./mapping.ts";
+import { mapOrderToInvoice, mapOrderToSubject } from "./mapping.ts";
 import { isValidIco } from "./ares.ts";
 import type {
   CreateInvoiceRequest, OrderRow, OrderItemRow,
@@ -192,7 +192,9 @@ async function actionCreate(orderId: string): Promise<Response> {
     return jsonOk({ status: "validation_error", error: err });
   }
   try {
-    const payload = mapOrderToInvoice(order, items);
+    const subjectPayload = mapOrderToSubject(order);
+    const subject = await fakturoid.createSubject(subjectPayload);
+    const payload = mapOrderToInvoice(order, items, subject.id);
     const invoice = await fakturoid.createInvoice(payload);
     await supabase.from("orders").update({
       facturoid_invoice_id: String(invoice.id),

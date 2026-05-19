@@ -1,43 +1,51 @@
 // mapping.ts
-import type { FakturoidInvoicePayload, OrderRow, OrderItemRow } from "./types.ts";
+import type {
+  FakturoidInvoicePayload, FakturoidSubjectPayload,
+  OrderRow, OrderItemRow,
+} from "./types.ts";
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+export function mapOrderToSubject(order: OrderRow): FakturoidSubjectPayload {
+  if (order.is_company) {
+    return {
+      name: order.company_name!,
+      email: order.customer_email,
+      registration_no: order.company_ico!,
+      vat_no: order.company_dic ?? undefined,
+      street: order.billing_street!,
+      city: order.billing_city!,
+      zip: order.billing_zip!,
+      country: "CZ",
+    };
+  }
+  return {
+    name: order.customer_name,
+    email: order.customer_email,
+    country: "CZ",
+  };
+}
+
 export function mapOrderToInvoice(
   order: OrderRow,
   items: OrderItemRow[],
+  subjectId: number,
 ): FakturoidInvoicePayload {
   const today = todayIso();
-
-  const subject = order.is_company
-    ? {
-        name: order.company_name!,
-        email: order.customer_email,
-        registration_no: order.company_ico!,
-        vat_no: order.company_dic ?? undefined,
-        street: order.billing_street!,
-        city: order.billing_city!,
-        zip: order.billing_zip!,
-        country: "CZ",
-      }
-    : {
-        name: order.customer_name,
-        email: order.customer_email,
-      };
 
   const lines = items.map((item) => ({
     name: item.product_title,
     quantity: item.quantity,
     unit_price: item.price_at_purchase,
-    vat_rate: Number(item.vat_rate_at_purchase),
+    vat_rate: 0,
   }));
 
   return {
-    subject,
+    subject_id: subjectId,
     lines,
-    prices_include_vat: true,
+    prices_include_vat: false,
     currency: "CZK",
     language: "cz",
     payment_method: "card",

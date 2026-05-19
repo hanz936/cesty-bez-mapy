@@ -1,9 +1,10 @@
 // mapping.test.ts
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { mapOrderToInvoice } from "./mapping.ts";
+import { mapOrderToInvoice, mapOrderToSubject } from "./mapping.ts";
 import type { OrderRow, OrderItemRow } from "./types.ts";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const SUBJECT_ID = 12345;
 
 function baseOrder(overrides: Partial<OrderRow> = {}): OrderRow {
   return {
@@ -42,16 +43,17 @@ function baseItems(): OrderItemRow[] {
   }];
 }
 
-Deno.test("mapOrderToInvoice — B2C order has only name+email in subject", () => {
-  const payload = mapOrderToInvoice(baseOrder(), baseItems());
-  assertEquals(payload.subject.name, "Jan Novák");
-  assertEquals(payload.subject.email, "buyer@example.cz");
-  assertEquals(payload.subject.registration_no, undefined);
-  assertEquals(payload.subject.vat_no, undefined);
-  assertEquals(payload.subject.street, undefined);
+Deno.test("mapOrderToSubject — B2C order has only name+email+country", () => {
+  const subject = mapOrderToSubject(baseOrder());
+  assertEquals(subject.name, "Jan Novák");
+  assertEquals(subject.email, "buyer@example.cz");
+  assertEquals(subject.country, "CZ");
+  assertEquals(subject.registration_no, undefined);
+  assertEquals(subject.vat_no, undefined);
+  assertEquals(subject.street, undefined);
 });
 
-Deno.test("mapOrderToInvoice — B2B order includes IČO, DIČ, address", () => {
+Deno.test("mapOrderToSubject — B2B order includes IČO, DIČ, address", () => {
   const order = baseOrder({
     is_company: true,
     company_name: "Acme s.r.o.",
@@ -61,41 +63,48 @@ Deno.test("mapOrderToInvoice — B2B order includes IČO, DIČ, address", () => 
     billing_city: "Praha",
     billing_zip: "11000",
   });
-  const payload = mapOrderToInvoice(order, baseItems());
-  assertEquals(payload.subject.name, "Acme s.r.o.");
-  assertEquals(payload.subject.registration_no, "27082440");
-  assertEquals(payload.subject.vat_no, "CZ27082440");
-  assertEquals(payload.subject.street, "Václavské nám. 1");
-  assertEquals(payload.subject.country, "CZ");
+  const subject = mapOrderToSubject(order);
+  assertEquals(subject.name, "Acme s.r.o.");
+  assertEquals(subject.registration_no, "27082440");
+  assertEquals(subject.vat_no, "CZ27082440");
+  assertEquals(subject.street, "Václavské nám. 1");
+  assertEquals(subject.city, "Praha");
+  assertEquals(subject.zip, "11000");
+  assertEquals(subject.country, "CZ");
 });
 
-Deno.test("mapOrderToInvoice — multi-item with different VAT rates", () => {
+Deno.test("mapOrderToInvoice — references subject_id, no inline subject", () => {
+  const payload = mapOrderToInvoice(baseOrder(), baseItems(), SUBJECT_ID);
+  assertEquals(payload.subject_id, SUBJECT_ID);
+});
+
+Deno.test("mapOrderToInvoice — every line has vat_rate=0 (Jana is neplátce DPH)", () => {
   const items: OrderItemRow[] = [
     { product_id: "p-1", product_title: "PDF guide", quantity: 1, price_at_purchase: "499", vat_rate_at_purchase: "21" },
     { product_id: "p-2", product_title: "E-book",    quantity: 2, price_at_purchase: "199", vat_rate_at_purchase: "12" },
   ];
-  const payload = mapOrderToInvoice(baseOrder(), items);
+  const payload = mapOrderToInvoice(baseOrder(), items, SUBJECT_ID);
   assertEquals(payload.lines.length, 2);
-  assertEquals(payload.lines[0].vat_rate, 21);
-  assertEquals(payload.lines[1].vat_rate, 12);
+  assertEquals(payload.lines[0].vat_rate, 0);
+  assertEquals(payload.lines[1].vat_rate, 0);
   assertEquals(payload.lines[1].quantity, 2);
 });
 
-Deno.test("mapOrderToInvoice — prices are passed as 'including VAT'", () => {
-  const payload = mapOrderToInvoice(baseOrder(), baseItems());
-  assertEquals(payload.prices_include_vat, true);
+Deno.test("mapOrderToInvoice — prices_include_vat is false (no VAT to extract)", () => {
+  const payload = mapOrderToInvoice(baseOrder(), baseItems(), SUBJECT_ID);
+  assertEquals(payload.prices_include_vat, false);
   assertEquals(payload.lines[0].unit_price, "499");
 });
 
 Deno.test("mapOrderToInvoice — dates are today, ISO format", () => {
-  const payload = mapOrderToInvoice(baseOrder(), baseItems());
+  const payload = mapOrderToInvoice(baseOrder(), baseItems(), SUBJECT_ID);
   assertEquals(ISO_DATE.test(payload.issued_on), true);
   assertEquals(payload.issued_on, payload.taxable_fulfillment_due);
   assertEquals(payload.issued_on, payload.due_on);
 });
 
 Deno.test("mapOrderToInvoice — metadata fields", () => {
-  const payload = mapOrderToInvoice(baseOrder(), baseItems());
+  const payload = mapOrderToInvoice(baseOrder(), baseItems(), SUBJECT_ID);
   assertEquals(payload.currency, "CZK");
   assertEquals(payload.language, "cz");
   assertEquals(payload.payment_method, "card");
