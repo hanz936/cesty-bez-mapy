@@ -25,7 +25,7 @@ export function Invoice(props: InvoiceProps): React.ReactElement {
     <BrandLayout
       preview={`Faktura ${props.invoiceNumber} – Cesty bez mapy`}
       heroHeading={`Faktura ${props.invoiceNumber}`}
-      heroIntro={`Ahoj ${greeting}, v příloze najdeš daňový doklad za objednávku #${props.orderId.slice(0, 8)}.`}
+      heroIntro={`Ahoj ${greeting}, v příloze najdeš fakturu za objednávku #${props.orderId.slice(0, 8)}.`}
       footerSignoff="Měj se hezky,"
     >
       <Text style={textStyle}>

@@ -3,7 +3,7 @@ import * as React from "react";
 import { BrandLayout } from "./BrandLayout.tsx";
 import { colors, sizes } from "./styles.ts";
 import { vocativeFirstName } from "../vocative.ts";
-import type { CreditNoteProps } from "../types.ts";
+import type { StornoInvoiceProps } from "../types.ts";
 
 const textStyle: React.CSSProperties = {
   fontSize: sizes.bodyText,
@@ -19,13 +19,13 @@ const noteStyle: React.CSSProperties = {
   margin: 0,
 };
 
-export function CreditNote(props: CreditNoteProps): React.ReactElement {
+export function StornoInvoice(props: StornoInvoiceProps): React.ReactElement {
   const greeting = vocativeFirstName(props.customerName);
   return (
     <BrandLayout
-      preview={`Opravný daňový doklad ${props.creditNoteNumber}`}
-      heroHeading={`Opravný daňový doklad ${props.creditNoteNumber}`}
-      heroIntro={`Ahoj ${greeting}, k objednávce #${props.orderId.slice(0, 8)} jsme vystavili opravný daňový doklad (dobropis). Najdeš ho v příloze.`}
+      preview={`Storno faktura ${props.stornoNumber}`}
+      heroHeading={`Storno faktura ${props.stornoNumber}`}
+      heroIntro={`Ahoj ${greeting}, k objednávce #${props.orderId.slice(0, 8)} jsme vystavili storno fakturu (k původní faktuře ${props.originalInvoiceNumber}). Najdeš ji v příloze.`}
       footerSignoff="Měj se hezky,"
     >
       <Text style={textStyle}>
@@ -38,10 +38,11 @@ export function CreditNote(props: CreditNoteProps): React.ReactElement {
   );
 }
 
-export default CreditNote;
+export default StornoInvoice;
 
-CreditNote.PreviewProps = {
+StornoInvoice.PreviewProps = {
   customerName: "Jana Nováková",
   orderId: "ord-12345",
-  creditNoteNumber: "2026-D-0001",
-} satisfies CreditNoteProps;
+  stornoNumber: "2026-S-0001",
+  originalInvoiceNumber: "2026-0042",
+} satisfies StornoInvoiceProps;

@@ -168,23 +168,24 @@ Deno.test("sendEmail renders invoice template with expected subject", async () =
   assertEquals(lastCall?.subject, 'Faktura 2026-0042 – Cesty bez mapy');
 });
 
-Deno.test("sendEmail renders credit-note template with expected subject", async () => {
-  const { client, getLastCall } = mockResendClientCapturing('re_credit_ok');
+Deno.test("sendEmail renders storno-invoice template with expected subject", async () => {
+  const { client, getLastCall } = mockResendClientCapturing('re_storno_ok');
 
   const result = await sendEmail(client, {
-    type: 'credit-note',
+    type: 'storno-invoice',
     to: 'customer@example.com',
-    idempotencyKey: 'credit-note/order-7',
+    idempotencyKey: 'storno/order-7',
     templateProps: {
       customerName: 'Jana Nováková',
       orderId: 'ord-12345',
-      creditNoteNumber: '2026-D-0001',
+      stornoNumber: '2026-S-0001',
+      originalInvoiceNumber: '2026-0042',
     },
   });
 
-  assertEquals(result.messageId, 're_credit_ok');
+  assertEquals(result.messageId, 're_storno_ok');
   const lastCall = getLastCall();
-  assertEquals(lastCall?.subject, 'Opravný daňový doklad 2026-D-0001');
+  assertEquals(lastCall?.subject, 'Storno faktura 2026-S-0001');
 });
 
 Deno.test("sendEmail renders invoice-corrected template with expected subject", async () => {

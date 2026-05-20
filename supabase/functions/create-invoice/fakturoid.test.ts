@@ -179,25 +179,14 @@ Deno.test("FakturoidClient.downloadPdf — throws after exhausting retries on pe
   );
 });
 
-Deno.test("FakturoidClient.createCreditNote — calls /invoices/{id}/credit_notes.json", async () => {
-  const { fn, calls } = makeFakeFetch([
-    { status: 200, body: { access_token: "tok", expires_in: 7200, token_type: "Bearer" } },
-    { status: 201, body: { id: 99, number: "2026-D-0001", public_html_url: "u", pdf_url: "p", state: "open", total: "-499.00" } },
-  ]);
-  const client = new FakturoidClient(CFG, fn);
-  const cn = await client.createCreditNote(42);
-  assertEquals(cn.id, 99);
-  assertEquals(calls[1].url, "https://app.fakturoid.cz/api/v3/accounts/test/invoices/42/credit_notes.json");
-});
-
-Deno.test("FakturoidClient.cancelInvoice — calls /invoices/{id}/cancel.json", async () => {
+Deno.test("FakturoidClient.cancelInvoice — calls /invoices/{id}/fire.json?event=cancel", async () => {
   const { fn, calls } = makeFakeFetch([
     { status: 200, body: { access_token: "tok", expires_in: 7200, token_type: "Bearer" } },
     { status: 200, body: {} },
   ]);
   const client = new FakturoidClient(CFG, fn);
   await client.cancelInvoice(42);
-  assertEquals(calls[1].url, "https://app.fakturoid.cz/api/v3/accounts/test/invoices/42/cancel.json");
+  assertEquals(calls[1].url, "https://app.fakturoid.cz/api/v3/accounts/test/invoices/42/fire.json?event=cancel");
   assertEquals(calls[1].init?.method, "POST");
 });
 

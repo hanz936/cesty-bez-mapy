@@ -11,7 +11,7 @@ export type EmailType =
   | 'payment-failed'
   | 'custom-itinerary-delivered'
   | 'invoice'
-  | 'credit-note'
+  | 'storno-invoice'
   | 'invoice-corrected'
   | 'invoice-alert';
 
@@ -65,10 +65,11 @@ export interface InvoiceProps {
   invoiceNumber: string;
 }
 
-export interface CreditNoteProps {
+export interface StornoInvoiceProps {
   customerName: string;
   orderId: string;
-  creditNoteNumber: string;
+  stornoNumber: string;
+  originalInvoiceNumber: string;
 }
 
 export interface InvoiceCorrectedProps {
@@ -97,7 +98,7 @@ export type PropsForType<T extends EmailType> =
   : T extends 'payment-failed' ? PaymentFailedProps
   : T extends 'custom-itinerary-delivered' ? CustomItineraryDeliveredProps
   : T extends 'invoice' ? InvoiceProps
-  : T extends 'credit-note' ? CreditNoteProps
+  : T extends 'storno-invoice' ? StornoInvoiceProps
   : T extends 'invoice-corrected' ? InvoiceCorrectedProps
   : T extends 'invoice-alert' ? InvoiceAlertProps
   : never;

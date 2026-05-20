@@ -1,6 +1,6 @@
 // mapping.test.ts
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { mapOrderToInvoice, mapOrderToSubject } from "./mapping.ts";
+import { mapOrderToInvoice, mapOrderToStornoInvoice, mapOrderToSubject } from "./mapping.ts";
 import type { OrderRow, OrderItemRow } from "./types.ts";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -17,8 +17,8 @@ function baseOrder(overrides: Partial<OrderRow> = {}): OrderRow {
     facturoid_invoice_id: null,
     facturoid_invoice_number: null,
     facturoid_invoice_url: null,
-    facturoid_credit_note_id: null,
-    facturoid_credit_note_number: null,
+    facturoid_storno_id: null,
+    facturoid_storno_number: null,
     invoice_sent: false,
     invoice_sent_at: null,
     invoice_error: null,
@@ -99,8 +99,12 @@ Deno.test("mapOrderToInvoice — prices_include_vat is false (no VAT to extract)
 Deno.test("mapOrderToInvoice — dates are today, ISO format", () => {
   const payload = mapOrderToInvoice(baseOrder(), baseItems(), SUBJECT_ID);
   assertEquals(ISO_DATE.test(payload.issued_on), true);
-  assertEquals(payload.issued_on, payload.taxable_fulfillment_due);
   assertEquals(payload.issued_on, payload.due_on);
+});
+
+Deno.test("mapOrderToInvoice — omits taxable_fulfillment_due (neplátce DPH)", () => {
+  const payload = mapOrderToInvoice(baseOrder(), baseItems(), SUBJECT_ID);
+  assertEquals(payload.taxable_fulfillment_due, undefined);
 });
 
 Deno.test("mapOrderToInvoice — metadata fields", () => {
@@ -110,4 +114,24 @@ Deno.test("mapOrderToInvoice — metadata fields", () => {
   assertEquals(payload.payment_method, "card");
   assertEquals(payload.custom_id, "ord-1");
   assertEquals(payload.note, "Stripe payment: pi_123");
+});
+
+Deno.test("mapOrderToStornoInvoice — every line quantity is negated", () => {
+  const items: OrderItemRow[] = [
+    { product_id: "p-1", product_title: "PDF guide", quantity: 1, price_at_purchase: "499", vat_rate_at_purchase: "0" },
+    { product_id: "p-2", product_title: "E-book",    quantity: 3, price_at_purchase: "199", vat_rate_at_purchase: "0" },
+  ];
+  const payload = mapOrderToStornoInvoice(baseOrder(), items, SUBJECT_ID, "2026-0042");
+  assertEquals(payload.lines.length, 2);
+  assertEquals(payload.lines[0].quantity, -1);
+  assertEquals(payload.lines[1].quantity, -3);
+  assertEquals(payload.lines[0].vat_rate, 0);
+});
+
+Deno.test("mapOrderToStornoInvoice — note references original invoice and Stripe payment", () => {
+  const payload = mapOrderToStornoInvoice(baseOrder(), baseItems(), SUBJECT_ID, "2026-0042");
+  assertEquals(payload.note, "Storno faktury 2026-0042. Vrácení Stripe platby: pi_123");
+  assertEquals(payload.custom_id, "ord-1-storno");
+  assertEquals(payload.subject_id, SUBJECT_ID);
+  assertEquals(payload.taxable_fulfillment_due, undefined);
 });

@@ -143,15 +143,12 @@ export class FakturoidClient {
     });
   }
 
-  async createCreditNote(invoiceId: number): Promise<FakturoidInvoiceResponse> {
-    return await this.#request<FakturoidInvoiceResponse>(
-      `/invoices/${invoiceId}/credit_notes.json`,
-      { method: "POST", body: JSON.stringify({ invoice: {} }) },
-    );
-  }
-
   async cancelInvoice(invoiceId: number): Promise<void> {
-    await this.#request<void>(`/invoices/${invoiceId}/cancel.json`, { method: "POST" }, false);
+    await this.#request<void>(
+      `/invoices/${invoiceId}/fire.json?event=cancel`,
+      { method: "POST" },
+      false,
+    );
   }
 
   async sendInvoiceEmail(invoiceId: number, email: string): Promise<void> {

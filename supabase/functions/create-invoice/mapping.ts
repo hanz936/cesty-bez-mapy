@@ -50,9 +50,35 @@ export function mapOrderToInvoice(
     language: "cz",
     payment_method: "card",
     issued_on: today,
-    taxable_fulfillment_due: today,
     due_on: today,
     note: `Stripe payment: ${order.stripe_payment_id}`,
     custom_id: order.id,
+  };
+}
+
+export function mapOrderToStornoInvoice(
+  order: OrderRow,
+  items: OrderItemRow[],
+  subjectId: number,
+  originalInvoiceNumber: string,
+): FakturoidInvoicePayload {
+  const today = todayIso();
+  const lines = items.map((item) => ({
+    name: item.product_title,
+    quantity: -item.quantity, // záporné = storno
+    unit_price: item.price_at_purchase,
+    vat_rate: 0,
+  }));
+  return {
+    subject_id: subjectId,
+    lines,
+    prices_include_vat: false,
+    currency: "CZK",
+    language: "cz",
+    payment_method: "card",
+    issued_on: today,
+    due_on: today,
+    note: `Storno faktury ${originalInvoiceNumber}. Vrácení Stripe platby: ${order.stripe_payment_id}`,
+    custom_id: `${order.id}-storno`,
   };
 }

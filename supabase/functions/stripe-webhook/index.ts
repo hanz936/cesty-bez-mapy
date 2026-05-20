@@ -165,9 +165,9 @@ Deno.serve(async (req) => {
           console.error("Failed to send Refund email:", emailError);
         }
 
-        // Issue credit note (opravný daňový doklad) for the refunded invoice.
+        // Issue storno faktura (neplátce DPH) for the refunded invoice.
         // Fire-and-forget — does not block the refund email or webhook ack.
-        await fireCreateCreditNote(supabase, order.id);
+        await fireCreateStornoInvoice(supabase, order.id);
         break;
       }
 
@@ -259,14 +259,14 @@ async function fireCreateInvoice(supabase: any, orderId: string): Promise<void> 
 }
 
 // deno-lint-ignore no-explicit-any
-async function fireCreateCreditNote(supabase: any, orderId: string): Promise<void> {
+async function fireCreateStornoInvoice(supabase: any, orderId: string): Promise<void> {
   try {
     const { error } = await supabase.functions.invoke("create-invoice", {
-      body: { order_id: orderId, action: "credit_note" },
+      body: { order_id: orderId, action: "storno_invoice" },
     });
-    if (error) console.error("create-invoice credit_note invoke failed:", error);
+    if (error) console.error("create-invoice storno_invoice invoke failed:", error);
   } catch (e) {
-    console.error("create-invoice credit_note invoke threw:", e);
+    console.error("create-invoice storno_invoice invoke threw:", e);
   }
 }
 

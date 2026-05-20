@@ -34,7 +34,7 @@ export interface FakturoidInvoicePayload {
   language: string;
   payment_method: string;
   issued_on: string;           // YYYY-MM-DD
-  taxable_fulfillment_due: string;
+  taxable_fulfillment_due?: string;
   due_on: string;
   note?: string;
   custom_id?: string;
@@ -60,7 +60,7 @@ export interface FakturoidError {
   message?: string;
 }
 
-export type FakturoidAction = 'create' | 'retry' | 'resend_email' | 'credit_note' | 'cancel_and_reissue';
+export type FakturoidAction = 'create' | 'retry' | 'resend_email' | 'storno_invoice' | 'cancel_and_reissue';
 
 export interface CreateInvoiceRequest {
   order_id: string;
@@ -77,8 +77,8 @@ export interface OrderRow {
   facturoid_invoice_id: string | null;
   facturoid_invoice_number: string | null;
   facturoid_invoice_url: string | null;
-  facturoid_credit_note_id: string | null;
-  facturoid_credit_note_number: string | null;
+  facturoid_storno_id: string | null;
+  facturoid_storno_number: string | null;
   invoice_sent: boolean;
   invoice_sent_at: string | null;
   invoice_error: string | null;

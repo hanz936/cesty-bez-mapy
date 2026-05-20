@@ -9,7 +9,7 @@
 //   create              — first-time invoice for a paid order
 //   retry               — admin manual retry after failure (same as create)
 //   resend_email        — admin manual email resend (PDF re-attached)
-//   credit_note         — issue credit note (refund)
+//   storno_invoice      — issue storno faktura (refund, neplátce DPH)
 //   cancel_and_reissue  — storno + new invoice (admin edited billing)
 //
 // Dual-caller: invoked by stripe-webhook (service-role JWT bypass) and by the
@@ -19,7 +19,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { FakturoidClient, type TokenPersister } from "./fakturoid.ts";
-import { mapOrderToInvoice, mapOrderToSubject } from "./mapping.ts";
+import { mapOrderToInvoice, mapOrderToStornoInvoice, mapOrderToSubject } from "./mapping.ts";
 import { isValidIco } from "./ares.ts";
 import type {
   CreateInvoiceRequest, OrderRow, OrderItemRow,
@@ -158,25 +158,27 @@ async function sendInvoiceEmailFor(
   await logIntegration(order.id, "send_invoice", true);
 }
 
-async function sendCreditNoteEmailFor(
+async function sendStornoInvoiceEmailFor(
   order: OrderRow,
-  creditNoteId: number,
-  creditNoteNumber: string,
+  stornoId: number,
+  stornoNumber: string,
+  originalInvoiceNumber: string,
 ) {
-  const pdf = await fakturoid.downloadPdf(creditNoteId);
+  const pdf = await fakturoid.downloadPdf(stornoId);
   const pdfBase64 = bytesToBase64(pdf);
   await sendEmail(resend, {
-    type: "credit-note",
+    type: "storno-invoice",
     to: order.customer_email,
-    idempotencyKey: `credit-note/${order.id}`,
+    idempotencyKey: `storno/${order.id}`,
     templateProps: {
       customerName: order.customer_name,
       orderId: order.id,
-      creditNoteNumber,
+      stornoNumber,
+      originalInvoiceNumber,
     },
-    attachments: [{ filename: `dobropis-${creditNoteNumber}.pdf`, content: pdfBase64 }],
+    attachments: [{ filename: `storno-${stornoNumber}.pdf`, content: pdfBase64 }],
   });
-  await logIntegration(order.id, "send_credit_note", true);
+  await logIntegration(order.id, "send_storno", true);
 }
 
 async function actionCreate(orderId: string): Promise<Response> {
@@ -236,27 +238,30 @@ async function actionResendEmail(orderId: string): Promise<Response> {
   }
 }
 
-async function actionCreditNote(orderId: string): Promise<Response> {
-  const { order } = await loadOrderWithItems(orderId);
-  if (!order.facturoid_invoice_id) {
+async function actionStornoInvoice(orderId: string): Promise<Response> {
+  const { order, items } = await loadOrderWithItems(orderId);
+  if (!order.facturoid_invoice_id || !order.facturoid_invoice_number) {
     return jsonOk({ status: "no_invoice" });
   }
-  if (order.facturoid_credit_note_id) {
-    return jsonOk({ status: "already_credited", credit_note_id: order.facturoid_credit_note_id });
+  if (order.facturoid_storno_id) {
+    return jsonOk({ status: "already_stornoed", storno_id: order.facturoid_storno_id });
   }
   try {
-    const cn = await fakturoid.createCreditNote(Number(order.facturoid_invoice_id));
+    const subjectPayload = mapOrderToSubject(order);
+    const subject = await fakturoid.createSubject(subjectPayload);
+    const payload = mapOrderToStornoInvoice(order, items, subject.id, order.facturoid_invoice_number);
+    const storno = await fakturoid.createInvoice(payload);
     await supabase.from("orders").update({
-      facturoid_credit_note_id: String(cn.id),
-      facturoid_credit_note_number: cn.number,
+      facturoid_storno_id: String(storno.id),
+      facturoid_storno_number: storno.number,
     }).eq("id", orderId);
-    await logIntegration(orderId, "create_credit_note", true);
-    await sendCreditNoteEmailFor(order, cn.id, cn.number);
-    return jsonOk({ status: "credited", credit_note_id: cn.id });
+    await logIntegration(orderId, "create_storno", true);
+    await sendStornoInvoiceEmailFor(order, storno.id, storno.number, order.facturoid_invoice_number);
+    return jsonOk({ status: "stornoed", storno_id: storno.id });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    await logIntegration(orderId, "create_credit_note", false, msg);
-    await sendAlertEmail(orderId, "create_credit_note", msg);
+    await logIntegration(orderId, "create_storno", false, msg);
+    await sendAlertEmail(orderId, "create_storno", msg);
     return jsonOk({ status: "error", error: msg });
   }
 }
@@ -337,8 +342,8 @@ Deno.serve(async (req) => {
     case "resend_email":
       resp = await actionResendEmail(body.order_id);
       break;
-    case "credit_note":
-      resp = await actionCreditNote(body.order_id);
+    case "storno_invoice":
+      resp = await actionStornoInvoice(body.order_id);
       break;
     case "cancel_and_reissue":
       resp = await actionCancelAndReissue(body.order_id);

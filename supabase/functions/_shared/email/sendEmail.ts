@@ -13,7 +13,7 @@ import { Refund } from "./templates/Refund.tsx";
 import { PaymentFailed } from "./templates/PaymentFailed.tsx";
 import { CustomItineraryDelivered } from "./templates/CustomItineraryDelivered.tsx";
 import { Invoice } from "./templates/Invoice.tsx";
-import { CreditNote } from "./templates/CreditNote.tsx";
+import { StornoInvoice } from "./templates/StornoInvoice.tsx";
 import { InvoiceCorrected } from "./templates/InvoiceCorrected.tsx";
 import { InvoiceAlert } from "./templates/InvoiceAlert.tsx";
 import type { EmailType, PropsForType, SendEmailParams, SendEmailResult } from "./types.ts";
@@ -46,8 +46,8 @@ const SUBJECT_BUILDERS: Record<EmailType, (props: any) => string> = {
     `Tvůj individuální itinerář je hotový`,
   'invoice': (p) =>
     `Faktura ${p.invoiceNumber} – Cesty bez mapy`,
-  'credit-note': (p) =>
-    `Opravný daňový doklad ${p.creditNoteNumber}`,
+  'storno-invoice': (p) =>
+    `Storno faktura ${p.stornoNumber}`,
   'invoice-corrected': (p) =>
     `Opravená faktura ${p.newInvoiceNumber}`,
   'invoice-alert': (p) =>
@@ -69,8 +69,8 @@ function renderTemplate<T extends EmailType>(type: T, props: PropsForType<T>): a
       return CustomItineraryDelivered(props as any);
     case 'invoice':
       return Invoice(props as any);
-    case 'credit-note':
-      return CreditNote(props as any);
+    case 'storno-invoice':
+      return StornoInvoice(props as any);
     case 'invoice-corrected':
       return InvoiceCorrected(props as any);
     case 'invoice-alert':
