@@ -237,10 +237,6 @@ const Cart = React.memo(({ isOpen, onClose }) => {
                 <span>Mezisoučet:</span>
                 <span>{cartTotal.toLocaleString()} Kč</span>
               </div>
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>DPH (21%):</span>
-                <span>Zahrnuto v ceně</span>
-              </div>
               <div className="flex justify-between text-lg font-bold text-black pt-3 border-t border-gray-300">
                 <span>Celkem:</span>
                 <span className="text-green-800">{cartTotal.toLocaleString()} Kč</span>

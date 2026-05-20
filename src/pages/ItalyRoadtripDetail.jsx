@@ -313,7 +313,6 @@ const ItalyRoadtripDetail = () => {
                           699 Kč
                         </span>
                       </div>
-                      <span className="text-sm text-gray-500 mt-1 block">včetně DPH</span>
                     </div>
 
                     <div className="space-y-3 mb-6">

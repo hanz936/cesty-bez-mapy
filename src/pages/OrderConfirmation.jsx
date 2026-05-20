@@ -464,7 +464,6 @@ const OrderConfirmation = React.memo(() => {
                     <span>Celkem zaplaceno:</span>
                     <span className="text-green-800">{order?.total_amount?.toLocaleString()} Kč</span>
                   </div>
-                  <p className="text-xs text-gray-500">DPH 21% je zahrnuto v ceně</p>
                 </div>
               </div>
             </div>

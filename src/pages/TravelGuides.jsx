@@ -204,7 +204,6 @@ const GuideCard = ({ guide, onCardClick }) => {
         <div className="mt-4 pt-4 border-t border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <span className="text-2xl font-bold text-green-800">{guide.price}</span>
-            {!guide.isFree && <span className="text-sm text-gray-500">včetně DPH</span>}
           </div>
 
           <div className="flex gap-3 items-center">

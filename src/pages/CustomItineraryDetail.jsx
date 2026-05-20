@@ -311,7 +311,6 @@ const CustomItineraryDetail = React.memo(() => {
                       <span className="text-4xl font-bold text-green-800">
                         999 Kč
                       </span>
-                      <span className="text-sm text-slate-500">včetně DPH</span>
                     </div>
                     
                     <div className="space-y-3 mb-6">
