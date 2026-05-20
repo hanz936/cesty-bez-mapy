@@ -30,7 +30,6 @@ export interface FakturoidLine {
 export interface FakturoidInvoicePayload {
   subject_id: number;
   lines: FakturoidLine[];
-  prices_include_vat: boolean;
   currency: string;
   language: string;
   payment_method: string;

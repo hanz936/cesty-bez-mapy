@@ -57,7 +57,7 @@ Deno.test("FakturoidClient.createInvoice — happy path", async () => {
   const invoice = await client.createInvoice({
     subject_id: 7,
     lines: [{ name: "Item", quantity: 1, unit_price: "499", vat_rate: 0 }],
-    prices_include_vat: false, currency: "CZK", language: "cz", payment_method: "card",
+    currency: "CZK", language: "cz", payment_method: "card",
     issued_on: "2026-05-16", taxable_fulfillment_due: "2026-05-16", due_on: "2026-05-16",
   });
   assertEquals(invoice.id, 42);

@@ -47,7 +47,6 @@ export function mapOrderToInvoice(
   return {
     subject_id: subjectId,
     lines,
-    prices_include_vat: false,
     currency: "CZK",
     language: "cz",
     payment_method: "card",
@@ -76,7 +75,6 @@ export function mapOrderToStornoInvoice(
   return {
     subject_id: subjectId,
     lines,
-    prices_include_vat: false,
     currency: "CZK",
     language: "cz",
     payment_method: "card",

@@ -206,6 +206,7 @@ async function actionCreate(orderId: string): Promise<Response> {
       const msg = e instanceof Error ? e.message : String(e);
       await logIntegration(orderId, "record_payment", false, msg);
       console.error("Failed to record payment on invoice:", msg);
+      await sendAlertEmail(orderId, "record_payment", `Platba se nepodařilo zaznamenat na faktuře: ${msg}`);
     }
     await supabase.from("orders").update({
       facturoid_invoice_id: String(invoice.id),
@@ -268,6 +269,7 @@ async function actionStornoInvoice(orderId: string): Promise<Response> {
       const msg = e instanceof Error ? e.message : String(e);
       await logIntegration(orderId, "record_payment", false, msg);
       console.error("Failed to record payment on storno invoice:", msg);
+      await sendAlertEmail(orderId, "record_payment", `Platba se nepodařilo zaznamenat na storno faktuře: ${msg}`);
     }
     await supabase.from("orders").update({
       facturoid_storno_id: String(storno.id),
@@ -287,9 +289,10 @@ async function actionStornoInvoice(orderId: string): Promise<Response> {
 async function actionCancelAndReissue(orderId: string): Promise<Response> {
   const { order } = await loadOrderWithItems(orderId);
   if (!order.facturoid_invoice_id) return await actionCreate(orderId);
-  const oldId = Number(order.facturoid_invoice_id);
+  const oldId = order.facturoid_invoice_id;
+  const oldNumber = order.facturoid_invoice_number;
   try {
-    await fakturoid.cancelInvoice(oldId);
+    await fakturoid.cancelInvoice(Number(oldId));
     await logIntegration(orderId, "cancel_invoice", true);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -297,6 +300,8 @@ async function actionCancelAndReissue(orderId: string): Promise<Response> {
     await sendAlertEmail(orderId, "cancel_invoice", msg);
     return jsonOk({ status: "cancel_failed", error: msg });
   }
+  // Null-out + recreate; on failure, persist the cancelled invoice ID into
+  // invoice_error so the admin can recover the reference manually.
   await supabase.from("orders").update({
     facturoid_invoice_id: null,
     facturoid_invoice_number: null,
@@ -304,7 +309,14 @@ async function actionCancelAndReissue(orderId: string): Promise<Response> {
     invoice_sent: false,
     invoice_sent_at: null,
   }).eq("id", orderId);
-  return await actionCreate(orderId);
+  const resp = await actionCreate(orderId);
+  const body = await resp.clone().json().catch(() => null) as { status?: string; error?: string } | null;
+  if (body?.status === "error") {
+    await supabase.from("orders").update({
+      invoice_error: `Reissue failed after cancelling invoice ${oldNumber} (id=${oldId}): ${body.error ?? ""}`,
+    }).eq("id", orderId);
+  }
+  return resp;
 }
 
 function jsonOk(body: unknown): Response {

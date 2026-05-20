@@ -169,11 +169,30 @@ export class FakturoidClient {
   }
 
   async cancelInvoice(invoiceId: number): Promise<void> {
-    await this.#request<void>(
-      `/invoices/${invoiceId}/fire.json?event=cancel`,
-      { method: "POST" },
-      false,
+    // Direct fetch: Fakturoid returns 422 on neplátce-DPH accounts because
+    // `cancelled` status is plátce-only. Intercept that case with a clearer error
+    // instead of leaking the raw "Fakturoid 422: ..." string through #request.
+    const token = await this.getToken();
+    const res = await this.#fetch(
+      `https://app.fakturoid.cz/api/v3/accounts/${this.#cfg.slug}/invoices/${invoiceId}/fire.json?event=cancel`,
+      {
+        method: "POST",
+        headers: {
+          "User-Agent": this.#cfg.userAgent,
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+      },
     );
+    if (res.ok) return;
+    if (res.status === 422) {
+      throw new Error(
+        "Fakturoid: nelze stornovat fakturu na účtu neplátce DPH. Použijte refund workflow (vystaví storno fakturu) nebo upravte fakturu ručně ve Fakturoid UI.",
+      );
+    }
+    const body = await res.text();
+    throw new Error(`Fakturoid ${res.status}: ${body}`);
   }
 
   async sendInvoiceEmail(invoiceId: number, email: string): Promise<void> {

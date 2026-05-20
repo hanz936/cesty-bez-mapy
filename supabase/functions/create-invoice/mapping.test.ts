@@ -92,12 +92,6 @@ Deno.test("mapOrderToInvoice — every line has vat_rate=0 (Jana is neplátce DP
   assertEquals(payload.lines[1].quantity, 2);
 });
 
-Deno.test("mapOrderToInvoice — prices_include_vat is false (no VAT to extract)", () => {
-  const payload = mapOrderToInvoice(baseOrder(), baseItems(), SUBJECT_ID);
-  assertEquals(payload.prices_include_vat, false);
-  assertEquals(payload.lines[0].unit_price, "499");
-});
-
 Deno.test("mapOrderToInvoice — dates are today, ISO format", () => {
   const payload = mapOrderToInvoice(baseOrder(), baseItems(), SUBJECT_ID);
   assertEquals(ISO_DATE.test(payload.issued_on), true);
