@@ -43,17 +43,18 @@ function baseItems(): OrderItemRow[] {
   }];
 }
 
-Deno.test("mapOrderToSubject — B2C order has only name+email+country", () => {
+Deno.test("mapOrderToSubject — B2C order has name+email+country+custom_id", () => {
   const subject = mapOrderToSubject(baseOrder());
   assertEquals(subject.name, "Jan Novák");
   assertEquals(subject.email, "buyer@example.cz");
   assertEquals(subject.country, "CZ");
+  assertEquals(subject.custom_id, "buyer@example.cz");
   assertEquals(subject.registration_no, undefined);
   assertEquals(subject.vat_no, undefined);
   assertEquals(subject.street, undefined);
 });
 
-Deno.test("mapOrderToSubject — B2B order includes IČO, DIČ, address", () => {
+Deno.test("mapOrderToSubject — B2B order includes IČO, DIČ, address, custom_id", () => {
   const order = baseOrder({
     is_company: true,
     company_name: "Acme s.r.o.",
@@ -71,6 +72,7 @@ Deno.test("mapOrderToSubject — B2B order includes IČO, DIČ, address", () => 
   assertEquals(subject.city, "Praha");
   assertEquals(subject.zip, "11000");
   assertEquals(subject.country, "CZ");
+  assertEquals(subject.custom_id, "buyer@example.cz");
 });
 
 Deno.test("mapOrderToInvoice — references subject_id, no inline subject", () => {
@@ -116,6 +118,16 @@ Deno.test("mapOrderToInvoice — metadata fields", () => {
   assertEquals(payload.note, "Stripe payment: pi_123");
 });
 
+Deno.test("mapOrderToInvoice — due=0 (paid via Stripe, due on issue date)", () => {
+  const payload = mapOrderToInvoice(baseOrder(), baseItems(), SUBJECT_ID);
+  assertEquals(payload.due, 0);
+});
+
+Deno.test("mapOrderToInvoice — hide_bank_account=true (Stripe-paid, bank not needed)", () => {
+  const payload = mapOrderToInvoice(baseOrder(), baseItems(), SUBJECT_ID);
+  assertEquals(payload.hide_bank_account, true);
+});
+
 Deno.test("mapOrderToStornoInvoice — every line quantity is negated", () => {
   const items: OrderItemRow[] = [
     { product_id: "p-1", product_title: "PDF guide", quantity: 1, price_at_purchase: "499", vat_rate_at_purchase: "0" },
@@ -128,10 +140,19 @@ Deno.test("mapOrderToStornoInvoice — every line quantity is negated", () => {
   assertEquals(payload.lines[0].vat_rate, 0);
 });
 
-Deno.test("mapOrderToStornoInvoice — note references original invoice and Stripe payment", () => {
+Deno.test("mapOrderToStornoInvoice — note references original invoice and Stripe refund", () => {
   const payload = mapOrderToStornoInvoice(baseOrder(), baseItems(), SUBJECT_ID, "2026-0042");
-  assertEquals(payload.note, "Storno faktury 2026-0042. Vrácení Stripe platby: pi_123");
+  assertEquals(
+    payload.note,
+    "Storno faktury 2026-0042 z důvodu vrácení peněz. Stripe refund: pi_123",
+  );
   assertEquals(payload.custom_id, "ord-1-storno");
   assertEquals(payload.subject_id, SUBJECT_ID);
   assertEquals(payload.taxable_fulfillment_due, undefined);
+});
+
+Deno.test("mapOrderToStornoInvoice — due=0 and hide_bank_account=true", () => {
+  const payload = mapOrderToStornoInvoice(baseOrder(), baseItems(), SUBJECT_ID, "2026-0042");
+  assertEquals(payload.due, 0);
+  assertEquals(payload.hide_bank_account, true);
 });

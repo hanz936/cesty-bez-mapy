@@ -179,6 +179,63 @@ Deno.test("FakturoidClient.downloadPdf — throws after exhausting retries on pe
   );
 });
 
+Deno.test("FakturoidClient.recordPayment — POSTs /invoices/{id}/payments.json with paid_on + mark_document_as_paid", async () => {
+  const { fn, calls } = makeFakeFetch([
+    { status: 200, body: { access_token: "tok", expires_in: 7200, token_type: "Bearer" } },
+    { status: 201, body: {} },
+  ]);
+  const client = new FakturoidClient(CFG, fn);
+  await client.recordPayment(42, "2026-05-20");
+  assertEquals(calls[1].url, "https://app.fakturoid.cz/api/v3/accounts/test/invoices/42/payments.json");
+  assertEquals(calls[1].init?.method, "POST");
+  const body = JSON.parse(calls[1].init!.body as string);
+  assertEquals(body.paid_on, "2026-05-20");
+  assertEquals(body.mark_document_as_paid, true);
+});
+
+Deno.test("FakturoidClient.findOrCreateSubject — returns existing when custom_id lookup hits", async () => {
+  const { fn, calls } = makeFakeFetch([
+    { status: 200, body: { access_token: "tok", expires_in: 7200, token_type: "Bearer" } },
+    { status: 200, body: [{ id: 999, name: "Jan Novák" }] },
+  ]);
+  const client = new FakturoidClient(CFG, fn);
+  const subject = await client.findOrCreateSubject({
+    name: "Jan Novák",
+    email: "buyer@example.cz",
+    country: "CZ",
+    custom_id: "buyer@example.cz",
+  });
+  assertEquals(subject.id, 999);
+  // Two calls: oauth + GET /subjects.json. No POST.
+  assertEquals(calls.length, 2);
+  assertEquals(calls[1].init?.method, "GET");
+  assertEquals(
+    calls[1].url,
+    "https://app.fakturoid.cz/api/v3/accounts/test/subjects.json?custom_id=buyer%40example.cz",
+  );
+});
+
+Deno.test("FakturoidClient.findOrCreateSubject — falls back to createSubject when lookup returns empty", async () => {
+  const { fn, calls } = makeFakeFetch([
+    { status: 200, body: { access_token: "tok", expires_in: 7200, token_type: "Bearer" } },
+    { status: 200, body: [] },
+    { status: 201, body: { id: 555, name: "Jan Novák" } },
+  ]);
+  const client = new FakturoidClient(CFG, fn);
+  const subject = await client.findOrCreateSubject({
+    name: "Jan Novák",
+    email: "buyer@example.cz",
+    country: "CZ",
+    custom_id: "buyer@example.cz",
+  });
+  assertEquals(subject.id, 555);
+  // oauth + GET (miss) + POST.
+  assertEquals(calls.length, 3);
+  assertEquals(calls[1].init?.method, "GET");
+  assertEquals(calls[2].init?.method, "POST");
+  assertEquals(calls[2].url, "https://app.fakturoid.cz/api/v3/accounts/test/subjects.json");
+});
+
 Deno.test("FakturoidClient.cancelInvoice — calls /invoices/{id}/fire.json?event=cancel", async () => {
   const { fn, calls } = makeFakeFetch([
     { status: 200, body: { access_token: "tok", expires_in: 7200, token_type: "Bearer" } },

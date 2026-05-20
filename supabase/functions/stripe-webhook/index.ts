@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
           .from("orders")
           .update({ status: "refunded" })
           .eq("stripe_payment_id", paymentIntentId)
-          .select("id, customer_email, customer_name, refund_email_sent_at")
+          .select("id, customer_email, customer_name, refund_email_sent_at, total_amount")
           .single();
 
         if (updateError) {
@@ -163,6 +163,16 @@ Deno.serve(async (req) => {
             .eq("id", order.id);
         } catch (emailError) {
           console.error("Failed to send Refund email:", emailError);
+        }
+
+        // Storno faktura assumes a full refund. For partial refunds, admin must handle manually.
+        const refundedAmountCzk = charge.amount_refunded / 100;
+        const orderTotalCzk = Number(order.total_amount);
+        if (refundedAmountCzk < orderTotalCzk - 0.01) {
+          console.warn(
+            `Partial refund detected (${refundedAmountCzk} of ${orderTotalCzk} CZK) for order ${order.id} — skipping automatic storno. Admin must issue partial storno manually.`,
+          );
+          break;
         }
 
         // Issue storno faktura (neplátce DPH) for the refunded invoice.

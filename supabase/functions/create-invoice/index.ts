@@ -19,7 +19,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { FakturoidClient, type TokenPersister } from "./fakturoid.ts";
-import { mapOrderToInvoice, mapOrderToStornoInvoice, mapOrderToSubject } from "./mapping.ts";
+import { mapOrderToInvoice, mapOrderToStornoInvoice, mapOrderToSubject, todayIso } from "./mapping.ts";
 import { isValidIco } from "./ares.ts";
 import type {
   CreateInvoiceRequest, OrderRow, OrderItemRow,
@@ -195,9 +195,18 @@ async function actionCreate(orderId: string): Promise<Response> {
   }
   try {
     const subjectPayload = mapOrderToSubject(order);
-    const subject = await fakturoid.createSubject(subjectPayload);
+    const subject = await fakturoid.findOrCreateSubject(subjectPayload);
     const payload = mapOrderToInvoice(order, items, subject.id);
     const invoice = await fakturoid.createInvoice(payload);
+    // Record Stripe payment on the Fakturoid invoice so it transitions to "paid"
+    // state. Failure here must not void the invoice itself — log + alert + continue.
+    try {
+      await fakturoid.recordPayment(invoice.id, todayIso());
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await logIntegration(orderId, "record_payment", false, msg);
+      console.error("Failed to record payment on invoice:", msg);
+    }
     await supabase.from("orders").update({
       facturoid_invoice_id: String(invoice.id),
       facturoid_invoice_number: invoice.number,
@@ -248,9 +257,18 @@ async function actionStornoInvoice(orderId: string): Promise<Response> {
   }
   try {
     const subjectPayload = mapOrderToSubject(order);
-    const subject = await fakturoid.createSubject(subjectPayload);
+    const subject = await fakturoid.findOrCreateSubject(subjectPayload);
     const payload = mapOrderToStornoInvoice(order, items, subject.id, order.facturoid_invoice_number);
     const storno = await fakturoid.createInvoice(payload);
+    // Record the refund payment on the storno invoice (default amount = remaining,
+    // which is negative for storno → correctly records "money out").
+    try {
+      await fakturoid.recordPayment(storno.id, todayIso());
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await logIntegration(orderId, "record_payment", false, msg);
+      console.error("Failed to record payment on storno invoice:", msg);
+    }
     await supabase.from("orders").update({
       facturoid_storno_id: String(storno.id),
       facturoid_storno_number: storno.number,

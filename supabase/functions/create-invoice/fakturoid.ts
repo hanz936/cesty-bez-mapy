@@ -136,11 +136,36 @@ export class FakturoidClient {
     });
   }
 
+  async findOrCreateSubject(payload: FakturoidSubjectPayload): Promise<FakturoidSubjectResponse> {
+    if (payload.custom_id) {
+      // Try to find existing subject by custom_id (= customer email).
+      const existing = await this.#request<FakturoidSubjectResponse[]>(
+        `/subjects.json?custom_id=${encodeURIComponent(payload.custom_id)}`,
+        { method: "GET" },
+      );
+      if (Array.isArray(existing) && existing.length > 0) {
+        return existing[0];
+      }
+    }
+    return await this.createSubject(payload);
+  }
+
   async createInvoice(payload: FakturoidInvoicePayload): Promise<FakturoidInvoiceResponse> {
     return await this.#request<FakturoidInvoiceResponse>("/invoices.json", {
       method: "POST",
       body: JSON.stringify({ invoice: payload }),
     });
+  }
+
+  async recordPayment(invoiceId: number, paidOn: string): Promise<void> {
+    await this.#request<void>(
+      `/invoices/${invoiceId}/payments.json`,
+      {
+        method: "POST",
+        body: JSON.stringify({ paid_on: paidOn, mark_document_as_paid: true }),
+      },
+      false,
+    );
   }
 
   async cancelInvoice(invoiceId: number): Promise<void> {

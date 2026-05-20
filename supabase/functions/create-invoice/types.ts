@@ -11,6 +11,7 @@ export interface FakturoidSubjectPayload {
   city?: string;
   zip?: string;
   country: string;           // "CZ"
+  custom_id?: string;        // stable identifier for dedup lookup (= customer email)
 }
 
 export interface FakturoidSubjectResponse {
@@ -36,8 +37,10 @@ export interface FakturoidInvoicePayload {
   issued_on: string;           // YYYY-MM-DD
   taxable_fulfillment_due?: string;
   due_on: string;
+  due?: number;                // days; 0 = due on issue date (Stripe-paid)
   note?: string;
   custom_id?: string;
+  hide_bank_account?: boolean;
 }
 
 export interface FakturoidInvoiceResponse {

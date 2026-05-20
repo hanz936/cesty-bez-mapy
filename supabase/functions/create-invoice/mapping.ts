@@ -4,7 +4,7 @@ import type {
   OrderRow, OrderItemRow,
 } from "./types.ts";
 
-function todayIso(): string {
+export function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
@@ -19,12 +19,14 @@ export function mapOrderToSubject(order: OrderRow): FakturoidSubjectPayload {
       city: order.billing_city!,
       zip: order.billing_zip!,
       country: "CZ",
+      custom_id: order.customer_email,
     };
   }
   return {
     name: order.customer_name,
     email: order.customer_email,
     country: "CZ",
+    custom_id: order.customer_email,
   };
 }
 
@@ -51,8 +53,10 @@ export function mapOrderToInvoice(
     payment_method: "card",
     issued_on: today,
     due_on: today,
+    due: 0,
     note: `Stripe payment: ${order.stripe_payment_id}`,
     custom_id: order.id,
+    hide_bank_account: true,
   };
 }
 
@@ -78,7 +82,9 @@ export function mapOrderToStornoInvoice(
     payment_method: "card",
     issued_on: today,
     due_on: today,
-    note: `Storno faktury ${originalInvoiceNumber}. Vrácení Stripe platby: ${order.stripe_payment_id}`,
+    due: 0,
+    note: `Storno faktury ${originalInvoiceNumber} z důvodu vrácení peněz. Stripe refund: ${order.stripe_payment_id}`,
     custom_id: `${order.id}-storno`,
+    hide_bank_account: true,
   };
 }
