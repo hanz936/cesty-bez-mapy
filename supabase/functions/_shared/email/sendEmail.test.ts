@@ -230,3 +230,44 @@ Deno.test("sendEmail forwards attachments to Resend client when provided", async
   const lastCall = getLastCall();
   assertEquals(lastCall?.attachments, attachments);
 });
+
+Deno.test("sendEmail includes replyTo cestybezmapy@gmail.com by default", async () => {
+  const { client, getLastCall } = mockResendClientCapturing('re_replyto_test');
+
+  await sendEmail(client, {
+    type: 'order-confirmation',
+    to: 'customer@example.com',
+    idempotencyKey: 'order-confirm/reply-to-test',
+    templateProps: {
+      customerName: 'Jana',
+      orderId: 'order-rt',
+      items: [{ productTitle: 'Test', quantity: 1, priceAtPurchase: 99 }],
+      totalAmount: 99,
+      downloadUrl: 'https://www.cestybezmapy.cz/stahnout?token=x',
+    },
+  });
+
+  const payload = getLastCall();
+  assertEquals(payload?.replyTo, 'cestybezmapy@gmail.com');
+});
+
+Deno.test("sendEmail respects RESEND_REPLY_TO override", async () => {
+  const original = Deno.env.get("RESEND_REPLY_TO");
+  Deno.env.set("RESEND_REPLY_TO", "override@example.com");
+  try {
+    const { client, getLastCall } = mockResendClientCapturing('re_replyto_override');
+
+    await sendEmail(client, {
+      type: 'refund',
+      to: 'customer@example.com',
+      idempotencyKey: 'refund/reply-to-override',
+      templateProps: { customerName: 'Jana', orderId: 'order-ro', amount: 50 },
+    });
+
+    const payload = getLastCall();
+    assertEquals(payload?.replyTo, 'override@example.com');
+  } finally {
+    if (original === undefined) Deno.env.delete("RESEND_REPLY_TO");
+    else Deno.env.set("RESEND_REPLY_TO", original);
+  }
+});

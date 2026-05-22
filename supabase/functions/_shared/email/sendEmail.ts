@@ -104,10 +104,13 @@ export async function sendEmail<T extends EmailType>(
 
   let lastError: Error | null = null;
 
+  const replyTo = Deno.env.get("RESEND_REPLY_TO") || "cestybezmapy@gmail.com";
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const { data, error } = await client.emails.send({
       from,
       to: params.to,
+      replyTo,
       subject,
       react: reactElement,
       idempotencyKey: params.idempotencyKey,
