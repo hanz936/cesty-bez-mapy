@@ -11,6 +11,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const allowedOrigins = [
   "https://cestybezmapy.cz",
+  "https://www.cestybezmapy.cz",
   "https://cesty-bez-mapy-admin.vercel.app",
   "https://admin.cestybezmapy.cz",
   "https://cesty-bez-mapy-git-development-jana-novakovas-projects.vercel.app",
