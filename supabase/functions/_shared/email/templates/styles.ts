@@ -40,4 +40,4 @@ export const spacing = {
 
 export const logoUrl = "https://cestybezmapy.cz/email/logo.png";
 export const websiteUrl = "https://cestybezmapy.cz";
-export const supportEmail = "info@cestybezmapy.cz";
+export const supportEmail = "cestybezmapy@gmail.com";

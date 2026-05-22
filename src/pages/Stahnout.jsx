@@ -36,7 +36,7 @@ export default function Stahnout() {
           setState({
             status: 'error',
             data: null,
-            error: data?.error || 'Tento odkaz nelze použít. Pokud potřebuješ pomoc, napiš na info@cestybezmapy.cz.',
+            error: data?.error || 'Tento odkaz nelze použít. Pokud potřebuješ pomoc, napiš na cestybezmapy@gmail.com.',
           });
           return;
         }
@@ -79,8 +79,8 @@ export default function Stahnout() {
               <p className="text-gray-700 mb-4">{state.error}</p>
               <p className="text-gray-700">
                 Pokud problém přetrvává, napiš na{' '}
-                <a href="mailto:info@cestybezmapy.cz" className="text-green-800 hover:text-green-900 font-medium underline">
-                  info@cestybezmapy.cz
+                <a href="mailto:cestybezmapy@gmail.com" className="text-green-800 hover:text-green-900 font-medium underline">
+                  cestybezmapy@gmail.com
                 </a>{' '}
                 — spolu to vyřešíme.
               </p>
