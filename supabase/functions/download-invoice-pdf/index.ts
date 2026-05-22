@@ -8,6 +8,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
 const allowedOrigins = [
   "https://cesty-bez-mapy-admin.vercel.app",
+  "https://admin.cestybezmapy.cz",
   "http://localhost:5173",
   "http://localhost:5174",
 ];

@@ -12,6 +12,7 @@ import { verifyTurnstile } from "../_shared/verifyTurnstile.ts";
 const allowedOrigins = [
   "https://cestybezmapy.cz",
   "https://www.cestybezmapy.cz",
+  "https://admin.cestybezmapy.cz",
   "https://cesty-bez-mapy-git-development-jana-novakovas-projects.vercel.app",
   "http://localhost:5173",
   "http://localhost:5174",

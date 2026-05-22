@@ -32,6 +32,7 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const ADMIN_ORIGINS = [
   "https://cesty-bez-mapy-admin.vercel.app",
+  "https://admin.cestybezmapy.cz",
   "http://localhost:5173",
   "http://localhost:5174",
 ];

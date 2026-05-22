@@ -12,6 +12,7 @@ import { sendEmail, makeResendClient } from "../_shared/email/sendEmail.ts";
 
 const allowedOrigins = [
   "https://cesty-bez-mapy-admin.vercel.app",
+  "https://admin.cestybezmapy.cz",
   "http://localhost:5173",
   "http://localhost:5174",
 ];
