@@ -14,7 +14,7 @@ export default function middleware(req: Request): Response | undefined {
     return new Response('Gate misconfigured', { status: 503 });
   }
 
-  const expected = `Basic ${btoa('jana:' + password)}`;
+  const expected = `Basic ${btoa('cestybezmapy:' + password)}`;
   const got = req.headers.get('authorization');
 
   if (got === expected) return; // pass through
