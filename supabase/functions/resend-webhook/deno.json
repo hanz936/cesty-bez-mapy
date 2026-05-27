@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "svix": "npm:svix@1"
+  },
+  "nodeModulesDir": "none"
+}
