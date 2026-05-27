@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
           totalAmount: Number(order.total_amount),
           downloadUrl: token ? `${siteUrl}/stahnout?token=${token.token}` : undefined,
         },
-      });
+      }, { supabase });
 
       await supabase.from('orders')
         .update({
@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
           customerName,
           orderId: order_id,
         },
-      });
+      }, { supabase });
 
       await supabase.from('orders')
         .update({
@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
           orderId: order_id,
           amount: Number(order.total_amount),
         },
-      });
+      }, { supabase });
 
       await supabase.from('orders')
         .update({

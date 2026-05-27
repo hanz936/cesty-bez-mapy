@@ -97,7 +97,7 @@ async function sendAlertEmail(orderId: string, action: string, errorMessage: str
       to: ALERT_TO,
       idempotencyKey: `invoice-alert/${orderId}/${action}/${Date.now()}`,
       templateProps: { orderId, action, errorMessage },
-    });
+    }, { supabase });
   } catch (e) {
     console.error("Failed to send alert email:", e);
   }
@@ -151,7 +151,7 @@ async function sendInvoiceEmailFor(
       invoiceNumber,
     },
     attachments: [{ filename: `faktura-${invoiceNumber}.pdf`, content: pdfBase64 }],
-  });
+  }, { supabase });
   await supabase.from("orders").update({
     invoice_sent: true,
     invoice_sent_at: new Date().toISOString(),
@@ -178,7 +178,7 @@ async function sendStornoInvoiceEmailFor(
       originalInvoiceNumber,
     },
     attachments: [{ filename: `storno-${stornoNumber}.pdf`, content: pdfBase64 }],
-  });
+  }, { supabase });
   await logIntegration(order.id, "send_storno", true);
 }
 

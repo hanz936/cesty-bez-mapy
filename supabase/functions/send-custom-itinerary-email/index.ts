@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
           requestId: request_id,
           downloadUrl: `${siteUrl}/stahnout?token=${tokenValue}`,
         },
-      });
+      }, { supabase });
 
       await supabase
         .from('custom_itinerary_requests')

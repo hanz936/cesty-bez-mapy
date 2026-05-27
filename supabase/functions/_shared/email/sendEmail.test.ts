@@ -6,6 +6,32 @@
 
 import { assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { sendEmail, type ResendClient } from "./sendEmail.ts";
+import { EmailSuppressedError } from "./types.ts";
+
+// Mock Supabase client for suppression lookup.
+// `suppressions`: { "email@x.com": "hard_bounce" } — addresses present here are suppressed.
+// `errorOnQuery`: when set, the eq().maybeSingle() resolves with this error.
+function mockSupabase(
+  suppressions: Record<string, string> = {},
+  errorOnQuery: { message: string } | null = null,
+) {
+  return {
+    from: (_table: string) => ({
+      select: (_cols: string) => ({
+        eq: (_col: string, value: string) => ({
+          maybeSingle: () => Promise.resolve({
+            data: errorOnQuery
+              ? null
+              : (suppressions[value]
+                ? { email: value, reason: suppressions[value] }
+                : null),
+            error: errorOnQuery,
+          }),
+        }),
+      }),
+    }),
+  };
+}
 
 // Mock Resend client builder
 function mockResendClient(behaviors: Array<
@@ -270,4 +296,98 @@ Deno.test("sendEmail respects RESEND_REPLY_TO override", async () => {
     if (original === undefined) Deno.env.delete("RESEND_REPLY_TO");
     else Deno.env.set("RESEND_REPLY_TO", original);
   }
+});
+
+Deno.test("sendEmail skips suppression check when supabase client is omitted", async () => {
+  const client = mockResendClient([{ type: 'success', messageId: 're_no_supabase' }]);
+
+  const result = await sendEmail(client, {
+    type: 'refund',
+    to: 'anyone@example.com',
+    idempotencyKey: 'refund/no-supabase',
+    templateProps: { customerName: 'Jana', orderId: 'order-x', amount: 10 },
+  });
+
+  assertEquals(result.messageId, 're_no_supabase');
+});
+
+Deno.test("sendEmail sends when recipient is not on suppression list", async () => {
+  const client = mockResendClient([{ type: 'success', messageId: 're_ok' }]);
+  const supabase = mockSupabase({}); // nobody suppressed
+
+  const result = await sendEmail(client, {
+    type: 'refund',
+    to: 'ok@example.com',
+    idempotencyKey: 'refund/ok',
+    templateProps: { customerName: 'Jana', orderId: 'order-ok', amount: 10 },
+  }, { supabase });
+
+  assertEquals(result.messageId, 're_ok');
+});
+
+Deno.test("sendEmail throws EmailSuppressedError when recipient is suppressed (Resend not called)", async () => {
+  let resendCalled = false;
+  const client: ResendClient = {
+    emails: {
+      send: async () => {
+        resendCalled = true;
+        return { data: { id: 'should_not_send' }, error: null };
+      },
+    },
+  };
+  const supabase = mockSupabase({ "bounced@example.com": "hard_bounce" });
+
+  await assertRejects(
+    () => sendEmail(client, {
+      type: 'refund',
+      to: 'bounced@example.com',
+      idempotencyKey: 'refund/bounced',
+      templateProps: { customerName: 'Jana', orderId: 'order-b', amount: 10 },
+    }, { supabase }),
+    EmailSuppressedError,
+    "bounced@example.com",
+  );
+
+  assertEquals(resendCalled, false);
+});
+
+Deno.test("sendEmail lowercases recipient before suppression lookup", async () => {
+  let resendCalled = false;
+  const client: ResendClient = {
+    emails: {
+      send: async () => {
+        resendCalled = true;
+        return { data: { id: 'should_not_send' }, error: null };
+      },
+    },
+  };
+  // Suppression entry stored lowercase, recipient sent mixed-case → still blocked.
+  const supabase = mockSupabase({ "user@example.com": "complaint" });
+
+  await assertRejects(
+    () => sendEmail(client, {
+      type: 'refund',
+      to: 'User@Example.COM',
+      idempotencyKey: 'refund/mixedcase',
+      templateProps: { customerName: 'Jana', orderId: 'order-mc', amount: 10 },
+    }, { supabase }),
+    EmailSuppressedError,
+  );
+
+  assertEquals(resendCalled, false);
+});
+
+Deno.test("sendEmail proceeds when suppression query errors (fail-open with loud log)", async () => {
+  const client = mockResendClient([{ type: 'success', messageId: 're_fail_open' }]);
+  const supabase = mockSupabase({}, { message: "connection refused" });
+
+  const result = await sendEmail(client, {
+    type: 'refund',
+    to: 'someone@example.com',
+    idempotencyKey: 'refund/db-error',
+    templateProps: { customerName: 'Jana', orderId: 'order-dberr', amount: 10 },
+  }, { supabase });
+
+  // Query errored → we logged and proceeded. Send went through.
+  assertEquals(result.messageId, 're_fail_open');
 });

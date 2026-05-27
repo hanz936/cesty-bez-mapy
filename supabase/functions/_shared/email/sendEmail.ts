@@ -16,7 +16,7 @@ import { Invoice } from "./templates/Invoice.tsx";
 import { StornoInvoice } from "./templates/StornoInvoice.tsx";
 import { InvoiceCorrected } from "./templates/InvoiceCorrected.tsx";
 import { InvoiceAlert } from "./templates/InvoiceAlert.tsx";
-import type { EmailType, PropsForType, SendEmailParams, SendEmailResult } from "./types.ts";
+import { EmailSuppressedError, type EmailType, type PropsForType, type SendEmailParams, type SendEmailResult } from "./types.ts";
 
 // Allow mocking in tests via parametric client
 export interface ResendClient {
@@ -28,9 +28,14 @@ export interface ResendClient {
   };
 }
 
+// Minimal shape needed for suppression lookup. Compatible with @supabase/supabase-js client.
+// deno-lint-ignore no-explicit-any
+export type SuppressionLookupClient = any;
+
 interface SendOptions {
   maxRetries?: number;
   baseDelayMs?: number;
+  supabase?: SuppressionLookupClient;
 }
 
 const SUBJECT_BUILDERS: Record<EmailType, (props: any) => string> = {
@@ -87,6 +92,43 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+let suppressionWarningLogged = false;
+
+async function checkSuppression(
+  supabase: SuppressionLookupClient,
+  emailLower: string,
+  idempotencyKey: string,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from("email_suppressions")
+    .select("email, reason")
+    .eq("email", emailLower)
+    .maybeSingle();
+
+  if (error) {
+    // Don't block sends on transient suppression query errors — log loudly and proceed.
+    // The cost of a single duplicate send to a suppressed address (Resend will bounce
+    // again, regenerating a webhook event) is lower than dropping legitimate mail.
+    console.error(JSON.stringify({
+      event: "suppression_check_failed",
+      email_to: emailLower,
+      idempotency_key: idempotencyKey,
+      error: error.message,
+    }));
+    return;
+  }
+
+  if (data) {
+    console.log(JSON.stringify({
+      event: "email_send_suppressed",
+      email_to: emailLower,
+      reason: data.reason,
+      idempotency_key: idempotencyKey,
+    }));
+    throw new EmailSuppressedError(emailLower, data.reason);
+  }
+}
+
 export async function sendEmail<T extends EmailType>(
   client: ResendClient,
   params: SendEmailParams<T>,
@@ -94,6 +136,17 @@ export async function sendEmail<T extends EmailType>(
 ): Promise<SendEmailResult> {
   const maxRetries = options.maxRetries ?? 3;
   const baseDelayMs = options.baseDelayMs ?? 1000;
+
+  const emailLower = params.to.toLowerCase();
+  if (options.supabase) {
+    await checkSuppression(options.supabase, emailLower, params.idempotencyKey);
+  } else if (!suppressionWarningLogged) {
+    console.warn(JSON.stringify({
+      event: "sendEmail_without_suppression_check",
+      note: "supabase client not passed to sendEmail; suppression list bypassed",
+    }));
+    suppressionWarningLogged = true;
+  }
 
   const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "info@cestybezmapy.cz";
   const fromName = Deno.env.get("RESEND_FROM_NAME") || "Cesty bez mapy";

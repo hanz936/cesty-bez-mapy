@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
           paymentIntent.last_payment_error?.message
         );
         try {
-          await sendPaymentFailedEmail(paymentIntent);
+          await sendPaymentFailedEmail(paymentIntent, supabase);
         } catch (emailError) {
           // Webhook must still return 200 — Stripe shouldn't retry the
           // whole webhook just because an email send glitched.
@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
               orderId: order.id,
               amount,
             },
-          });
+          }, { supabase });
 
           await supabase
             .from("orders")
@@ -222,7 +222,8 @@ Deno.serve(async (req) => {
 // Send PaymentFailed email for a failed PaymentIntent. We look up the
 // Checkout Session by PI to recover the customer's email + name, because
 // the PaymentIntent itself doesn't carry billing_details until success.
-async function sendPaymentFailedEmail(pi: Stripe.PaymentIntent): Promise<void> {
+// deno-lint-ignore no-explicit-any
+async function sendPaymentFailedEmail(pi: Stripe.PaymentIntent, supabase: any): Promise<void> {
   const sessions = await stripe.checkout.sessions.list({
     payment_intent: pi.id,
     limit: 1,
@@ -244,7 +245,7 @@ async function sendPaymentFailedEmail(pi: Stripe.PaymentIntent): Promise<void> {
     to: email,
     idempotencyKey: `payment-failed/${pi.id}`,
     templateProps: { customerName, referenceId: pi.id },
-  });
+  }, { supabase });
 
   console.log(
     `PaymentFailed email sent for PI ${pi.id}, messageId=${result.messageId}`
@@ -621,7 +622,7 @@ async function sendCheckoutEmails(ctx: CheckoutEmailContext): Promise<void> {
           totalAmount: ctx.totalAmount,
           downloadUrl,
         },
-      });
+      }, { supabase: ctx.supabase });
       primaryMessageId = result.messageId;
     } catch (err) {
       console.error("Failed to send OrderConfirmation:", err);
@@ -638,7 +639,7 @@ async function sendCheckoutEmails(ctx: CheckoutEmailContext): Promise<void> {
           customerName: ctx.customerName,
           orderId: ctx.orderId,
         },
-      });
+      }, { supabase: ctx.supabase });
       // Smíšený košík: OrderConfirmation jde první, takže její messageId
       // vyhrává. Admin UI (úkol 25) může v případě potřeby zobrazit oba ID.
       primaryMessageId = primaryMessageId ?? result.messageId;

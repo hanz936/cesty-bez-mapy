@@ -127,3 +127,13 @@ export class EmailSendError extends Error {
     this.name = 'EmailSendError';
   }
 }
+
+export class EmailSuppressedError extends Error {
+  constructor(
+    public readonly email: string,
+    public readonly reason: string,
+  ) {
+    super(`Email suppressed: ${email} (${reason})`);
+    this.name = 'EmailSuppressedError';
+  }
+}
