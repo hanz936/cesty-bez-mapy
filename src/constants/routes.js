@@ -11,6 +11,7 @@ export const ROUTES = {
   ORDER_CONFIRMATION: '/cestovni-pruvodci/objednavka/potvrzeni',
   DOWNLOAD: '/stahnout',
   INSPIRATION: '/inspirace',
+  INSPIRATION_DETAIL: '/inspirace/:slug',
   COLLABORATION: '/spoluprace',
   FAQ: '/caste-dotazy',
   REVIEWS: '/recenze',

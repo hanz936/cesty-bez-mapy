@@ -9,6 +9,7 @@ import MyStory from './pages/MyStory';
 import Collaboration from './pages/Collaboration';
 import PlanYourDreamTrip from './pages/PlanYourDreamTrip';
 import TravelInspiration from './pages/TravelInspiration';
+import BlogPostDetail from './pages/BlogPostDetail';
 import TravelGuides from './pages/TravelGuides';
 import ProductDetail from './pages/ProductDetail';
 import CustomItineraryDetail from './pages/CustomItineraryDetail';
@@ -100,6 +101,7 @@ function App() {
             <Route path={ROUTES.ORDER_CONFIRMATION} element={<OrderConfirmation />} />
             <Route path={ROUTES.DOWNLOAD} element={<Stahnout />} />
             <Route path={ROUTES.INSPIRATION} element={<TravelInspiration />} />
+            <Route path={ROUTES.INSPIRATION_DETAIL} element={<BlogPostDetail />} />
             <Route path={ROUTES.COLLABORATION} element={<Collaboration />} />
             <Route path={ROUTES.FAQ} element={<FAQ />} />
             <Route path={ROUTES.REVIEWS} element={<Reviews />} />
