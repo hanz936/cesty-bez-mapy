@@ -120,7 +120,7 @@ const BlogPostDetail = () => {
         </div>
       )}
 
-      <main className="min-h-screen bg-white">
+      <main className="min-h-screen bg-white" data-prerender-ready="true">
         {post.image_url && (
           <div
             className="w-full h-64 sm:h-80 bg-center bg-cover"
