@@ -1,9 +1,17 @@
 import DOMPurify from 'dompurify';
+import logger from './logger';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 export const STORAGE_PREFIX = SUPABASE_URL
   ? `${SUPABASE_URL}/storage/v1/object/public/`
   : '';
+
+// „Never silently fail": prázdný prefix (chybějící VITE_SUPABASE_URL) by tiše
+// zahodil VŠECHNY blogové <img>. Nahlas to do monitoringu místo neviditelného
+// zmizení obrázků. V testech potlačeno (prefix se předává explicitně).
+if (!STORAGE_PREFIX && import.meta.env.MODE !== 'test') {
+  logger.error('[blogContent] VITE_SUPABASE_URL chybí — všechny blogové <img> budou zahozeny.');
+}
 
 const ALLOWED_TAGS = [
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
