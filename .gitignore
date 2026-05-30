@@ -114,6 +114,7 @@ Thumbs.db
 
 # AI / dev tooling caches
 .playwright-cli/
+.firecrawl/
 
 # Deno lockfile (root only — function-level je řešen samostatně výše)
 /deno.lock

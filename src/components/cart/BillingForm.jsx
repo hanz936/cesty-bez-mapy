@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { lookupIco } from '../../utils/ares.js';
 import { isValidIco } from '../../utils/ico.js';
+import { wasBlockedByCsp } from '../../utils/cspBlocked.js';
 
 export function BillingForm({ value, onChange }) {
   const [icoError, setIcoError] = useState('');
@@ -36,8 +37,18 @@ export function BillingForm({ value, onChange }) {
           billing_zip: data.zip,
         });
       }
-    } catch {
-      // ARES outage — leave fields editable, no error blocks payment
+    } catch (err) {
+      // Distinguish CSP block from real ARES outage in dev. Production behavior
+      // unchanged — user can still type fields manually, payment is not blocked.
+      if (import.meta.env.DEV) {
+        const aresUrl = `https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/${ico}`;
+        await new Promise((r) => setTimeout(r, 0)); // let securitypolicyviolation dispatch
+        if (wasBlockedByCsp(aresUrl)) {
+          console.warn('[BillingForm] ARES lookup blocked by CSP — add ares.gov.cz to connect-src');
+        } else {
+          console.warn('[BillingForm] ARES lookup failed:', err);
+        }
+      }
     } finally {
       setLoading(false);
     }
