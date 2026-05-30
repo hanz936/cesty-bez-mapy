@@ -2,11 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Zobrazit na veřejném webu publikované články z DB — výpis `/inspirace` (z DB + filtr tagů) a detail `/inspirace/:slug` s bezpečně vykresleným bohatým obsahem, souvisejícími články a SEO; plus admin náhled konceptů přes zabezpečenou Edge funkci.
+**Goal:** Zobrazit na veřejném webu publikované články z DB — výpis `/inspirace` (z DB + filtr tagů) a detail `/inspirace/:slug` s bezpečně vykresleným bohatým obsahem, souvisejícími články a SEO; **build-time prerender** blogových rout pro viditelnost u sociálních i ne-JS/AI crawlerů („zobrazit se všude", rozhodnutí B) s auto-rebuildem při publikaci; plus admin náhled konceptů přes zabezpečenou Edge funkci.
 
-**Architecture:** Stávající CSR React SPA (`cesty-bez-mapy`). Výpis i detail tahají publikované články přes anon Supabase klienta (RLS hlídá `published_at IS NOT NULL`). Tělo článku (HTML z adminu) se **sanitizuje DOMPurify** a **hydratuje `html-react-parser`** na bezpečné React komponenty (YouTube facade, interní CTA na produkt). Callout a galerie jsou jen CSS. Náhled **nepublikovaných** konceptů jede přes Edge funkci `get-blog-preview` (service-role, gated per-post tokenem) — service-role nikdy v prohlížeči. SEO přes **nativní metadata React 19** + JSON-LD.
+**Architecture:** Stávající CSR React SPA (`cesty-bez-mapy`). Výpis i detail tahají publikované články přes anon Supabase klienta (RLS hlídá `published_at IS NOT NULL`). Tělo článku (HTML z adminu) se **sanitizuje DOMPurify** a **hydratuje `html-react-parser`** na bezpečné React komponenty (YouTube facade, interní CTA na produkt). Callout a galerie jsou jen CSS. Náhled **nepublikovaných** konceptů jede přes Edge funkci `get-blog-preview` (service-role, gated per-post tokenem) — service-role nikdy v prohlížeči. SEO při klientské navigaci přes **nativní metadata React 19** + JSON-LD. Pro viditelnost u **ne-JS/sociálních crawlerů** (FB, X, LinkedIn, WhatsApp, ChatGPT, Perplexity) se blogové routy **prerendrují při buildu** headless prohlížečem (Playwright) do statického HTML — zachytí se reálný React výstup včetně metadat; auto-rebuild při publikaci přes Supabase webhook → **Vercel Deploy Hook** (rozhodnutí **B**, viz spec §7).
 
-**Tech Stack:** React 19, react-router-dom 7, Tailwind 4 (+ `@tailwindcss/typography`), `@supabase/supabase-js`, **DOMPurify**, **html-react-parser**, vitest + @testing-library/react (TDD), Supabase Edge Functions (Deno).
+**Tech Stack:** React 19, react-router-dom 7, Tailwind 4 (+ `@tailwindcss/typography`), `@supabase/supabase-js`, **DOMPurify**, **html-react-parser**, vitest + @testing-library/react (TDD), Supabase Edge Functions (Deno), **Playwright** (build-time prerender), Vercel Deploy Hook + Supabase `pg_net`/Vault (auto-rebuild při publikaci).
+
+**Deploy model (prerender):** **B1 (primární)** — `npm run build` na Vercelu spustí `vite build` + `node scripts/prerender.mjs` (Playwright projde routy, uloží statické HTML). Rebuild při publikaci přes **Vercel Deploy Hook**. **B2 (fallback)** — kdyby Chromium nešel ve Vercel build kontejneru: build + prerender v **GitHub Actions** (browsers předinstalované) + `vercel deploy --prebuilt`; trigger přes `repository_dispatch`. Task 14 obsahuje ranou feasibility kontrolu, ať se případný přechod na B2 pozná levně.
 
 **Repozitáře:**
 - Frontend + DB migrace + Edge funkce → `cesty-bez-mapy` (větev `feat/blog-inspirace-web`)
@@ -39,9 +41,16 @@
 - Modify: `src/index.css` — `@plugin "@tailwindcss/typography"` + styly `.blog-content/.blog-callout/.blog-gallery/.blog-cta/.blog-youtube`.
 - Modify: `src/constants/routes.js` — `INSPIRATION_DETAIL`.
 - Modify: `src/App.jsx` — routa `/inspirace/:slug`.
-- Modify: `src/pages/TravelInspiration.jsx` — výpis z DB + filtr tagů (zahodit hardcoded `BLOG_POSTS`).
-- Create: `src/pages/BlogPostDetail.jsx` — detail článku.
-- Modify: `package.json` — `dompurify`, `html-react-parser`, `@tailwindcss/typography`.
+- Modify: `src/pages/TravelInspiration.jsx` — výpis z DB + filtr tagů (zahodit hardcoded `BLOG_POSTS`) + `data-prerender-ready` marker.
+- Create: `src/pages/BlogPostDetail.jsx` — detail článku (+ `data-prerender-ready` marker).
+- Modify: `package.json` — `dompurify`, `html-react-parser`, `@tailwindcss/typography`, `playwright` (dev) + build/prerender/postinstall skripty.
+
+**Prerender + auto-rebuild (repo `cesty-bez-mapy`):**
+- Modify: `index.html` — default OG s **absolutními** URL + Twitter card (pro SPA-fallback routy; prerender per-route zachytí z React 19 SeoTags).
+- Create: `scripts/prerender.mjs` — build-time prerender blogových rout headless prohlížečem (Playwright) + validace.
+- Create: `scripts/prerender.test.js` — testy čistých helperů (`collectRoutes`/dedup, `validateHtml`).
+- Modify: `vercel.json` — servírovat prerendered statické soubory, SPA fallback pro ostatní.
+- Create: `supabase/migrations/045_blog_publish_deploy_hook.sql` — `pg_net` trigger volá Vercel Deploy Hook při změně publikovaného článku (URL z Vault).
 
 **Repo `cesty-bez-mapy-admin`:**
 - Modify: `src/resources/blog-posts/BlogPostEdit.tsx` — do „Náhled" URL přidat `&token=<preview_token>`.
@@ -380,13 +389,19 @@ let _hooked = false;
 function ensureHook() {
   if (_hooked) return;
   _hooked = true;
+  // Odebrání <img> mimo úložiště řešíme v `uponSanitizeElement` — dokumentovaný
+  // bod pro odstranění celého uzlu (NE v afterSanitizeAttributes).
+  DOMPurify.addHook('uponSanitizeElement', (node) => {
+    if (node.nodeName && node.nodeName.toLowerCase() === 'img') {
+      const src = (node.getAttribute && node.getAttribute('src')) || '';
+      if (!_storagePrefix || !src.startsWith(_storagePrefix)) {
+        node.parentNode?.removeChild(node);
+      }
+    }
+  });
+  // Atributové úpravy (povolené <img> z úložiště + externí odkazy).
   DOMPurify.addHook('afterSanitizeAttributes', (node) => {
     if (node.tagName === 'IMG') {
-      const src = node.getAttribute('src') || '';
-      if (!_storagePrefix || !src.startsWith(_storagePrefix)) {
-        node.remove();
-        return;
-      }
       node.setAttribute('loading', 'lazy');
       node.setAttribute('decoding', 'async');
     }
@@ -914,7 +929,7 @@ Expected: FAIL.
 - [ ] **Step 3: Implementovat `src/components/blog/BlogContentRenderer.jsx`**
 
 ```jsx
-import parse from 'html-react-parser';
+import parse, { Element } from 'html-react-parser';
 import { sanitizeBlogHtml } from '../../utils/blogContent';
 import YoutubeEmbed from './YoutubeEmbed';
 import ProductCtaLink from './ProductCtaLink';
@@ -929,7 +944,8 @@ export default function BlogContentRenderer({ html, validProductSlugs }) {
 
   const options = {
     replace(node) {
-      if (node.type !== 'tag' || !node.attribs) return undefined;
+      // Robustní typový guard (html-react-parser doporučený vzor): jen prvky s atributy.
+      if (!(node instanceof Element) || !node.attribs) return undefined;
       if (node.name === 'div' && node.attribs['data-youtube-id']) {
         return <YoutubeEmbed videoId={node.attribs['data-youtube-id']} />;
       }
@@ -1546,14 +1562,406 @@ git commit -m "feat(admin): náhled konceptu přes preview_token v URL"
 
 ---
 
-## Task 13: Finální QA Plánu B
+## Task 13: Default OG meta v `index.html` (absolutní URL + Twitter card)
+
+**Repo:** `cesty-bez-mapy`
+
+**Files:**
+- Modify: `index.html`
+
+> **Pozn.:** Prerender (Task 14) zachytí per-route metadata přímo z React 19 `SeoTags`. Tahle úprava jen opraví **default** pro SPA-fallback routy a první „flash". Zároveň fixuje **stávající chybu**: `index.html` odkazuje na `/cesty-bez-mapy/images/...`, ale při `base:'/'` jsou obrázky na `/images/...`. OG image **musí být absolutní URL** (crawleři neberou relativní).
+
+- [ ] **Step 1: Opravit `<head>` v `index.html`**
+
+Nahraď stávající OG/ikona bloky tímto (správné `/images/` cesty + absolutní OG + Twitter card):
+```html
+    <meta property="og:title" content="Cesty (bez) mapy - Cestovní itineráře a inspirace na cesty" />
+    <meta property="og:description" content="Místo, kde najdeš inspiraci, itineráře i tipy na místa, která se do běžných průvodců nevešla. Přidej se a nech se vést světem." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.cestybezmapy.cz/" />
+    <meta property="og:image" content="https://www.cestybezmapy.cz/images/logo.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Cesty (bez) mapy - Cestovní itineráře a inspirace na cesty" />
+    <meta name="twitter:description" content="Místo, kde najdeš inspiraci, itineráře i tipy na místa, která se do běžných průvodců nevešla." />
+    <meta name="twitter:image" content="https://www.cestybezmapy.cz/images/logo.png" />
+    <link rel="canonical" href="https://www.cestybezmapy.cz/" />
+    <link rel="icon" type="image/png" href="/images/favicon.png" />
+    <link rel="apple-touch-icon" href="/images/favicon.png" />
+```
+
+- [ ] **Step 2: Ověřit build**
+
+Run: `cd /Users/janparma/Desktop/Projekty/cesty-bez-mapy && npm run build`
+Expected: PASS.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add index.html
+git commit -m "fix(web): správné /images cesty + absolutní OG + Twitter card v index.html"
+```
+
+---
+
+## Task 14: Build-time prerender blogových rout (Playwright) — TDD helpery
+
+**Repo:** `cesty-bez-mapy`
+
+**Files:**
+- Create: `scripts/prerender.test.js`
+- Create: `scripts/prerender.mjs`
+- Modify: `package.json`
+- Modify: `src/pages/TravelInspiration.jsx` (přidat `data-prerender-ready` marker)
+- Modify: `src/pages/BlogPostDetail.jsx` (přidat `data-prerender-ready` marker)
+
+**Princip:** po `vite build` se spustí headless prohlížeč nad `vite preview` serverem, projde routy (`/`, `/inspirace` + všechny publikované slugy), počká na marker `[data-prerender-ready]` (= obsah i metadata jsou hotové), uloží `document` jako statické HTML do `dist/<route>/index.html`. Čistá logika (sestavení rout + validace) je v helperech a testuje se jednotkově; samotný headless průchod ověříme spuštěním buildu.
+
+- [ ] **Step 1: Napsat padající testy helperů**
+
+Vytvoř `scripts/prerender.test.js`:
+```js
+import { describe, it, expect } from 'vitest';
+import { collectRoutes, outputPathForRoute, validateHtml } from './prerender.mjs';
+
+describe('collectRoutes', () => {
+  it('složí statické routy + detail z publikovaných slugů, bez duplikátů', () => {
+    const routes = collectRoutes([{ slug: 'a' }, { slug: 'b' }, { slug: 'a' }]);
+    expect(routes).toContain('/');
+    expect(routes).toContain('/inspirace');
+    expect(routes).toContain('/inspirace/a');
+    expect(routes).toContain('/inspirace/b');
+    expect(routes.filter((r) => r === '/inspirace/a')).toHaveLength(1);
+  });
+  it('bez článků vrátí jen statické routy', () => {
+    expect(collectRoutes([])).toEqual(['/', '/inspirace']);
+  });
+});
+
+describe('outputPathForRoute', () => {
+  it('mapuje routu na soubor index.html', () => {
+    expect(outputPathForRoute('dist', '/')).toBe('dist/index.html');
+    expect(outputPathForRoute('dist', '/inspirace')).toBe('dist/inspirace/index.html');
+    expect(outputPathForRoute('dist', '/inspirace/lago')).toBe('dist/inspirace/lago/index.html');
+  });
+});
+
+describe('validateHtml', () => {
+  const brand = 'Cesty';
+  it('projde u plného HTML s h1 a značkou', () => {
+    const html = '<html><body><h1>Nadpis</h1>' + 'x'.repeat(2000) + ' Cesty</body></html>';
+    expect(() => validateHtml(html, { minBytes: 1024, requireH1: true, brand })).not.toThrow();
+  });
+  it('selže u prázdného/loading shellu (krátké, bez h1)', () => {
+    expect(() => validateHtml('<html><body>Načítám…</body></html>', { minBytes: 1024, requireH1: true, brand })).toThrow();
+  });
+  it('selže, když chybí značka', () => {
+    const html = '<h1>x</h1>' + 'y'.repeat(2000);
+    expect(() => validateHtml(html, { minBytes: 1024, requireH1: true, brand })).toThrow();
+  });
+});
+```
+
+- [ ] **Step 2: Spustit — musí padat**
+
+Run: `npm test -- --run scripts/prerender.test.js`
+Expected: FAIL („Failed to resolve import './prerender.mjs'").
+
+- [ ] **Step 3: Implementovat `scripts/prerender.mjs`**
+
+```js
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import { preview } from 'vite';
+import { chromium } from 'playwright';
+
+const DIST = 'dist';
+const BRAND = 'Cesty';
+const STATIC_ROUTES = ['/', '/inspirace'];
+
+/** Statické routy + /inspirace/:slug ze seznamu publikovaných článků (bez duplikátů). */
+export function collectRoutes(posts) {
+  const detail = (posts || []).map((p) => `/inspirace/${p.slug}`);
+  return [...new Set([...STATIC_ROUTES, ...detail])];
+}
+
+/** Cesta k výstupnímu souboru pro routu (directory-index). */
+export function outputPathForRoute(distDir, route) {
+  if (route === '/') return path.posix.join(distDir, 'index.html');
+  return path.posix.join(distDir, route.replace(/^\//, ''), 'index.html');
+}
+
+/** Ověří, že zachycené HTML je „opravdové" (ne loading shell). Jinak vyhodí. */
+export function validateHtml(html, { minBytes, requireH1, brand }) {
+  if (!html || html.length < minBytes) {
+    throw new Error(`Prerender: HTML příliš krátké (${html?.length ?? 0} < ${minBytes} B)`);
+  }
+  if (requireH1 && !/<h1[\s>]/i.test(html)) {
+    throw new Error('Prerender: chybí <h1> (pravděpodobně zachycen loading stav)');
+  }
+  if (brand && !html.includes(brand)) {
+    throw new Error(`Prerender: chybí značka „${brand}" v HTML`);
+  }
+}
+
+async function fetchPublishedSlugs() {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error('Prerender: chybí VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY');
+  const res = await fetch(
+    `${url}/rest/v1/blog_posts?select=slug&published_at=not.is.null&published_at=lte.${new Date().toISOString()}`,
+    { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+  );
+  if (!res.ok) throw new Error(`Prerender: Supabase ${res.status}`);
+  return res.json();
+}
+
+async function run() {
+  const posts = await fetchPublishedSlugs();
+  const routes = collectRoutes(posts);
+
+  const server = await preview({ appType: 'spa', preview: { port: 4173, strictPort: false } });
+  const base = server.resolvedUrls.local[0].replace(/\/$/, '');
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+
+  try {
+    for (const route of routes) {
+      await page.goto(base + route, { waitUntil: 'load', timeout: 30000 });
+      await page.waitForSelector('[data-prerender-ready]', { timeout: 20000 });
+      const html = await page.content();
+      const requireH1 = route.startsWith('/inspirace/'); // detail má vždy h1
+      validateHtml(html, { minBytes: 1024, requireH1, brand: BRAND });
+      const out = outputPathForRoute(DIST, route);
+      await fs.mkdir(path.dirname(out), { recursive: true });
+      await fs.writeFile(out, html, 'utf8');
+      console.log(`✓ prerendered ${route} → ${out} (${html.length} B)`);
+    }
+  } finally {
+    await browser.close();
+    await server.close();
+  }
+  console.log(`Prerender hotovo: ${routes.length} rout.`);
+}
+
+// Spustit jen když je soubor volán přímo (ne při importu v testu).
+if (import.meta.url === `file://${process.argv[1]}`) {
+  run().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}
+```
+
+- [ ] **Step 4: Přidat marker `data-prerender-ready`**
+
+V `src/pages/TravelInspiration.jsx` na `<main>` (ten s `role="main"`) přidej atribut, který se objeví, až dojede načítání:
+```jsx
+      <main className="py-16 px-5 max-w-6xl mx-auto" role="main" aria-label="Seznam článků o cestování" style={{ overflowAnchor: 'none' }} {...(!loading ? { 'data-prerender-ready': 'true' } : {})}>
+```
+V `src/pages/BlogPostDetail.jsx` na úspěšném `<main className="min-h-screen bg-white">` přidej `data-prerender-ready="true"` (vykreslí se až po načtení článku; loading/error větve marker nemají → prerender je nezachytí):
+```jsx
+      <main className="min-h-screen bg-white" data-prerender-ready="true">
+```
+
+- [ ] **Step 5: Upravit `package.json`** — přidat Playwright + skripty
+
+Do `devDependencies` přidej `"playwright": "^1.49.0"`. Do `scripts` uprav/přidej:
+```json
+    "build": "vite build && node scripts/prerender.mjs",
+    "build:novite": "node scripts/prerender.mjs",
+    "prerender": "node scripts/prerender.mjs",
+    "postinstall": "playwright install --with-deps chromium"
+```
+(Pozn.: `--with-deps` doinstaluje i systémové knihovny Chromia — bez nich build na Vercelu spadne na `libnspr4.so`. `postinstall` běží při `npm install` lokálně i na Vercelu; `build:novite`/`prerender` je pro lokální opakované běhy bez plného rebuildu.)
+
+Instalace:
+```bash
+npm install -D playwright
+npx playwright install --with-deps chromium
+```
+
+- [ ] **Step 6: Spustit testy helperů — musí projít**
+
+Run: `npm test -- --run scripts/prerender.test.js`
+Expected: PASS.
+
+- [ ] **Step 7: Lokální ověření celého prerenderu** (potřebuje publikovaný článek v DB + `.env` se Supabase klíči)
+
+Run: `npm run build`
+Expected: build projde, v logu `✓ prerendered /inspirace/<slug>`. Ověř raw HTML (BEZ JS):
+```bash
+grep -l "<h1" dist/inspirace/*/index.html | head
+node -e "const h=require('fs').readFileSync('dist/index.html','utf8'); console.log(h.includes('og:title'), h.includes('Cesty'))"
+```
+Očekávané: detail soubory obsahují `<h1>` + tělo článku; `dist/index.html` má OG tagy. (Kdyby validace selhala na „loading", zvyš timeout markeru nebo zkontroluj `.env`.)
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add scripts/prerender.mjs scripts/prerender.test.js package.json package-lock.json src/pages/TravelInspiration.jsx src/pages/BlogPostDetail.jsx
+git commit -m "feat(web): build-time prerender blogových rout (Playwright) + validace + markery"
+```
+
+---
+
+## Task 15: `vercel.json` routing + feasibility prerenderu na Vercelu (B1)
+
+**Repo:** `cesty-bez-mapy`
+
+**Files:**
+- Modify: `vercel.json`
+
+> Prerendrované soubory (`dist/inspirace/<slug>/index.html`, `dist/inspirace/index.html`, `dist/index.html`) servíruje Vercel ze souborového systému **dřív** než rewrite (rewrites jsou fallback). Stávající `"/(.*)" → "/index.html"` tak zůstává jen pro ne-prerendrované routy (produkty, kontakt…). Ověř, že se prerendrované routy servírují jako statické.
+
+- [ ] **Step 1: Doplnit `cleanUrls` do `vercel.json`** (jistota čistého mapování directory-index)
+
+Do kořenového objektu `vercel.json` přidej (vedle `rewrites`/`headers`):
+```json
+  "cleanUrls": true,
+  "trailingSlash": false,
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add vercel.json
+git commit -m "chore(web): cleanUrls/trailingSlash pro prerendrované blogové routy"
+```
+
+- [ ] **Step 3: Feasibility B1 na Vercelu (deploy preview)** — *vyžaduje push větve / preview deploy*
+
+> **POZOR (deploy):** Tohle spustí Vercel preview build. Udělej až po dohodě o pushi (viz konec plánu). V build logu ověř, že proběhl `playwright install --with-deps chromium` i `✓ prerendered …`. Pak na preview URL:
+> ```bash
+> curl -s https://<preview>.vercel.app/inspirace/<slug> | grep -c "<h1"
+> curl -s https://<preview>.vercel.app/inspirace/<slug> | grep -o 'og:title[^>]*' | head -1
+> ```
+> Očekávané: `<h1>` a `og:title` jsou v **raw** HTML (bez JS).
+>
+> **Když Chromium ve Vercel buildu selže** (chybějící systémové knihovny, např. `libnspr4.so`): přejdi na **B2 fallback** — build + prerender v GitHub Actions (browsers předinstalované) + `vercel deploy --prebuilt --prod`; trigger z webhooku (Task 16) přepni z Deploy Hooku na `repository_dispatch`. (Detaily B2 nech do samostatného mini-planu, neimplementuj naslepo.)
+
+---
+
+## Task 16: Auto-rebuild při publikaci — Vercel Deploy Hook + Supabase webhook
+
+**Repo:** `cesty-bez-mapy`
+
+**Files:**
+- Create: `supabase/migrations/045_blog_publish_deploy_hook.sql`
+
+> Cíl: když Jana publikuje / upraví / smaže **publikovaný** článek, spustí se rebuild (nový prerender). Použijeme `pg_net` trigger volající **Vercel Deploy Hook**, jehož URL je v **Supabase Vault** (tajné). Deploy Hook sám ruší duplicitní běžící buildy.
+
+- [ ] **Step 1: Vytvořit Vercel Deploy Hook** *(manuální — dělá uživatel)*
+
+Ve Vercel dashboardu projektu `cesty-bez-mapy` → **Settings → Git → Deploy Hooks** vytvoř hook (název `blog-publish`, branch `main`). Zkopíruj URL `https://api.vercel.com/v1/integrations/deploy/prj_.../...`. **Předej ji asistentovi až v dalším kroku přes CLI/secret, ne do gitu.**
+
+- [ ] **Step 2: Uložit URL do Supabase Vault** *(ŽIVÁ INFRA — pauza + souhlas)*
+
+> Přes MCP `execute_sql` (po odsouhlasení), s reálnou URL:
+```sql
+select vault.create_secret(
+  '<DEPLOY_HOOK_URL>',
+  'vercel_deploy_hook',
+  'Vercel Deploy Hook pro rebuild prerenderu blogu'
+);
+```
+
+- [ ] **Step 3: Napsat migraci `045`** — trigger volající hook
+
+Vytvoř `supabase/migrations/045_blog_publish_deploy_hook.sql`:
+```sql
+-- ================================================
+-- Migration: 045_blog_publish_deploy_hook
+-- Created: 2026-05-30
+-- Description: Po změně PUBLIKOVANÉHO článku zavolá Vercel Deploy Hook
+--   (rebuild build-time prerenderu). URL je v Supabase Vault.
+-- ================================================
+
+create extension if not exists pg_net;
+
+create or replace function notify_vercel_blog_publish()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  hook_url text;
+  is_relevant boolean;
+begin
+  -- Rebuild jen když se to dotýká publikovaného obsahu
+  -- (nový/upravený/smazaný publikovaný, vč. přechodů koncept<->publikováno).
+  is_relevant :=
+       (TG_OP = 'INSERT' and NEW.published_at is not null)
+    or (TG_OP = 'UPDATE' and (NEW.published_at is not null or OLD.published_at is not null))
+    or (TG_OP = 'DELETE' and OLD.published_at is not null);
+  if not is_relevant then
+    return coalesce(NEW, OLD);
+  end if;
+
+  select decrypted_secret into hook_url
+  from vault.decrypted_secrets
+  where name = 'vercel_deploy_hook';
+
+  if hook_url is not null then
+    perform net.http_post(
+      url := hook_url,
+      headers := '{"Content-Type": "application/json"}'::jsonb,
+      body := '{}'::jsonb
+    );
+  end if;
+
+  return coalesce(NEW, OLD);
+end;
+$$;
+
+drop trigger if exists trg_blog_publish_deploy on public.blog_posts;
+create trigger trg_blog_publish_deploy
+  after insert or update or delete on public.blog_posts
+  for each row execute function notify_vercel_blog_publish();
+```
+
+- [ ] **Step 4: Aplikovat migraci** *(ŽIVÁ INFRA — pauza + souhlas, jako `043`/`044`)*
+
+> Ukázat přesné SQL k odsouhlasení, pak přes MCP `apply_migration` (název `045_blog_publish_deploy_hook`). Pozn.: `pg_net` a `vault` jsou na Supabase běžně dostupné; kdyby `vault` nebyl, použít `vault`/extension dle advisory.
+
+- [ ] **Step 5: Ověřit advisory**
+
+Přes MCP `get_advisors` typ `security`. `security definer` funkce s `set search_path = ''` je bezpečný vzor; ověř, že nevznikla nová varování.
+
+- [ ] **Step 6: Ověřit end-to-end** *(po nasazení prerenderu)*
+
+V adminu publikuj/uprav článek → ve Vercel dashboardu se objeví nový **Deployment** (trigger `blog-publish`). Po dokončení je změna na webu (~1–2 min).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add supabase/migrations/045_blog_publish_deploy_hook.sql
+git commit -m "feat(db): pg_net trigger → Vercel Deploy Hook při publikaci článku (045)"
+```
+
+---
+
+## Task 17: Finální QA Plánu B
 
 - [ ] **Step 1: Testy + build (frontend)**
 
 Run: `cd /Users/janparma/Desktop/Projekty/cesty-bez-mapy && npm test -- --run && npm run build`
-Expected: všechny testy PASS, build projde.
+Expected: všechny testy PASS, build projde (vč. prerenderu — viz Task 14 Step 7).
 
-- [ ] **Step 2: Manuální E2E přes `playwright-cli`** (proti běžícímu `npm run dev` + živé DB)
+- [ ] **Step 2: Prerender raw-HTML ověření** (klíčové pro „viditelnost všude")
+
+Otestuj jako crawler — **bez JS** — na preview/produkci (viz Task 15 Step 3):
+```bash
+URL=https://<deploy>/inspirace/<slug>
+curl -s "$URL" | grep -c "<h1"                                         # >=1 (tělo je v raw HTML)
+curl -s "$URL" | grep -oE '<meta property="og:(title|image)"[^>]*>'    # OG z článku
+curl -s "$URL" | grep -c 'application/ld+json'                          # JSON-LD Article
+```
+Očekávané: nadpis, per-článek OG (title + **absolutní** image) a JSON-LD jsou v **syrovém** HTML. Pak ověř náhledy ve **Facebook Sharing Debugger / LinkedIn Post Inspector / X Card Validator** (vynutí recrawl).
+
+> **Pozn. (pre-launch):** dokud běží pre-launch gate (`robots.txt: Disallow: /` + `X-Robots-Tag: noindex`), vyhledávače web nezaindexují — záměr. Sociální scrapery OG náhled obvykle načtou i tak (fetchují URL při sdílení). Při go-live se gate uvolní (samostatný pre-launch krok).
+
+- [ ] **Step 3: Manuální E2E přes `playwright-cli`** (proti běžícímu `npm run dev` + živé DB)
 
 V adminu (z Plánu A) vytvoř/uprav publikovaný článek s tagy a bohatým obsahem (Tip box, YouTube, CTA na existující produkt, obrázek). Pak na webu projdi:
 1. `/inspirace` — článek je ve výpisu; filtr tagů funguje (klik na tag schová ostatní).
@@ -1563,11 +1971,11 @@ V adminu (z Plánu A) vytvoř/uprav publikovaný článek s tagy a bohatým obsa
 5. **SEO:** v DOM je `<title>`, `<meta name="description">`, `<link rel="canonical">`, `og:*` a `<script type="application/ld+json">` (ověř `document.querySelector('script[type="application/ld+json"]')`).
 6. **Náhled konceptu:** v adminu u NEpublikovaného článku klikni „Náhled" → otevře `?preview=1&token=…` → web koncept zobrazí (žlutý pruh „Náhled konceptu"). Bez tokenu / se špatným tokenem → „Článek nebyl nalezen".
 
-- [ ] **Step 3: XSS ověření** (manuální)
+- [ ] **Step 4: XSS ověření** (manuální)
 
 V adminu dočasně vlož do obsahu článku `<script>window.__x=1</script>` a `<img src="https://evil.tld/x.jpg">`, ulož, zobraz na webu → v konzoli `window.__x` je `undefined`, cizí `<img>` se nevykreslil. Potom obsah vrať zpět.
 
-- [ ] **Step 4: Závěrečný commit (pokud zbývají změny)**
+- [ ] **Step 5: Závěrečný commit (pokud zbývají změny)**
 
 ```bash
 cd /Users/janparma/Desktop/Projekty/cesty-bez-mapy
@@ -1579,9 +1987,9 @@ git add -A && git commit -m "chore(web): dokončení Plánu B (veřejný blog)" 
 
 ## Hotovo (Plán B)
 
-Po Plánu B veřejný web zobrazuje publikované články z DB: výpis `/inspirace` s filtrem tagů, detail `/inspirace/:slug` s bezpečně vykresleným bohatým obsahem (sanitizace + hydratace YouTube/CTA), souvisejícími články a SEO (nativní metadata React 19 + JSON-LD). Jana vidí náhled konceptu přes zabezpečenou Edge funkci. Celý blog je end-to-end funkční.
+Po Plánu B veřejný web zobrazuje publikované články z DB: výpis `/inspirace` s filtrem tagů, detail `/inspirace/:slug` s bezpečně vykresleným bohatým obsahem (sanitizace + hydratace YouTube/CTA), souvisejícími články a SEO (nativní metadata React 19 + JSON-LD). Blogové routy se **prerendrují při buildu** → náhledy a plný obsah jsou viditelné **všude** (sociální sítě i ne-JS/AI crawleři), s auto-rebuildem při publikaci. Jana vidí náhled konceptu přes zabezpečenou Edge funkci. Celý blog je end-to-end funkční.
 
-**Mimo rozsah (dle specu §10):** prerender/SSR pro sociální OG náhledy (celosystémové), stránkování výpisu, komentáře/RSS.
+**Mimo rozsah (dle specu §10):** prerender ostatních stránek webu (produkty, home) a plný SSR (RR7), stránkování výpisu, komentáře/RSS. (Build-time prerender blogu je **v rozsahu** — Tasky 13–16.)
 
 ---
 
@@ -1590,11 +1998,15 @@ Po Plánu B veřejný web zobrazuje publikované články z DB: výpis `/inspira
 **Pokrytí specu §5–§8, §11:**
 - §5 výpis z DB + filtr tagů → Task 10 ✓; detail s reading time + tagy + související → Task 11 ✓; routing + konstanta → Task 11 ✓.
 - §6 DOMPurify allowlist + img jen z úložiště → Task 4 ✓; YouTube/CTA hydratace (ne syrový iframe) → Tasky 7–8 ✓; `youtube-nocookie` facade → Task 7 ✓; CTA interní Link + existence produktu → Tasky 6–8 ✓; prose + custom CSS → Tasky 3, 9 ✓.
-- §7 nativní metadata React 19 + OG + canonical + JSON-LD Article → Tasky 5, 11 ✓.
-- §8 testy: XSS sanitizace (Task 4, 8) ✓; hydratace bloků (Task 8) ✓; výpis tahá/filtruje (Task 6 + E2E Task 13) ✓; SEO meta přítomné (Task 5 + E2E Task 13) ✓.
-- §11 hardening: YouTube ID `^[\w-]{11}$` (Task 4/7) ✓; CTA jen pro existující produkt (Tasky 6, 8, 11) ✓; explicitní `published_at` filtr (Task 6) ✓.
+- §7 SEO dvě vrstvy: nativní metadata React 19 + OG + canonical + JSON-LD Article → Tasky 5, 11 ✓; **build-time prerender** blogových rout (viditelnost u sociálních + ne-JS/AI crawlerů) + auto-rebuild při publikaci → Tasky 13–16 ✓ (rozhodnutí **B**); absolutní OG v `index.html` → Task 13 ✓.
+- §8 testy: XSS sanitizace (Task 4, 8) ✓; hydratace bloků (Task 8) ✓; výpis tahá/filtruje (Task 6 + E2E Task 17) ✓; SEO meta přítomné (Task 5 + E2E Task 17) ✓; prerender helpery `collectRoutes`/`validateHtml` (Task 14) ✓; raw-HTML crawler test (Task 17) ✓.
+- §11 hardening: YouTube ID `^[\w-]{11}$` (Task 4/7) ✓; CTA jen pro existující produkt (Tasky 6, 8, 11) ✓; explicitní `published_at` filtr (Task 6) ✓; prerender validace velikost/`<h1>`/značka (Task 14) ✓; prerender jen publikované, koncepty přes Edge fn (Task 14/16) ✓.
 - Náhled konceptů (§4 z Plánu A) → Tasky 1, 2, 11, 12 (Edge fn + token, rozhodnuto dle rešerše) ✓.
 
-**Konzistence názvů:** `sanitizeBlogHtml`, `extractYoutubeId`, `readingTimeMinutes`, `extractProductSlugs`, `buildBlogMeta`, `fetchPublishedPosts/fetchPostBySlug/fetchTags/fetchRelatedPosts/fetchExistingProductSlugs/fetchPreviewPost` — používané shodně napříč Tasky 4–11. ✓
+**Konzistence názvů:** `sanitizeBlogHtml`, `extractYoutubeId`, `readingTimeMinutes`, `extractProductSlugs`, `buildBlogMeta`, `fetchPublishedPosts/fetchPostBySlug/fetchTags/fetchRelatedPosts/fetchExistingProductSlugs/fetchPreviewPost`, `collectRoutes/outputPathForRoute/validateHtml` — používané shodně napříč Tasky 4–16. ✓
 
-**Caution:** Task 1 = živá DB migrace `044` → pauza + odsouhlasení SQL před aplikací (jako `043`). Task 2 = deploy Edge funkce na ostrý projekt.
+**Caution (živá infra — pauza + souhlas):**
+- Migrace na ostrou DB: Task 1 = `044`; Task 16 = `045` + Vault secret (stejný režim jako `043` — ukázat SQL, počkat na souhlas).
+- Deploy na ostrý projekt: Task 2 = Edge funkce `get-blog-preview`.
+- Vercel: Task 15 Step 3 = preview build (feasibility B1, spustí deploy); Task 16 Step 1 = vytvoření Deploy Hooku (manuální, uživatel) — jeho URL **jen přes secret/CLI, ne git/chat**.
+- Pokud Chromium nepojede ve Vercel buildu → přechod na **B2** (GitHub Actions + `vercel deploy --prebuilt`), neimplementovat naslepo (samostatný mini-plan).
