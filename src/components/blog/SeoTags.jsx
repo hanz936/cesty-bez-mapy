@@ -1,3 +1,5 @@
+import { serializeJsonLd } from '../../utils/blogSeo';
+
 /**
  * SEO meta pro detail článku. React 19 hoistuje <title>/<meta>/<link> do <head>.
  * JSON-LD se vykreslí inline (Google čte strukturovaná data i v body).
@@ -16,7 +18,7 @@ export default function SeoTags({ meta }) {
       <meta name="twitter:card" content="summary_large_image" />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(meta.jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(meta.jsonLd) }}
       />
     </>
   );

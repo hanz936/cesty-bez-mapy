@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildBlogMeta } from './blogSeo';
+import { buildBlogMeta, serializeJsonLd } from './blogSeo';
 
 const post = {
   title: 'Lago di Garda mimo sezónu',
@@ -33,5 +33,14 @@ describe('buildBlogMeta', () => {
     expect(m.jsonLd.headline).toBe('Lago di Garda mimo sezónu');
     expect(m.jsonLd.datePublished).toBe('2026-05-30T10:00:00Z');
     expect(m.jsonLd.mainEntityOfPage).toContain('/inspirace/lago-di-garda-mimo-sezonu');
+  });
+});
+
+describe('serializeJsonLd', () => {
+  it('serializeJsonLd: escapuje </script> (XSS breakout) a zachová dekódovanou hodnotu', () => {
+    const out = serializeJsonLd({ headline: '</script><img src=x onerror=alert(1)>' });
+    expect(out).not.toContain('</script>');
+    expect(out).toContain('\\u003c');
+    expect(JSON.parse(out).headline).toBe('</script><img src=x onerror=alert(1)>');
   });
 });
