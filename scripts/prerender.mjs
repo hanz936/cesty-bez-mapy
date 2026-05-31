@@ -64,7 +64,9 @@ async function run() {
         const keepLast = (selector, keyAttr) => {
           const byKey = new Map();
           for (const el of document.querySelectorAll(selector)) {
-            byKey.set(el.getAttribute(keyAttr), el); // poslední vyhrává
+            const key = el.getAttribute(keyAttr);
+            if (key == null || key === '') continue; // nesloučit prvky bez klíče
+            byKey.set(key, el); // poslední vyhrává
           }
           const keep = new Set(byKey.values());
           for (const el of document.querySelectorAll(selector)) {
