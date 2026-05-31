@@ -1,4 +1,4 @@
-import parse, { Element } from 'html-react-parser';
+import parse, { Element, domToReact } from 'html-react-parser';
 import { sanitizeBlogHtml } from '../../utils/blogContent';
 import YoutubeEmbed from './YoutubeEmbed';
 import ProductCtaLink from './ProductCtaLink';
@@ -20,7 +20,7 @@ export default function BlogContentRenderer({ html, validProductSlugs }) {
       }
       if (node.name === 'a' && node.attribs['data-product-slug']) {
         const slug = node.attribs['data-product-slug'];
-        const label = node.children?.[0]?.data ?? 'Zobrazit průvodce';
+        const label = node.children?.length ? domToReact(node.children, options) : 'Zobrazit průvodce';
         return (
           <ProductCtaLink
             slug={slug}
