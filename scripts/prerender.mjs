@@ -67,7 +67,7 @@ async function run() {
   const posts = await fetchPublishedSlugs();
   const routes = collectRoutes(posts);
 
-  const server = await preview({ appType: 'spa', preview: { port: 4173, strictPort: false } });
+  const server = await preview({ appType: 'spa', preview: { port: 4173, strictPort: false, open: false } });
   const base = server.resolvedUrls.local[0].replace(/\/$/, '');
   const browser = await launchBrowser();
   const page = await browser.newPage();

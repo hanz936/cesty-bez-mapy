@@ -1,0 +1,19 @@
+# .vercelignore — co NEnahrávat při `vercel deploy` (CLI).
+# POZOR: nahrazuje .gitignore, takže tady musí být i běžné ignorované věci
+# (vč. .env*, jinak by se secrets nahrály na Vercel).
+
+# Závislosti a build artefakty (Vercel si je vygeneruje/nainstaluje sám)
+node_modules
+dist
+dist-ssr
+.cache
+
+# Git historie — nepotřebná pro build a obsahuje objekt > 100 MB (limit uploadu)
+.git
+
+# Velké video (gitignorované, build ho k úspěchu nepotřebuje, > 100 MB limit)
+public/video
+
+# Lokální secrets — Vercel používá vlastní env proměnné
+.env
+.env.*
