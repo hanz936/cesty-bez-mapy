@@ -24,19 +24,23 @@ export function buildBlogMeta(post, siteUrl = SITE_URL) {
   return { title, description, canonical, ogImage, jsonLd };
 }
 
+// Znaky, jejichž neescapovaný výskyt v <script> by mohl předčasně uzavřít tag
+// nebo (u U+2028/U+2029) rozbít starší parsery. Kódové body píšeme přes hex,
+// aby ve zdroji nebyly žádné neviditelné znaky.
+const JSONLD_ESCAPES = [
+  ['<', '\\u003c'],
+  ['>', '\\u003e'],
+  ['&', '\\u0026'],
+  [String.fromCharCode(0x2028), '\\u2028'],
+  [String.fromCharCode(0x2029), '\\u2029'],
+];
+
 /**
- * Bezpečně serializuje JSON-LD pro vložení do <script>: escapuje znaky, které by
- * jinak mohly předčasně uzavřít <script> tag nebo rozbít strukturovaná data
- * (`<`, `>`, `&`) i řádkové separátory U+2028/U+2029. Dekódovaná hodnota se nemění.
+ * Bezpečně serializuje JSON-LD pro vložení do <script>. Dekódovaná hodnota se nemění
+ * (jen syntaktická reprezentace), takže strukturovaná data zůstávají platná.
  */
 export function serializeJsonLd(jsonLd) {
-  // Používáme new RegExp, aby řetězec \\u2028/\\u2029 zůstal účinkem escape sekvencí.
-  const ls = new RegExp(' ', 'g'); // U+2028 Line Separator
-  const ps = new RegExp(' ', 'g'); // U+2029 Paragraph Separator
-  return JSON.stringify(jsonLd)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-    .replace(/&/g, '\\u0026')
-    .replace(ls, '\\u2028')
-    .replace(ps, '\\u2029');
+  let out = JSON.stringify(jsonLd);
+  for (const [from, to] of JSONLD_ESCAPES) out = out.replaceAll(from, to);
+  return out;
 }
