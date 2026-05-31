@@ -124,7 +124,7 @@ const BlogPostDetail = () => {
         {post.image_url && (
           <div
             className="w-full h-64 sm:h-80 bg-center bg-cover"
-            style={{ backgroundImage: `url(${post.image_url})` }}
+            style={{ backgroundImage: `url("${encodeURI(post.image_url)}")` }}
             role="img"
             aria-label={post.title}
           />
