@@ -1,7 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { preview } from 'vite';
-import { chromium } from 'playwright';
 
 const DIST = 'dist';
 const BRAND = 'Cesty';
@@ -44,13 +43,33 @@ async function fetchPublishedSlugs() {
   return res.json();
 }
 
+/**
+ * Spustí headless Chromium pro prerender.
+ * - Na Vercelu (build container bez systémových knihoven): @sparticuz/chromium
+ *   + playwright-core. Plný `playwright` Chromium by se tam nespustil.
+ * - Lokálně / CI: plný `playwright` s vlastním staženým Chromiem.
+ */
+async function launchBrowser() {
+  if (process.env.VERCEL) {
+    const sparticuz = (await import('@sparticuz/chromium')).default;
+    const { chromium } = await import('playwright-core');
+    return chromium.launch({
+      args: sparticuz.args,
+      executablePath: await sparticuz.executablePath(),
+      headless: true,
+    });
+  }
+  const { chromium } = await import('playwright');
+  return chromium.launch();
+}
+
 async function run() {
   const posts = await fetchPublishedSlugs();
   const routes = collectRoutes(posts);
 
   const server = await preview({ appType: 'spa', preview: { port: 4173, strictPort: false } });
   const base = server.resolvedUrls.local[0].replace(/\/$/, '');
-  const browser = await chromium.launch();
+  const browser = await launchBrowser();
   const page = await browser.newPage();
 
   try {
