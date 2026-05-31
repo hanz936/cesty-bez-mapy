@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
 import { BASE_PATH } from '../constants';
-import { fetchPublishedPosts, fetchTags } from '../lib/blog';
+import { fetchPublishedPosts, fetchTags, tagNameMap } from '../lib/blog';
 
 const BlogCard = ({ post, tagNames }) => {
   const [imageError, setImageError] = useState(false);
@@ -78,11 +78,7 @@ const TravelInspiration = () => {
     return () => { isMounted = false; };
   }, []);
 
-  const tagNameById = useMemo(() => {
-    const map = new Map();
-    tags.forEach((t) => map.set(t.id, t.name));
-    return map;
-  }, [tags]);
+  const tagNameById = useMemo(() => tagNameMap(tags), [tags]);
 
   // Zobrazíme jen tagy, které mají aspoň jeden publikovaný článek.
   const usedTags = useMemo(() => {
@@ -96,10 +92,8 @@ const TravelInspiration = () => {
     [posts, activeTag],
   );
 
-  const tagNamesFor = useCallback(
-    (post) => (post.tag_ids || []).map((id) => tagNameById.get(id)).filter(Boolean),
-    [tagNameById],
-  );
+  const tagNamesFor = (post) =>
+    (post.tag_ids || []).map((id) => tagNameById.get(id)).filter(Boolean);
 
   return (
     <Layout>
@@ -111,7 +105,7 @@ const TravelInspiration = () => {
         ariaLabel="Hero sekce s názvem stránky"
       />
 
-      <main className="py-16 px-5 max-w-6xl mx-auto" role="main" aria-label="Seznam článků o cestování" style={{ overflowAnchor: 'none' }} {...(!loading ? { 'data-prerender-ready': 'true' } : {})}>
+      <main className="py-16 px-5 max-w-6xl mx-auto" role="main" aria-label="Seznam článků o cestování" style={{ overflowAnchor: 'none' }} data-prerender-ready={!loading ? 'true' : undefined}>
         {usedTags.length > 0 && (
           <div className="flex flex-wrap gap-2 justify-center mb-10">
             <button

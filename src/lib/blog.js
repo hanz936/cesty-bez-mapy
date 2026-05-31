@@ -87,3 +87,8 @@ export async function fetchPreviewPost(slug, token) {
   const json = await res.json().catch(() => ({}));
   return json.post ?? null;
 }
+
+/** Mapa id → name z pole tagů (sdíleno výpisem i detailem). */
+export function tagNameMap(tags) {
+  return new Map((tags ?? []).map((t) => [t.id, t.name]));
+}

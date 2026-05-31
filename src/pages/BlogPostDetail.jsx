@@ -9,6 +9,7 @@ import {
   fetchRelatedPosts,
   fetchTags,
   fetchExistingProductSlugs,
+  tagNameMap,
 } from '../lib/blog';
 import { readingTimeMinutes, extractProductSlugs } from '../utils/blogContent';
 import { buildBlogMeta } from '../utils/blogSeo';
@@ -71,11 +72,7 @@ const BlogPostDetail = () => {
     return () => { isMounted = false; };
   }, [slug, isPreview, previewToken]);
 
-  const tagNameById = useMemo(() => {
-    const map = new Map();
-    tags.forEach((t) => map.set(t.id, t.name));
-    return map;
-  }, [tags]);
+  const tagNameById = useMemo(() => tagNameMap(tags), [tags]);
 
   if (loading) {
     return (
