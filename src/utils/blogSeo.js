@@ -24,23 +24,16 @@ export function buildBlogMeta(post, siteUrl = SITE_URL) {
   return { title, description, canonical, ogImage, jsonLd };
 }
 
-// Znaky, jejichž neescapovaný výskyt v <script> by mohl předčasně uzavřít tag
-// nebo (u U+2028/U+2029) rozbít starší parsery. Kódové body píšeme přes hex,
-// aby ve zdroji nebyly žádné neviditelné znaky.
-const JSONLD_ESCAPES = [
-  ['<', '\\u003c'],
-  ['>', '\\u003e'],
-  ['&', '\\u0026'],
-  [String.fromCharCode(0x2028), '\\u2028'],
-  [String.fromCharCode(0x2029), '\\u2029'],
-];
-
 /**
- * Bezpečně serializuje JSON-LD pro vložení do <script>. Dekódovaná hodnota se nemění
- * (jen syntaktická reprezentace), takže strukturovaná data zůstávají platná.
+ * Bezpečně serializuje JSON-LD pro vložení do <script type="application/ld+json">.
+ * Escapujeme `<`, `>`, `&` na unicode escape sekvence — to zabrání předčasnému
+ * uzavření/vložení tagu (`</script>`, `<!--`, `<script`). Obsah se NEspouští jako JS
+ * (jen parsuje jako JSON), takže U+2028/U+2029 escapovat netřeba (v JSON jsou platné).
+ * Dekódovaná hodnota se nemění — strukturovaná data zůstávají platná.
  */
 export function serializeJsonLd(jsonLd) {
-  let out = JSON.stringify(jsonLd);
-  for (const [from, to] of JSONLD_ESCAPES) out = out.replaceAll(from, to);
-  return out;
+  return JSON.stringify(jsonLd)
+    .replaceAll('<', '\\u003c')
+    .replaceAll('>', '\\u003e')
+    .replaceAll('&', '\\u0026');
 }
