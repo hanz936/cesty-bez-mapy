@@ -24,12 +24,14 @@ const ALLOWED_ATTR = ['href', 'target', 'rel', 'src', 'alt', 'title', 'class'];
 // Hook je globální; prefix čteme z modulové proměnné nastavené při každém volání.
 let _storagePrefix = STORAGE_PREFIX;
 let _hooked = false;
+let _active = false; // hooky reagují jen během našeho sanitizeBlogHtml (izolace od jiných konzumentů)
 function ensureHook() {
   if (_hooked) return;
   _hooked = true;
   // Odebrání <img> mimo úložiště řešíme v `uponSanitizeElement` — dokumentovaný
   // bod pro odstranění celého uzlu (NE v afterSanitizeAttributes).
   DOMPurify.addHook('uponSanitizeElement', (node) => {
+    if (!_active) return;
     if (node.nodeName && node.nodeName.toLowerCase() === 'img') {
       const src = (node.getAttribute && node.getAttribute('src')) || '';
       if (!_storagePrefix || !src.startsWith(_storagePrefix)) {
@@ -39,6 +41,7 @@ function ensureHook() {
   });
   // Atributové úpravy (povolené <img> z úložiště + externí odkazy).
   DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (!_active) return;
     if (node.tagName === 'IMG') {
       node.setAttribute('loading', 'lazy');
       node.setAttribute('decoding', 'async');
@@ -57,11 +60,19 @@ function ensureHook() {
 export function sanitizeBlogHtml(html, storagePrefix = STORAGE_PREFIX) {
   ensureHook();
   _storagePrefix = storagePrefix;
-  return DOMPurify.sanitize(html || '', {
-    ALLOWED_TAGS,
-    ALLOWED_ATTR,
-    ALLOW_DATA_ATTR: true,
-  });
+  _active = true;
+  try {
+    return DOMPurify.sanitize(html || '', {
+      ALLOWED_TAGS,
+      ALLOWED_ATTR,
+      // Striktně: žádné obecné data-*; explicitně povolíme jen ty, které
+      // hydratuje BlogContentRenderer (YouTube + CTA).
+      ALLOW_DATA_ATTR: false,
+      ADD_ATTR: ['data-youtube-id', 'data-product-slug'],
+    });
+  } finally {
+    _active = false;
+  }
 }
 
 /** Vytáhne 11znakové YouTube ID z URL nebo vrátí vstup, je-li už ID; jinak null. */

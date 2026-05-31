@@ -33,6 +33,16 @@ describe('sanitizeBlogHtml', () => {
     expect(clean).toContain('data-product-slug="salzburg-vikend"');
   });
 
+  it('zachová jen data-youtube-id/data-product-slug, ostatní data-* zahodí', () => {
+    const clean = sanitizeBlogHtml(
+      '<div data-youtube-id="abc" data-evil="x"></div><a data-product-slug="p" href="#">k</a>',
+      STORAGE,
+    );
+    expect(clean).toContain('data-youtube-id="abc"');
+    expect(clean).toContain('data-product-slug="p"');
+    expect(clean).not.toContain('data-evil');
+  });
+
   it('ponechá <img> jen z úložiště, cizí zahodí', () => {
     const ok = `<img src="${STORAGE}blog-images/a.jpg" alt="a">`;
     const bad = '<img src="https://evil.tld/x.jpg" alt="b">';
