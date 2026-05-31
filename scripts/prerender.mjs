@@ -57,6 +57,24 @@ async function run() {
     for (const route of routes) {
       await page.goto(base + route, { waitUntil: 'load', timeout: 30000 });
       await page.waitForSelector('[data-prerender-ready]', { timeout: 20000 });
+      // React 19 hoistuje per-route <meta>/<link> ZA statické defaulty z index.html
+      // (nededupuje je) → v <head> by vznikly duplicitní og:title/description/canonical.
+      // Necháme poslední výskyt každého klíče (= React per-route hodnotu).
+      await page.evaluate(() => {
+        const keepLast = (selector, keyAttr) => {
+          const byKey = new Map();
+          for (const el of document.querySelectorAll(selector)) {
+            byKey.set(el.getAttribute(keyAttr), el); // poslední vyhrává
+          }
+          const keep = new Set(byKey.values());
+          for (const el of document.querySelectorAll(selector)) {
+            if (!keep.has(el)) el.remove();
+          }
+        };
+        keepLast('head meta[name]', 'name');
+        keepLast('head meta[property]', 'property');
+        keepLast('head link[rel="canonical"]', 'rel');
+      });
       const html = await page.content();
       const requireH1 = route.startsWith('/inspirace/'); // detail má vždy h1
       validateHtml(html, { minBytes: 1024, requireH1, brand: BRAND });

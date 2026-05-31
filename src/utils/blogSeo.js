@@ -1,4 +1,4 @@
-export const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://cestybezmapy.cz';
+export const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://www.cestybezmapy.cz';
 const AUTHOR_NAME = 'Jana — Cesty bez mapy';
 
 /** Sestaví SEO meta (title/description/canonical/og) + JSON-LD Article pro článek. */
