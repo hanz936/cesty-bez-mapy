@@ -32,6 +32,11 @@ if (enabled) {
     replaysOnErrorSampleRate: 1.0,
     sendDefaultPii: false,
     beforeSend: scrubPii,
+    ignoreErrors: [
+      "ResizeObserver loop limit exceeded",
+      "ResizeObserver loop completed with undelivered notifications.",
+      "Non-Error promise rejection captured",
+    ],
   });
 
   // Lazy-load Replay so it doesn't block first paint. Replay is NOT in init integrations.
