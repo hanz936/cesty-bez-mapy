@@ -38,14 +38,21 @@ export function withSentry(handler: Handler, fnName: string): (req: Request) => 
     try {
       const res = await handler(req);
       if (res.status >= 500) {
-        Sentry.setTags({ fn: fnName, execution_id: executionId, status: String(res.status) });
-        Sentry.captureMessage(`${fnName} returned ${res.status}`, "error"); // setTags FIRST: scope mutations only apply to subsequent events
+        // withScope isolates these tags to THIS event. A Deno isolate serves
+        // concurrent requests on one global scope, so per-request tags
+        // (fn/execution_id/status) must be scoped or they bleed across requests.
+        Sentry.withScope((scope) => {
+          scope.setTags({ fn: fnName, execution_id: executionId, status: String(res.status) });
+          Sentry.captureMessage(`${fnName} returned ${res.status}`, "error");
+        });
         await Sentry.flush(2000); // CRITICAL: isolate freezes after the response
       }
       return res;
     } catch (e) {
-      Sentry.setTags({ fn: fnName, execution_id: executionId });
-      Sentry.captureException(e);
+      Sentry.withScope((scope) => {
+        scope.setTags({ fn: fnName, execution_id: executionId });
+        Sentry.captureException(e);
+      });
       await Sentry.flush(2000); // CRITICAL: isolate freezes after the response
       throw e; // re-throw → unchanged behavior (Deno.serve returns 500)
     }
