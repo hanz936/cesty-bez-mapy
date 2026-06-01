@@ -14,6 +14,7 @@ import {
   decideEmailTypes,
   buildOrderConfirmationItems,
 } from "./lib.ts";
+import { withSentry } from "../_shared/sentry.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
   apiVersion: "2025-12-15.clover",
@@ -36,7 +37,7 @@ function generateToken(length: number = 32): string {
   return token;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   // Stripe posílá POST requesty
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -217,7 +218,7 @@ Deno.serve(async (req) => {
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
-});
+}, "stripe-webhook"));
 
 // Send PaymentFailed email for a failed PaymentIntent. We look up the
 // Checkout Session by PI to recover the customer's email + name, because
