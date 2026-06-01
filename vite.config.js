@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'path'
+import { sentryVitePlugin } from '@sentry/vite-plugin'
 
 // Pre-compiled regex for better performance
 const MEDIA_REGEX = /\.(mp4|webm|ogg|mp3|wav|flac|aac)(\?.*)?$/i;
@@ -16,6 +17,15 @@ export default defineConfig({
       // React optimization - babel config removed, using esbuild drop instead
     }),
     tailwindcss(),
+    sentryVitePlugin({
+      org: '<org-slug>', // TODO: replace with real Sentry org slug before production deploy
+      project: 'cesty-bez-mapy-web',
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      telemetry: false,
+      release: { name: process.env.VERCEL_GIT_COMMIT_SHA },
+      sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] },
+      disable: !process.env.SENTRY_AUTH_TOKEN, // active only on CI/Vercel, not local
+    }),
   ],
 
   // Development server optimization
@@ -54,7 +64,7 @@ export default defineConfig({
     target: 'esnext', // Modern browsers
     minify: 'esbuild', // Fast minification
     cssMinify: true,
-    sourcemap: process.env.NODE_ENV !== 'production',
+    sourcemap: true, // needed so Sentry can upload + then delete maps (not shipped publicly)
     
     // Output directory
     outDir: 'dist',
@@ -139,6 +149,8 @@ export default defineConfig({
   // Environment variables
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '1.0.0'),
+    'import.meta.env.VITE_SENTRY_RELEASE': JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA),
+    'import.meta.env.VITE_VERCEL_ENV': JSON.stringify(process.env.VERCEL_ENV),
   },
 
   // Testing configuration (Vitest)
