@@ -14,6 +14,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendEmail, makeResendClient } from "../_shared/email/sendEmail.ts";
 import type { OrderItem } from "../_shared/email/types.ts";
+import { withSentry } from "../_shared/sentry.ts";
 
 const allowedOrigins = [
   "https://cesty-bez-mapy-admin.vercel.app",
@@ -55,7 +56,7 @@ const TYPE_TO_RESEND_COUNT_KEY: Record<ResendableEmailType, string> = {
   'refund': 'refund',
 };
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: getCorsHeaders(req) });
   }
@@ -210,7 +211,7 @@ Deno.serve(async (req) => {
       error: error instanceof Error ? error.message : "Internal error",
     });
   }
-});
+}, "resend-email"));
 
 function jsonResponse(req: Request, status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {

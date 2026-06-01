@@ -9,6 +9,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Webhook } from "npm:svix@1";
+import { withSentry } from "../_shared/sentry.ts";
 
 // deno-lint-ignore no-explicit-any
 type Supabase = any;
@@ -133,7 +134,7 @@ export async function handleWebhook(
   return { status: 200, body: JSON.stringify({ received: true }) };
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
@@ -162,4 +163,4 @@ Deno.serve(async (req) => {
     status: result.status,
     headers: { "Content-Type": "application/json" },
   });
-});
+}, "resend-webhook"));
