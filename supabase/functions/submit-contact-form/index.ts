@@ -8,6 +8,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyTurnstile } from "../_shared/verifyTurnstile.ts";
+import { withSentry } from "../_shared/sentry.ts";
 
 const allowedOrigins = [
   "https://cestybezmapy.cz",
@@ -60,7 +61,7 @@ function jsonResponse(
   });
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   const cors = getCorsHeaders(req);
 
   if (req.method === "OPTIONS") {
@@ -146,4 +147,4 @@ Deno.serve(async (req) => {
   }
 
   return jsonResponse({ success: true }, 200, cors);
-});
+}, "submit-contact-form"));

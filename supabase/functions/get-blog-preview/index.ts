@@ -7,6 +7,7 @@
 // ================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withSentry } from "../_shared/sentry.ts";
 
 const allowedOrigins = [
   "https://cestybezmapy.cz",
@@ -39,7 +40,7 @@ function json(body: unknown, status: number, cors: Record<string, string>) {
   });
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   const cors = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405, cors);
@@ -72,4 +73,4 @@ Deno.serve(async (req) => {
   } catch (_e) {
     return json({ error: "Server error" }, 500, cors);
   }
-});
+}, "get-blog-preview"));

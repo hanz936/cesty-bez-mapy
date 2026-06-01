@@ -8,6 +8,7 @@
 // ================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withSentry } from "../_shared/sentry.ts";
 
 const allowedOrigins = [
   "https://cestybezmapy.cz",
@@ -49,7 +50,7 @@ interface GetDownloadResponse {
 
 const SIGNED_URL_TTL_SECONDS = 3600;
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: getCorsHeaders(req) });
   }
@@ -107,7 +108,7 @@ Deno.serve(async (req) => {
     console.error("Error generating download URLs:", error);
     return jsonResponse(req, 500, { error: "Nepodařilo se vygenerovat odkaz ke stažení" });
   }
-});
+}, "get-download-url"));
 
 function jsonResponse(req: Request, status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {

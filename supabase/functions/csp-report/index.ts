@@ -9,6 +9,7 @@
 // ================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withSentry } from "../_shared/sentry.ts";
 
 const MAX_BODY_BYTES = 50 * 1024;
 
@@ -111,7 +112,7 @@ function normalizeReport(
   return null;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
   }
@@ -172,4 +173,4 @@ Deno.serve(async (req) => {
   }
 
   return new Response(null, { status: 204, headers: CORS_HEADERS });
-});
+}, "csp-report"));

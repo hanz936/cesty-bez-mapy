@@ -9,6 +9,7 @@
 
 import Stripe from "https://esm.sh/stripe@20?target=denonext";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withSentry } from "../_shared/sentry.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
   apiVersion: "2025-12-15.clover",
@@ -39,7 +40,7 @@ interface GetOrderRequest {
   session_id: string;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: getCorsHeaders(req) });
@@ -221,4 +222,4 @@ Deno.serve(async (req) => {
       }
     );
   }
-});
+}, "get-order-by-session"));
