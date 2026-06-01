@@ -1,6 +1,7 @@
 // download-invoice-pdf — admin-only PDF proxy
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { FakturoidClient, type TokenPersister } from "../create-invoice/fakturoid.ts";
+import { withSentry } from "../_shared/sentry.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -43,7 +44,7 @@ const fakturoid = new FakturoidClient({
   userAgent: Deno.env.get("FAKTUROID_USER_AGENT")!,
 }, fetch, { persister });
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   const cors = corsHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
@@ -80,4 +81,4 @@ Deno.serve(async (req) => {
       status: 502, headers: cors,
     });
   }
-});
+}, "download-invoice-pdf"));

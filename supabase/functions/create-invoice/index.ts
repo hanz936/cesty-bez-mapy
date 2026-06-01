@@ -25,6 +25,7 @@ import type {
   CreateInvoiceRequest, OrderRow, OrderItemRow,
 } from "./types.ts";
 import { sendEmail, makeResendClient } from "../_shared/email/sendEmail.ts";
+import { withSentry } from "../_shared/sentry.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -327,7 +328,7 @@ function jsonOk(body: unknown): Response {
   });
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   const cors = corsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: cors });
@@ -386,4 +387,4 @@ Deno.serve(async (req) => {
     resp.headers.set(k, v);
   }
   return resp;
-});
+}, "create-invoice"));
