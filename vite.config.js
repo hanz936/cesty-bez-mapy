@@ -18,7 +18,7 @@ export default defineConfig({
     }),
     tailwindcss(),
     sentryVitePlugin({
-      org: '<org-slug>', // TODO: replace with real Sentry org slug before production deploy
+      org: 'cesty-bez-mapy',
       project: 'cesty-bez-mapy-web',
       authToken: process.env.SENTRY_AUTH_TOKEN,
       telemetry: false,
