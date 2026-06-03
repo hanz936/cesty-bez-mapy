@@ -17,6 +17,7 @@ function ensureInit(): boolean {
   Sentry.init({
     dsn,
     defaultIntegrations: false, // edge isolate is short-lived; default global handlers can interfere with flush
+    attachStacktrace: true, // 5xx events go via captureMessage (no auto stack) — attach one so we can locate the origin
     tracesSampleRate: 0,
     sendDefaultPii: false,
     environment: Deno.env.get("SB_REGION") ? "production" : "development",
@@ -38,10 +39,10 @@ export function withSentry(handler: Handler, fnName: string): (req: Request) => 
     try {
       const res = await handler(req);
       if (res.status >= 500) {
-        // withScope isolates these tags to THIS event. A Deno isolate serves
-        // concurrent requests on one global scope, so per-request tags
+        // withIsolationScope isolates these tags to THIS request. A Deno isolate
+        // serves concurrent requests on one global scope, so per-request tags
         // (fn/execution_id/status) must be scoped or they bleed across requests.
-        Sentry.withScope((scope) => {
+        Sentry.withIsolationScope((scope) => {
           scope.setTags({ fn: fnName, execution_id: executionId, status: String(res.status) });
           Sentry.captureMessage(`${fnName} returned ${res.status}`, "error");
         });
@@ -49,7 +50,7 @@ export function withSentry(handler: Handler, fnName: string): (req: Request) => 
       }
       return res;
     } catch (e) {
-      Sentry.withScope((scope) => {
+      Sentry.withIsolationScope((scope) => {
         scope.setTags({ fn: fnName, execution_id: executionId });
         Sentry.captureException(e);
       });
