@@ -14,11 +14,11 @@ Databáze je **celkově ve velmi dobrém stavu** — RLS zapnuté na všech 17 t
 |---|---|---|---|---|---|
 | F1 | RLS | `download_tokens` `USING(true)` SELECT (anon+auth) | **🔴 CRITICAL** | B1 | open |
 | F2 | Edge/config | `resend-webhook` verify_jwt=true (webhook se odmítá) | **🟠 HIGH** | B6 | open |
-| F3 | Auth | Leaked-password protection vypnutá (HaveIBeenPwned) | **🟠 HIGH** | B5 | open |
+| F3 | Auth | Leaked-password protection vypnutá (HaveIBeenPwned) | **🟡 MEDIUM** | B5 | open |
 | F4 | Functions | 0028/0029 secdef exec anon: `increment_download_count`, `increment_email_resend_count` | **🟠 HIGH** | B1 | open |
 | F5 | Edge/schema | `get-order-by-session` čte neexistující `download_tokens.expires_at` | **🟡 MEDIUM** | B6 | open |
 | F6 | Auth | `minimum_password_length=6` (< doporučených 8) | **🟡 MEDIUM** | B5 | open |
-| F7 | RLS/perf | `blog_tags` multiple permissive policies (0006) | **🟡 MEDIUM** | B3 | open |
+| F7 | RLS/perf | `blog_tags` multiple permissive policies (0006) | 🟢 LOW | B3 | open |
 | F8 | Functions | 0028/0029 secdef exec: `notify_vercel_blog_publish` + 2 trigger fce | 🟢 LOW | B1 | open |
 | F9 | Extensions | `pg_net` v `public` (0014) — relokace invazivní | 🟢 LOW | B5 | open |
 | F10 | Perf | redundantní index `idx_orders_stripe_payment_id` (0009) | 🟢 LOW | B4 | open |
@@ -48,9 +48,10 @@ Pozn.: 31× `unused_index` (0005) = **pre-launch šum** (idx_scan=0, žádný pr
 - **Dopad:** Resend posílá svix podpis, ne Supabase JWT → gateway request odmítne (401) před funkcí → bounce/complaint → `email_suppressions` pipeline **pravděpodobně tiše nefunguje** (odesílání na mrtvé adresy, poškození reputace, neúčinná GDPR suppression).
 - **Doporučení:** `[functions.resend-webhook] verify_jwt = false` v config.toml + redeploy. Ověřit logy/`email_events` (6 řádků existuje — prověřit, zda z webhooku).
 
-### 🟠 [HIGH] F3 — Leaked-password protection vypnutá
+### 🟡 [MEDIUM] F3 — Leaked-password protection vypnutá
 - **Surface:** 6 (auth) · **Blok:** B5
 - **Důkaz:** security advisor `auth_leaked_password_protection` WARN (živý projekt).
+- **Severity:** Supabase to sám hodnotí jako **WARN**; blokuje jen signup/změnu hesla se *známě uniklým* heslem (není to exploitovatelná díra), admini navíc chráněni MFA → **MEDIUM**. Stále **pre-launch must-fix** (zákazníci mohou mít hesla).
 - **Doporučení (06/2026):** zapnout HaveIBeenPwned (`password_hibp_enabled=true`) — Auth → Providers → Email, nebo `PATCH /v1/projects/{ref}/config/auth`. (Live config, ne migrace.)
 
 ### 🟠 [HIGH] F4 — secdef funkce manipulovatelné anonem (0028/0029)
@@ -70,9 +71,10 @@ Pozn.: 31× `unused_index` (0005) = **pre-launch šum** (idx_scan=0, žádný pr
 - **Důkaz:** config.toml `minimum_password_length=6`. Docs 06/2026: „Anything less than 8 is not recommended."
 - **Doporučení:** zvednout na **≥ 8** (`password_min_length`) + zvážit `password_required_characters` (digits+lower+upper+symbols). Ověřit živou hodnotu (dashboard). Live config, ne migrace.
 
-### 🟡 [MEDIUM] F7 — `blog_tags` multiple permissive policies (0006)
+### 🟢 [LOW] F7 — `blog_tags` multiple permissive policies (0006)
 - **Surface:** 2 (RLS) / 4 (perf) · **Blok:** B3
 - **Důkaz:** performance advisor 0006 — `blog_tags` má pro authenticated/SELECT dvě permissive policy (`blog_tags_admin_all` + `blog_tags_public_read`).
+- **Severity:** `public_read` je už `USING(true)`, takže admin SELECT overlap nepřidává řádky — jen planner overhead na malé tabulce → **LOW** (verifikací sníženo z MEDIUM).
 - **Doporučení:** ponechat jen `blog_tags_public_read` (USING true) pro SELECT a admin policy omezit na write operace (INSERT/UPDATE/DELETE), nebo sjednotit. Perf optimalizace.
 
 ### 🟢 LOW nálezy (souhrn)
@@ -98,8 +100,11 @@ Migrace navazují na `046` (tj. `047_…`+). Každý blok = smyčka: napsat → 
 
 ---
 
+## Poznámka k lintu 0012 (anonymous access)
+0012 `auth_allow_anonymous_sign_ins` je živý WARN, protože anon sign-ins jsou zapnuté → role `authenticated` zahrnuje anonymní uživatele. **Prakticky 0012 splývá do F1**: spot-check všech ostatních `authenticated`-policies ukázal, že admin policies gate `(select is_admin())` (a `is_admin()` fail-closed vylučuje `is_anonymous`), user-scoped policies gate `auth_user_id = auth.uid()` → jediná `authenticated USING(true)` díra je `download_tokens` (= F1). Po opravě F1 je 0012 už jen očekávaný důsledek zapnutých anon sign-ins.
+
 ## Mimo scope / vědomě ponecháno
-- **Wide table grants** (`GRANT ALL` anon/authenticated) = Supabase default; bezpečnost na RLS. Revoke má PostgREST implikace → neměnit (skutečný fix = RLS).
+- **Wide table grants** (`GRANT ALL` anon/authenticated) = Supabase default; bezpečnost na RLS. Revoke existujících grantů má PostgREST implikace → neměnit (skutečný fix = RLS). **Volitelné forward-looking hardening:** `alter default privileges ... revoke ...` pro *budoucí* objekty (aby se nové tabulky/funkce automaticky nevystavovaly) — odlišné od retroaktivního revoke; mimo scope tohoto auditu.
 - **Unused indexes (0005)** = pre-launch šum; revidovat až po reálném provozu.
 - **`fakturoid_tokens` RLS-no-policy (0008)** = správný deny-all pro service-only secrets.
 - **CORS seznam duplikovaný** napříč edge funkcemi = kosmetika (mohl by žít v `_shared`).
@@ -108,5 +113,5 @@ Migrace navazují na `046` (tj. `047_…`+). Každý blok = smyčka: napsat → 
 
 ## Po remediaci
 - **Fáze 4:** regenerace TS typů (po B1–B4 změnách schématu).
-- **Fáze 5:** konsolidace 46 migrací → 1 baseline. **POZOR — drift:** local 001–046 vs remote 21 timestampů jsou disjunktní ([`00-migration-list-before.txt`](./2026-06-03-evidence/00-migration-list-before.txt)) → **Cesta 2** (`db dump --keep-comments` baseline + `migration repair`), NE `squash`.
+- **Fáze 5:** konsolidace 46 migrací → 1 baseline. **POZOR — drift:** local 001–046 vs remote 21 timestampů jsou disjunktní ([`00-migration-list-before.txt`](./2026-06-03-evidence/00-migration-list-before.txt)) → **Cesta 2** (`db dump --keep-comments` baseline + `migration repair`), NE `squash`. `migration repair` mění **jen tracking tabulku** (žádný apply/revert SQL → data netknuta). Lehčí kanonická alternativa: `supabase db pull` (zapíše remote-schema migraci + auto-repair historie v jednom kroku) — dump+repair je ekvivalent s větší kontrolou nad názvem baseline a `--keep-comments`. **Před repairem vzít `db dump --data-only` zálohu** (belt-and-suspenders).
 - **Fáze 6:** reconciliace docs (MIGRATIONS.md, CLAUDE.md, archiv RLS návrhů).
