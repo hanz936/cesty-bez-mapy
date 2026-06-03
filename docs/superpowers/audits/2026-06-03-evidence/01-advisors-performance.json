@@ -1,0 +1,67 @@
+{
+  "_meta": {
+    "captured": "2026-06-03",
+    "project": "dkblgznhnixubyoghrqe",
+    "tool": "Supabase MCP get_advisors type=performance",
+    "note": "Raw lint array (06/2026). PRE-LAUNCH context: 0005 unused_index fires for nearly every secondary index because there is no production query traffic yet (idx_scan=0). Treat 0005 as LOW/observational, NOT a directive to drop indexes that back FKs or known query paths."
+  },
+  "lints": [
+    {
+      "name": "multiple_permissive_policies",
+      "lint": "0006",
+      "level": "WARN",
+      "categories": ["PERFORMANCE"],
+      "detail": "Table public.blog_tags has multiple permissive policies for role authenticated for action SELECT. Policies include {blog_tags_admin_all, blog_tags_public_read}.",
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0006_multiple_permissive_policies",
+      "metadata": {"name": "blog_tags", "type": "table", "schema": "public"}
+    },
+    {
+      "name": "unused_index",
+      "lint": "0005",
+      "level": "INFO",
+      "categories": ["PERFORMANCE"],
+      "note": "PRE-LAUNCH NOISE — idx_scan=0 because no prod traffic. Keep unless redundant/duplicate.",
+      "indexes": [
+        "idx_orders_invoice_status (orders)",
+        "idx_orders_pending (orders)",
+        "idx_orders_confirmation_email_unsent (orders)",
+        "idx_email_events_to_created (email_events)",
+        "idx_custom_requests_customer_email (custom_itinerary_requests)",
+        "idx_custom_requests_created_at (custom_itinerary_requests)",
+        "idx_custom_requests_form_data (custom_itinerary_requests)",
+        "idx_custom_requests_delivery_email_unsent (custom_itinerary_requests)",
+        "idx_integration_logs_service (integration_logs)",
+        "idx_integration_logs_status (integration_logs)",
+        "idx_integration_logs_metadata (integration_logs)",
+        "idx_newsletter_consent_email (newsletter_consent_log)",
+        "idx_newsletter_consent_created_at (newsletter_consent_log)",
+        "idx_newsletter_consent_active (newsletter_consent_log)",
+        "idx_download_tokens_custom_request_id (download_tokens)",
+        "idx_download_tokens_asset_type (download_tokens)",
+        "idx_customers_last_purchase_at (customers)",
+        "idx_products_created_at (products)",
+        "idx_products_quiz_data (products)",
+        "idx_products_is_active (products)",
+        "idx_products_is_deleted (products)",
+        "idx_products_deleted_at (products)",
+        "idx_products_gallery_images (products)",
+        "idx_products_average_rating (products)",
+        "idx_products_stripe_price_id (products)",
+        "idx_products_stripe_product_id (products)",
+        "idx_products_category_ids (products)",
+        "idx_products_total_sales (products)",
+        "idx_order_items_custom_request_id (order_items)",
+        "idx_csp_reports_disposition_directive_received_at (csp_reports)",
+        "idx_blog_posts_tag_ids (blog_posts)"
+      ]
+    }
+  ],
+  "_absent_lints_notable": {
+    "0001_unindexed_foreign_keys": "NOT reported -> FKs appear indexed (good).",
+    "0003_auth_rls_initplan": "NOT reported -> RLS policies likely already wrap auth.* in (select ...) (verify in introspection Task 1.2 Step 2).",
+    "0004_no_primary_key": "NOT reported -> all public tables have PK.",
+    "0010_security_definer_view": "NOT reported.",
+    "0011_function_search_path_mutable": "NOT reported -> functions likely have search_path pinned (verify Task 1.2 Step 4).",
+    "0013_rls_disabled_in_public": "NOT reported -> RLS enabled on all public tables."
+  }
+}

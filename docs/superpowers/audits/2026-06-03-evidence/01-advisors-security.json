@@ -1,0 +1,112 @@
+{
+  "_meta": {
+    "captured": "2026-06-03",
+    "project": "dkblgznhnixubyoghrqe",
+    "tool": "Supabase MCP get_advisors type=security",
+    "note": "Raw lint array as returned by advisor API (06/2026)."
+  },
+  "lints": [
+    {
+      "name": "rls_enabled_no_policy",
+      "lint": "0008",
+      "level": "INFO",
+      "categories": ["SECURITY"],
+      "detail": "Table public.fakturoid_tokens has RLS enabled, but no policies exist",
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy",
+      "metadata": {"name": "fakturoid_tokens", "type": "table", "schema": "public"}
+    },
+    {
+      "name": "extension_in_public",
+      "lint": "0014",
+      "level": "WARN",
+      "categories": ["SECURITY"],
+      "detail": "Extension pg_net is installed in the public schema. Move it to another schema.",
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public",
+      "metadata": {"name": "pg_net", "type": "extension", "schema": "public"}
+    },
+    {
+      "name": "anon_security_definer_function_executable",
+      "lint": "0028",
+      "level": "WARN",
+      "categories": ["SECURITY"],
+      "detail": "Function public.increment_download_count(token_id uuid) can be executed by the anon role as a SECURITY DEFINER function via /rest/v1/rpc/increment_download_count.",
+      "metadata": {"name": "increment_download_count", "schema": "public", "language": "sql", "arguments": "token_id uuid", "security_definer": true}
+    },
+    {
+      "name": "anon_security_definer_function_executable",
+      "lint": "0028",
+      "level": "WARN",
+      "categories": ["SECURITY"],
+      "detail": "Function public.increment_email_resend_count(table_name text, row_id uuid, key text) can be executed by the anon role as a SECURITY DEFINER function via /rest/v1/rpc/increment_email_resend_count.",
+      "metadata": {"name": "increment_email_resend_count", "schema": "public", "language": "plpgsql", "arguments": "table_name text, row_id uuid, key text", "security_definer": true}
+    },
+    {
+      "name": "anon_security_definer_function_executable",
+      "lint": "0028",
+      "level": "WARN",
+      "categories": ["SECURITY"],
+      "detail": "Function public.notify_vercel_blog_publish() can be executed by the anon role as a SECURITY DEFINER function via /rest/v1/rpc/notify_vercel_blog_publish.",
+      "metadata": {"name": "notify_vercel_blog_publish", "schema": "public", "language": "plpgsql", "arguments": "", "security_definer": true}
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "lint": "0029",
+      "level": "WARN",
+      "categories": ["SECURITY"],
+      "detail": "Function public.increment_download_count(token_id uuid) can be executed by the authenticated role as a SECURITY DEFINER function.",
+      "metadata": {"name": "increment_download_count", "schema": "public", "security_definer": true}
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "lint": "0029",
+      "level": "WARN",
+      "categories": ["SECURITY"],
+      "detail": "Function public.increment_email_resend_count(table_name text, row_id uuid, key text) can be executed by the authenticated role as a SECURITY DEFINER function.",
+      "metadata": {"name": "increment_email_resend_count", "schema": "public", "security_definer": true}
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "lint": "0029",
+      "level": "WARN",
+      "categories": ["SECURITY"],
+      "detail": "Function public.notify_vercel_blog_publish() can be executed by the authenticated role as a SECURITY DEFINER function.",
+      "metadata": {"name": "notify_vercel_blog_publish", "schema": "public", "security_definer": true}
+    },
+    {
+      "name": "auth_allow_anonymous_sign_ins",
+      "lint": "0012",
+      "level": "WARN",
+      "categories": ["SECURITY"],
+      "detail": "RLS policies enforced on roles that allow access to anonymous users. Affected tables (policy lists in raw transcript):",
+      "remediation": "https://supabase.com/docs/guides/database/database-advisors?lint=0012_auth_allow_anonymous_sign_ins",
+      "affected_tables": [
+        "public.blog_posts {blog_posts_admin_delete,blog_posts_admin_update,blog_posts_authenticated_select}",
+        "public.blog_tags {blog_tags_admin_all}",
+        "public.categories {categories_admin_delete,categories_admin_update}",
+        "public.contact_messages {contact_messages_admin_delete,contact_messages_admin_select,contact_messages_admin_update}",
+        "public.csp_reports {csp_reports_admin_select}",
+        "public.custom_itinerary_requests {Admins can delete requests, Users and admins can select requests, Users and admins can update requests}",
+        "public.customers {customers_admin_delete,customers_admin_select,customers_admin_update}",
+        "public.download_tokens {download_tokens_admin_delete,download_tokens_authenticated_select}",
+        "public.email_events {email_events_admin_select}",
+        "public.email_suppressions {email_suppressions_admin_select}",
+        "public.integration_logs {integration_logs_admin_delete,integration_logs_admin_select}",
+        "public.newsletter_consent_log {newsletter_consent_admin_select}",
+        "public.order_items {Admins can delete order_items, Admins can update order_items, Users and admins can select order_items}",
+        "public.orders {Admins can delete orders, Admins can update orders, Users and admins can select orders}",
+        "public.products {products_admin_delete,products_admin_update}",
+        "public.user_roles {user_roles_admin_delete,user_roles_admin_update,user_roles_select}",
+        "storage.objects {blog_images_admin_*, custom_itinerary_pdfs_admin_*, products_images_admin_*, products_pdfs_admin_*}"
+      ]
+    },
+    {
+      "name": "auth_leaked_password_protection",
+      "lint": "auth",
+      "level": "WARN",
+      "categories": ["SECURITY"],
+      "detail": "Leaked password protection is currently disabled (HaveIBeenPwned check).",
+      "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection",
+      "metadata": {"type": "auth", "entity": "Auth"}
+    }
+  ]
+}
