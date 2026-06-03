@@ -1,0 +1,98 @@
+Initialising login role...
+Connecting to remote database...
+Skipping migration 003_storage_buckets_DOCUMENTATION_ONLY.md... (file name must match pattern "<timestamp>_name.sql")
+
+  
+   Local | Remote         | Time (UTC)          
+  -------|----------------|---------------------
+   001   |                | 001                 
+   002   |                | 002                 
+   004   |                | 004                 
+   005   |                | 005                 
+   006   |                | 006                 
+   007   |                | 007                 
+   008   |                | 008                 
+   009   |                | 009                 
+   010   |                | 010                 
+   011   |                | 011                 
+   012   |                | 012                 
+   013   |                | 013                 
+   014   |                | 014                 
+   015   |                | 015                 
+   016   |                | 016                 
+   017   |                | 017                 
+   018   |                | 018                 
+   019   |                | 019                 
+   020   |                | 020                 
+   021   |                | 021                 
+   022   |                | 022                 
+   023   |                | 023                 
+   024   |                | 024                 
+   025   |                | 025                 
+   026   |                | 026                 
+   027   |                | 027                 
+   028   |                | 028                 
+   029   |                | 029                 
+   030   |                | 030                 
+   031   |                | 031                 
+   032   |                | 032                 
+   033   |                | 033                 
+   034   |                | 034                 
+   035   |                | 035                 
+   036   |                | 036                 
+   037   |                | 037                 
+   038   |                | 038                 
+   039   |                | 039                 
+   040   |                | 040                 
+   041   |                | 041                 
+   042   |                | 042                 
+   043   |                | 043                 
+   044   |                | 044                 
+   045   |                | 045                 
+   046   |                | 046                 
+         | 20260423191954 | 2026-04-23 19:19:54 
+         | 20260423192108 | 2026-04-23 19:21:08 
+         | 20260423192121 | 2026-04-23 19:21:21 
+         | 20260423192129 | 2026-04-23 19:21:29 
+         | 20260428083041 | 2026-04-28 08:30:41 
+         | 20260429102535 | 2026-04-29 10:25:35 
+         | 20260430093506 | 2026-04-30 09:35:06 
+         | 20260430100823 | 2026-04-30 10:08:23 
+         | 20260430214641 | 2026-04-30 21:46:41 
+         | 20260501221423 | 2026-05-01 22:14:23 
+         | 20260516230020 | 2026-05-16 23:00:20 
+         | 20260516230045 | 2026-05-16 23:00:45 
+         | 20260519171433 | 2026-05-19 17:14:33 
+         | 20260520161240 | 2026-05-20 16:12:40 
+         | 20260520170011 | 2026-05-20 17:00:11 
+         | 20260528100118 | 2026-05-28 10:01:18 
+         | 20260530103304 | 2026-05-30 10:33:04 
+         | 20260530150609 | 2026-05-30 15:06:09 
+         | 20260530213251 | 2026-05-30 21:32:51 
+         | 20260531120235 | 2026-05-31 12:02:35 
+         | 20260531182132 | 2026-05-31 18:21:32 
+
+
+============================================================
+ANALÝZA DRIFTU (zaznamenáno při Task 0.2, 2026-06-03)
+============================================================
+ZÁVĚR: VÝRAZNÝ DRIFT mezi LOCAL a REMOTE historií migrací.
+
+- LOCAL: 46 souborů 001–046 (3-místné názvy) — ŽÁDNÝ protějšek v remote.
+- REMOTE schema_migrations: 21 záznamů s 14-místnými timestamp verzemi
+  (20260423191954 … 20260531182132) — ŽÁDNÝ protějšek lokálně.
+- Sady jsou DISJUNKTNÍ (žádná verze se neshoduje), navíc různý počet (46 vs 21).
+
+PRAVDĚPODOBNÁ PŘÍČINA: remote schéma bylo budováno přes dashboard/MCP apply_migration/
+'db push' (timestamp verze) NEBO byly lokální soubory později přejmenovány na 001–046,
+zatímco remote historie si drží původní timestampy. Počet 21≠46 => není to čistý rename
+1:1; část lokálních souborů možná nebyla nikdy zapsána do remote historie, nebo více
+lokálních souborů odpovídá jednomu remote záznamu (či naopak).
+
+DOPAD NA AUDIT (Fáze 1–2): ŽÁDNÝ — auditujeme živé remote schéma introspekcí, ne historii.
+
+DOPAD NA KONSOLIDACI (Fáze 5): ZÁSADNÍ.
+- Cesta 1 'migration squash --linked' NELZE bezpečně použít (předpokládá shodu local↔remote).
+- => Použít CESTU 2: 'supabase db dump --linked --keep-comments' baseline + 'migration repair'
+  (remote 21 timestampů --status reverted; baseline --status applied), pak archiv 46 souborů.
+- Tím se sjednotí historie i repo na jedinou baseline odpovídající ŽIVÉMU schématu.
