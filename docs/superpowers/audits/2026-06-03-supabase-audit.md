@@ -48,11 +48,11 @@ Pozn.: 31× `unused_index` (0005) = **pre-launch šum** (idx_scan=0, žádný pr
 - **Dopad:** Resend posílá svix podpis, ne Supabase JWT → gateway request odmítne (401) před funkcí → bounce/complaint → `email_suppressions` pipeline **pravděpodobně tiše nefunguje** (odesílání na mrtvé adresy, poškození reputace, neúčinná GDPR suppression).
 - **Doporučení:** `[functions.resend-webhook] verify_jwt = false` v config.toml + redeploy. Ověřit logy/`email_events` (6 řádků existuje — prověřit, zda z webhooku).
 
-### 🟡 [MEDIUM] F3 — Leaked-password protection vypnutá
-- **Surface:** 6 (auth) · **Blok:** B5
+### 🟡 [MEDIUM] F3 — Leaked-password protection vypnutá → **ODLOŽENO NA PRO**
+- **Surface:** 6 (auth) · **Blok:** B5 · **Stav:** **deferred (plan-gated)**
 - **Důkaz:** security advisor `auth_leaked_password_protection` WARN (živý projekt).
-- **Severity:** Supabase to sám hodnotí jako **WARN**; blokuje jen signup/změnu hesla se *známě uniklým* heslem (není to exploitovatelná díra), admini navíc chráněni MFA → **MEDIUM**. Stále **pre-launch must-fix** (zákazníci mohou mít hesla).
-- **Doporučení (06/2026):** zapnout HaveIBeenPwned (`password_hibp_enabled=true`) — Auth → Providers → Email, nebo `PATCH /v1/projects/{ref}/config/auth`. (Live config, ne migrace.)
+- **⚠️ Plan-gating (ověřeno 06/2026):** dokumentace Supabase — *„Leaked password protection is available on the **Pro Plan and above**."* Projekt je na **Free** → nelze zapnout teď. → **odložit na Pro** (konec vývoje, dle [[project_pre_launch_secret_swap]] timeline). Advisor bude WARN hlásit do té doby = očekávané.
+- **Doporučení:** při přechodu na Pro zapnout `password_hibp_enabled=true` (Auth → Providers → Email, nebo `PATCH /v1/projects/{ref}/config/auth`).
 
 ### 🟠 [HIGH] F4 — secdef funkce manipulovatelné anonem (0028/0029)
 - **Surface:** 3 (functions) · **Blok:** B1
@@ -79,7 +79,7 @@ Pozn.: 31× `unused_index` (0005) = **pre-launch šum** (idx_scan=0, žádný pr
 
 ### 🟢 LOW nálezy (souhrn)
 - **F8** — `notify_vercel_blog_publish` + `update_all_products_in_order` + `update_product_total_sales` mají anon/auth EXECUTE. notify vrací `trigger` (PostgREST RPC nevystaví), ostatní jsou trigger fce → ne přímo zneužitelné. Revoke = hygiena. (B1)
-- **F9** — `pg_net` v `public` (0014). **Ověřeno:** relokace NENÍ triviální `ALTER EXTENSION SET SCHEMA` (jako PostGIS); doporučená cesta `drop+create extension pg_net schema extensions`, ale pg_net používá trigger `notify_vercel_blog_publish` → **invazivní**. → buď opatrně (+ re-test deploy trigger), nebo **vědomě ponechat** (WARN, ne exploit). **Rozhodnutí uživatele.** (B5)
+- **F9** — `pg_net` v `public` (0014). **Ověřeno:** relokace NENÍ triviální `ALTER EXTENSION SET SCHEMA` (jako PostGIS); doporučená cesta `drop+create extension pg_net schema extensions`, ale pg_net používá trigger `notify_vercel_blog_publish` → **invazivní**. → **ROZHODNUTO (uživatel): přesunout OPATRNĚ** do `extensions` + re-test blog-deploy triggeru (net.http_post). Migrace v bloku B4-infrastruktura, samostatně s ověřením triggeru. (B4)
 - **F10** — redundantní `idx_orders_stripe_payment_id` (duplikát UNIQUE constraint indexu `orders_stripe_payment_id_key`) → drop. (B4)
 - **F11** — config.toml `enable_anonymous_sign_ins=false` je **stale** (živě 15 anon users → ON, záměrná feature). Sjednotit na `true`. (B5, doc)
 - **F12** — nekonzistentní `search_path` (`''` vs `public`) napříč funkcemi → sjednotit na `''`. Kosmetika (funkčně OK, kvalifikované názvy). (B4)
@@ -94,8 +94,11 @@ Migrace navazují na `046` (tj. `047_…`+). Každý blok = smyčka: napsat → 
 - **B1 — Bezpečnost DB (CRITICAL+HIGH):** drop 2 broad SELECT policies na `download_tokens` (F1); `revoke execute` na `increment_download_count`, `increment_email_resend_count` (F4) + `notify_vercel_blog_publish` a 2 trigger fce (F8) od anon/authenticated. → migrace.
 - **B2 — Integrita:** **žádné DB integritní nálezy** (PK/FK/constraints/kaskády čisté). Přeskočit.
 - **B3 — RLS sjednocení:** `blog_tags` 0006 konsolidace (F7); volitelně sjednotit pojmenování policies (snake_case vs „Admins can…"). → migrace.
-- **B4 — Výkon/indexy:** drop `idx_orders_stripe_payment_id` (F10); sjednotit `search_path` funkcí na `''` (F12). Unused indexy (0005) **ponechat** (pre-launch). → migrace.
-- **B5 — Auth/config (dashboard/API + config.toml, NE SQL migrace):** zapnout leaked-password (F3); min length ≥8 + requirements (F6); config.toml anon sign-ins=true (F11); rozhodnout pg_net (F9).
+- **B4 — Výkon/indexy + infra:** drop `idx_orders_stripe_payment_id` (F10); sjednotit `search_path` funkcí na `''` (F12); **pg_net přesun do `extensions` OPATRNĚ + re-test blog-deploy triggeru (F9)** — samostatná migrace s ověřením `net.http_post`. Unused indexy (0005) **ponechat**. → migrace.
+- **B5 — Auth/config (dělá UŽIVATEL na dashboardu; část plan-gated):**
+  - F3 leaked-password (HIBP) = **Pro-only → ODLOŽENO na Pro** (konec vývoje). Nelze na Free.
+  - F6 min length ≥8 + required characters = **Free → uživatel zapne nyní** (dashboard).
+  - F11 config.toml `enable_anonymous_sign_ins=true` reconcile = **udělá Claude** (lokální config soubor, ne live).
 - **B6 — Edge funkce:** `resend-webhook` verify_jwt=false + redeploy (F2); `get-order-by-session` fix expires_at (F5) + ownership check (F13). → kód + config.toml + deploy.
 
 ---
