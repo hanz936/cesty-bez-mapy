@@ -31,7 +31,7 @@ spoléhání na trénovací data).
 | **Rozsah** | Úplně vše vč. hloubkového bezpečnostního code-review všech 14 edge funkcí |
 | **Stav DB** | Pre-launch, bez reálných zákazníků, ale **data zachovat** — žádný destruktivní reset remote |
 | **Nálezy** | Plný report → schválení → opravit vše (bezpečnost i konzistence) jako migrace s review per blok → pak konsolidace |
-| **Strategie konsolidace** | **Zafixovat až po ověření aktuálních Supabase doků 06/2026** (Context7/Firecrawl), pak finální doporučení + rozhodovací gate |
+| **Strategie konsolidace** | Ověřeno proti dokům 06/2026 (viz §12) → **varianta A: `supabase migration squash --linked`** (primárně), s `db dump` baseline + `migration repair` jako fallback. Declarative (B) zamítnuta. Rozhodovací gate na potvrzení zůstává. |
 | **Umístění** | Spec + audit report ve frontend repu `cesty-bez-mapy/docs/superpowers/` |
 
 ## 4. Rozsah auditu — surfaces
@@ -53,7 +53,10 @@ spoléhání na trénovací data).
    přes anon klíč
 9. **Síť & secrets** — network restrictions, Vault, žádné hardcoded secrets
 10. **Edge funkce (14)** — autorizace (JWT/service-role), validace vstupů, CORS, leaky
-    secretů, error handling, idempotence (Stripe/Resend/Fakturoid webhooky)
+    secretů, error handling, idempotence (Stripe/Resend/Fakturoid webhooky). **Cross-check
+    `verify_jwt`:** každá funkce s `verify_jwt = false` (webhooky — Stripe, Resend, CSP report)
+    musí dělat vlastní ověření podpisu (Stripe signature, svix/Resend), jinak je veřejně
+    volatelná bez autentizace.
 
 ## 5. Metodika
 
@@ -66,6 +69,23 @@ spoléhání na trénovací data).
   notes a blog, které Context7 nepokrývá.
 - **Výstup:** audit report se severitami **Critical / High / Medium / Low** + konkrétní
   remediation per nález.
+
+**Páteř automatizovaného sweepu — Supabase advisor linty (katalog 06/2026, `supabase/splinter`):**
+`get_advisors` projede 0001–0029. Mapování na surfaces (ne vyčerpávající):
+
+| Lint | Surface |
+|------|---------|
+| 0001 unindexed FKs, 0005 unused index, 0009 duplicate index, 0020 table bloat | 4 výkon |
+| 0004 no primary key, 0018 unsupported reg types, 0021 fkey to auth unique | 1 integrita |
+| 0003 auth rls initplan, 0006 multiple permissive policies, 0007 policy exists rls disabled, 0008 rls enabled no policy, 0013 rls disabled in public, 0015 rls references user metadata, 0024 permissive rls policy | 2 RLS |
+| 0010 security definer view, 0011 function search path mutable, 0028/0029 anon/authenticated sec-definer fn executable | 3 funkce |
+| 0014 extension in public, 0022 extension versions outdated | 5 extensions |
+| 0012 auth allow anonymous sign ins | 6 auth |
+| 0025 public bucket allows listing | 7 storage |
+| 0002 auth users exposed, 0016 materialized view in api, 0017 foreign table in api, 0019 insecure queue exposed in api, 0023 sensitive columns exposed, 0026/0027 pg_graphql anon/authenticated table exposed | 8 API expozice |
+
+Advisory pokrývá automatizovatelnou část; surfaces 9 (síť/secrets) a 10 (edge funkce) se
+auditují ručně + přes code-review/security-review.
 
 ## 6. Nástroje, skills a pluginy
 
@@ -107,8 +127,8 @@ spoléhání na trénovací data).
 
 1. **Discovery sweep** — `get_advisors` + introspekční SQL → syrový stav remote. Bez změn.
 2. **Verifikace best practices** — pro každou kategorii nálezů ověřit doporučení 06/2026
-   (Context7 + Firecrawl). **Zde se zafixuje strategie konsolidace** (viz §8) → finální
-   doporučení + rozhodovací gate.
+   (Context7 + Firecrawl). *(Strategie konsolidace už ověřena → §8/§12; potvrzení varianty
+   řeší rozhodovací gate před krokem 6.)*
 3. **Audit report** — `docs/superpowers/audits/2026-06-03-supabase-audit.md` se severitami a
    konkrétní remediací. **Review gate: schválení, než se cokoliv mění.**
 4. **Remediation po blocích** — opravy seskupené do logických migrací v pořadí:
@@ -117,32 +137,47 @@ spoléhání na trénovací data).
    ověření přes advisors. **Review gate per blok.**
 5. **Regenerace typů** — `generate_typescript_types` → aktualizace v repech, kde se typy
    používají.
-6. **Konsolidace** — až je remote čistý a stabilní: baseline dle zvolené strategie (§8),
-   archivace 46 migrací, `migration repair`, **verifikace `db reset` + `db diff` = nulový
-   drift**.
+6. **Konsolidace** — až je remote čistý a stabilní: pre-flight `migration list` (drift),
+   pak `migration squash --linked` (nebo `db dump` baseline fallback) dle §8, archivace 46
+   migrací, **verifikace `db reset` + `db diff` = nulový drift**.
 7. **Doc reconciliation** — nahradit zastaralé `MIGRATIONS.md` / RLS docs aktuálním stavem;
    uklidit `RLS_AUDIT_PROMPT.md` / `RLS_UNIFICATION_PROPOSAL` (splněno/archiv).
 
-## 8. Strategie konsolidace migrací
+## 8. Strategie konsolidace migrací (ověřeno 06/2026)
 
-**Mechanika společná všem variantám:** zachovat data (žádný remote reset), upravit jen
-*historii migrací* přes `migration repair`, verifikovat nulový drift přes `db reset` (lokálně)
-+ `db diff` (proti remote) před zafixováním.
+**Mechanika společná:** zachovat data (žádný remote reset), upravit jen *historii migrací*,
+verifikovat nulový drift přes `db reset` (lokálně) + `db diff` (proti remote) před zafixováním.
+Doloženo: `migration repair` „updates the tracking table only — it does not apply or revert
+any SQL" → bezpečné pro data.
 
-**Varianty k rozhodnutí (zafixuje se v kroku 2 po ověření doků 06/2026):**
+**Krok 0 — pre-flight drift check:** `supabase migration list` (LOCAL vs REMOTE). Určí cestu:
+- **shoda historie** → čistá cesta přes `migration squash`
+- **drift** (remote má migrace navíc / lokál chybí) → fallback baseline dump
 
-- **A — Baseline dump + repair** *(výchozí doporučení)*: jedna baseline migrace z remote
-  `db dump` (jen schéma vč. RLS, grantů, funkcí, triggerů, extensions, storage policies),
-  lehká kuratela (hlavičky/domény/komentáře), archivace 46, repair historie. Spolehlivé,
-  deterministické, nulová odchylka od reality.
-- **B — Deklarativní schema**: přechod na `schemas/*.sql` po doménách jako zdroj pravdy
-  (`[db.migrations] schema_paths` už je v `config.toml`). Modernější, ale větší změna
-  workflow — zvolit **jen pokud to ověření doků 06/2026 vyloženě doporučí**.
-- **C — Ručně psaná migrace**: jedna čistá kuratovaná migrace od ruky. Nejčitelnější, ale
-  pracné a náchylné k odchylce od remote.
+**Zvolená varianta: A — squash do jedné baseline.** Dvě cesty stejného cíle:
 
-**Rozhodovací gate:** po ověření doků předložit finální doporučení; uživatel potvrdí variantu
-před provedením konsolidace.
+1. **Primárně `supabase migration squash --linked`** *(first-class příkaz)* — vytvoří jeden
+   soubor „equivalent to a schema-only dump after applying existing migrations" a srovná
+   remote historii. Funguje, když lokál == remote (viz krok 0).
+2. **Fallback `supabase db dump -f …_baseline.sql`** + vyčištění/repair historie remote
+   (`migration repair --status reverted` pro staré, baseline jako applied) — robustní i při
+   driftu (community-validated brownfield postup). Zachytí plné schéma vč. RLS, grantů,
+   funkcí, triggerů, extensions, storage policies.
+
+Po vytvoření baseline: lehká kuratela (hlavičky/domény/komentáře), archivace 46 původních.
+
+**Zamítnuto — B (deklarativní schema):** `migra` diff podle doků 06/2026 prokazatelně
+**nezachytí** `alter policy`, owner/grants u views, `security invoker` views, materialized
+views, schema privileges, comments, partitions, grants (duplikují se z default privileges).
+To je přesně to, na čem tento projekt stojí (RLS policies, revoke execute z migrace 032,
+comments). Pro konsolidaci nespolehlivé. *(Pozn.: declarative lze později zvážit pro průběžný
+vývoj, ale RLS/grants/comments by stejně musely zůstat ve versioned migracích.)*
+
+**Zamítnuto — C (ručně psaná):** zbytečně pracné a náchylné k odchylce, když squash/dump dá
+deterministicky přesný stav.
+
+**Rozhodovací gate:** před krokem 6 potvrdíš variantu A (a po kroku 0 zvolenou cestu 1 vs 2);
+teprve pak konsolidace.
 
 ## 9. Rizika a mitigace
 
@@ -172,3 +207,27 @@ před provedením konsolidace.
 - **Jedna** baseline migrace; `db reset` lokálně + `db diff` proti remote = **nulový drift**;
   remote data nedotčena
 - Audit report a reconciliovaná dokumentace odpovídají reálnému stavu k 06/2026
+
+## 12. Ověření proti dokumentaci (06/2026)
+
+Spec ověřen přes **Context7** (`/supabase/cli`, `/websites/supabase`) a **Firecrawl**
+(scrape oficiálních docs + community discussion). Klíčová potvrzení:
+
+- **`supabase migration squash`** je existující first-class příkaz (flag `--linked` pro
+  remote historii); squash == schema-only dump po aplikaci migrací. → primární cesta varianty A.
+- **`supabase migration repair --status applied|reverted`** mění **jen tracking tabulku**,
+  neaplikuje/nereverte SQL. → bezpečné pro zachování dat.
+- **Declarative schema caveats** (`migra` diff): nezachytí `alter policy`, view owner/grants,
+  `security invoker` views, materialized views, schema privileges, comments, partitions, grants.
+  → varianta B zamítnuta pro tento RLS/grant/comment-heavy projekt.
+- **RLS perf**: `(select auth.uid())` initPlan caching potvrzeno; security-definer fce nikdy
+  v exposed schématu. (advisor `0003`, `0010`, `0011`)
+- **Advisor lint katalog 0001–0029** (`supabase/splinter`) = páteř discovery sweepu (viz §5).
+- **Edge funkce**: `verify_jwt = false` → funkce musí dělat vlastní ověření podpisu (webhooky).
+- **Brownfield konsolidace** (community-validated): při driftu historie `db dump -f baseline`
+  + vyčištění/repair `supabase_migrations.schema_migrations` → fallback cesta varianty A.
+
+**Zdroje:** supabase.com/docs — local-development/declarative-database-schemas,
+database/database-advisors, deployment/database-migrations, database/postgres/row-level-security,
+functions/function-configuration; CLI reference (migration squash/repair); supabase/cli
+discussion #40721. Lokální kopie scrapů v `.firecrawl/` (gitignored).
