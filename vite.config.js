@@ -64,7 +64,7 @@ export default defineConfig({
     target: 'esnext', // Modern browsers
     minify: 'esbuild', // Fast minification
     cssMinify: true,
-    sourcemap: true, // needed so Sentry can upload + then delete maps (not shipped publicly)
+    sourcemap: 'hidden', // emit maps for Sentry upload but omit //# sourceMappingURL (maps deleted after upload; avoids 404s)
     
     // Output directory
     outDir: 'dist',
