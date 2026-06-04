@@ -395,3 +395,9 @@ verify_jwt = false
 
 [functions.csp-report]
 verify_jwt = false
+
+# Resend posílá webhooky se svix podpisem (ne Supabase JWT). Ověření probíhá v kódu
+# (svix signature + RESEND_WEBHOOK_SECRET), proto gateway JWT check vypínáme —
+# jinak by gateway externí webhook odmítl (401) ještě před funkcí. (audit 2026-06-03, F2)
+[functions.resend-webhook]
+verify_jwt = false

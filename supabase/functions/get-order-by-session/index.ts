@@ -136,19 +136,22 @@ Deno.serve(withSentry(async (req) => {
 
     console.log(`Found order: ${order.id}`);
 
-    // Verify ownership - session email must match order email
-    if (session.customer_details?.email && order.customer_email &&
-        session.customer_details.email.toLowerCase() !== order.customer_email.toLowerCase()) {
+    // Verify ownership — session email must match order email (fail-closed:
+    // deny if the session has no email or it does not match the order). (audit F13)
+    const sessionEmail = session.customer_details?.email?.toLowerCase() ?? null;
+    if (!sessionEmail || !order.customer_email ||
+        sessionEmail !== order.customer_email.toLowerCase()) {
       return new Response(
         JSON.stringify({ error: "Přístup odepřen" }),
         { status: 403, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
-    // Načtení download tokenu
+    // Načtení download tokenu (tokeny jsou perpetual — bez expirace; sloupec
+    // expires_at neexistuje, dřív kvůli němu select chyboval a token se nevracel). (audit F5)
     const { data: downloadToken, error: tokenError } = await supabase
       .from("download_tokens")
-      .select("token, expires_at")
+      .select("token")
       .eq("order_id", order.id)
       .single();
 
@@ -202,7 +205,7 @@ Deno.serve(withSentry(async (req) => {
           items: items,
         },
         download_token: downloadToken?.token || null,
-        download_expires_at: downloadToken?.expires_at || null,
+        download_expires_at: null, // tokeny jsou perpetual (bez expirace) — zachováno kvůli stabilitě API tvaru
       }),
       {
         status: 200,
