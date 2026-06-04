@@ -118,3 +118,31 @@ Migrace navazují na `046` (tj. `047_…`+). Každý blok = smyčka: napsat → 
 - **Fáze 4:** regenerace TS typů (po B1–B4 změnách schématu).
 - **Fáze 5:** konsolidace 46 migrací → 1 baseline. **POZOR — drift:** local 001–046 vs remote 21 timestampů jsou disjunktní ([`00-migration-list-before.txt`](./2026-06-03-evidence/00-migration-list-before.txt)) → **Cesta 2** (`db dump --keep-comments` baseline + `migration repair`), NE `squash`. `migration repair` mění **jen tracking tabulku** (žádný apply/revert SQL → data netknuta). Lehčí kanonická alternativa: `supabase db pull` (zapíše remote-schema migraci + auto-repair historie v jednom kroku) — dump+repair je ekvivalent s větší kontrolou nad názvem baseline a `--keep-comments`. **Před repairem vzít `db dump --data-only` zálohu** (belt-and-suspenders).
 - **Fáze 6:** reconciliace docs (MIGRATIONS.md, CLAUDE.md, archiv RLS návrhů).
+
+---
+
+## Stav remediace (aktualizováno 2026-06-04)
+
+**Fáze 3 dokončena — všechny akční nálezy opraveny, aplikovány na remote a ověřeny advisorem.**
+
+| Nález | Stav | Důkaz |
+|---|---|---|
+| F1 download_tokens RLS (CRITICAL) | ✅ DONE | migrace 047; advisor 0028/0029 pryč, jen admin policies zůstaly |
+| F4 increment_* secdef exec | ✅ DONE | 047; anon/auth EXECUTE=false, svc=true |
+| F8 trigger fn execute (PUBLIC) | ✅ DONE | 047; revoke from public |
+| F7 blog_tags 0006 | ✅ DONE | 048; advisor 0006 pryč |
+| F10 redundant index | ✅ DONE | 048; idx_orders_stripe_payment_id dropnut |
+| F12 search_path '' | ✅ DONE | 048; 3 funkce na '' (runtime smoke-test OK) |
+| F9 pg_net → extensions | ✅ DONE | 049 (drop+recreate); advisor 0014 pryč; notify trigger valid |
+| F2 resend-webhook verify_jwt=false | ✅ DONE | config.toml + deploy v6; deployed verify_jwt=false |
+| F5 get-order-by-session expires_at | ✅ DONE | deploy v20; select("token") |
+| F13 ownership fail-closed | ✅ DONE | deploy v20 |
+| F11 config.toml anon=true | ✅ DONE | reconcile na živý stav |
+| **F3 leaked-password (HIBP)** | ⏸ DEFERRED | **Pro-only** → při přechodu na Pro |
+| **F6 password length ≥8** | ⏳ USER | dashboard (Free) — dělá uživatel |
+
+**Vědomě ponecháno (advisor stále hlásí, OK):** 0008 fakturoid_tokens (deny-all), 0012 anonymous-access (admin policies gated `is_admin()` který vylučuje anon), 0005 unused indexes (pre-launch).
+
+**Migrace 047–049** aplikovány na remote přes MCP `apply_migration` (každá ověřena: `db reset --local` + introspekce + advisor re-run + review-subagent u rizikových). Data zachována (žádný remote reset).
+
+**Zbývá:** Fáze 5 (konsolidace 46+3 migrací → 1 baseline, Cesta 2) — gate před začátkem. Fáze 6 (docs).
