@@ -3,7 +3,7 @@
 // ================================================
 // Issues a Fakturoid invoice for a paid order, downloads the PDF, and sends
 // it to the customer via Resend (through the shared sendEmail wrapper).
-// Idempotent on facturoid_invoice_id.
+// Idempotent on fakturoid_invoice_id.
 //
 // Actions:
 //   create              — first-time invoice for a paid order
@@ -83,7 +83,7 @@ const fakturoid = new FakturoidClient(CFG, fetch, { persister });
 
 async function logIntegration(orderId: string, action: string, success: boolean, error?: string) {
   await supabase.from("integration_logs").insert({
-    service: "facturoid",
+    service: "fakturoid",
     action,
     success,
     metadata: { order_id: orderId, error: error ?? null },
@@ -185,8 +185,8 @@ async function sendStornoInvoiceEmailFor(
 
 async function actionCreate(orderId: string): Promise<Response> {
   const { order, items } = await loadOrderWithItems(orderId);
-  if (order.facturoid_invoice_id) {
-    return jsonOk({ status: "already_invoiced", invoice_id: order.facturoid_invoice_id });
+  if (order.fakturoid_invoice_id) {
+    return jsonOk({ status: "already_invoiced", invoice_id: order.fakturoid_invoice_id });
   }
   if (order.is_company && order.company_ico && !isValidIco(order.company_ico)) {
     const err = `Invalid IČO: ${order.company_ico}`;
@@ -211,9 +211,9 @@ async function actionCreate(orderId: string): Promise<Response> {
       await sendAlertEmail(orderId, "record_payment", `Platba se nepodařilo zaznamenat na faktuře: ${msg}`);
     }
     await supabase.from("orders").update({
-      facturoid_invoice_id: String(invoice.id),
-      facturoid_invoice_number: invoice.number,
-      facturoid_invoice_url: invoice.public_html_url,
+      fakturoid_invoice_id: String(invoice.id),
+      fakturoid_invoice_number: invoice.number,
+      fakturoid_invoice_url: invoice.public_html_url,
       invoice_error: null,
     }).eq("id", orderId);
     await logIntegration(orderId, "create_invoice", true);
@@ -230,15 +230,15 @@ async function actionCreate(orderId: string): Promise<Response> {
 
 async function actionResendEmail(orderId: string): Promise<Response> {
   const { order } = await loadOrderWithItems(orderId);
-  if (!order.facturoid_invoice_id || !order.facturoid_invoice_number) {
+  if (!order.fakturoid_invoice_id || !order.fakturoid_invoice_number) {
     return jsonOk({ status: "no_invoice" });
   }
   const attempt = Date.now();
   try {
     await sendInvoiceEmailFor(
       order,
-      Number(order.facturoid_invoice_id),
-      order.facturoid_invoice_number,
+      Number(order.fakturoid_invoice_id),
+      order.fakturoid_invoice_number,
       `invoice-retry/${order.id}/${attempt}`,
     );
     return jsonOk({ status: "resent" });
@@ -252,16 +252,16 @@ async function actionResendEmail(orderId: string): Promise<Response> {
 
 async function actionStornoInvoice(orderId: string): Promise<Response> {
   const { order, items } = await loadOrderWithItems(orderId);
-  if (!order.facturoid_invoice_id || !order.facturoid_invoice_number) {
+  if (!order.fakturoid_invoice_id || !order.fakturoid_invoice_number) {
     return jsonOk({ status: "no_invoice" });
   }
-  if (order.facturoid_storno_id) {
-    return jsonOk({ status: "already_stornoed", storno_id: order.facturoid_storno_id });
+  if (order.fakturoid_storno_id) {
+    return jsonOk({ status: "already_stornoed", storno_id: order.fakturoid_storno_id });
   }
   try {
     const subjectPayload = mapOrderToSubject(order);
     const subject = await fakturoid.findOrCreateSubject(subjectPayload);
-    const payload = mapOrderToStornoInvoice(order, items, subject.id, order.facturoid_invoice_number);
+    const payload = mapOrderToStornoInvoice(order, items, subject.id, order.fakturoid_invoice_number);
     const storno = await fakturoid.createInvoice(payload);
     // Record the refund payment on the storno invoice (default amount = remaining,
     // which is negative for storno → correctly records "money out").
@@ -274,11 +274,11 @@ async function actionStornoInvoice(orderId: string): Promise<Response> {
       await sendAlertEmail(orderId, "record_payment", `Platba se nepodařilo zaznamenat na storno faktuře: ${msg}`);
     }
     await supabase.from("orders").update({
-      facturoid_storno_id: String(storno.id),
-      facturoid_storno_number: storno.number,
+      fakturoid_storno_id: String(storno.id),
+      fakturoid_storno_number: storno.number,
     }).eq("id", orderId);
     await logIntegration(orderId, "create_storno", true);
-    await sendStornoInvoiceEmailFor(order, storno.id, storno.number, order.facturoid_invoice_number);
+    await sendStornoInvoiceEmailFor(order, storno.id, storno.number, order.fakturoid_invoice_number);
     return jsonOk({ status: "stornoed", storno_id: storno.id });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -290,9 +290,9 @@ async function actionStornoInvoice(orderId: string): Promise<Response> {
 
 async function actionCancelAndReissue(orderId: string): Promise<Response> {
   const { order } = await loadOrderWithItems(orderId);
-  if (!order.facturoid_invoice_id) return await actionCreate(orderId);
-  const oldId = order.facturoid_invoice_id;
-  const oldNumber = order.facturoid_invoice_number;
+  if (!order.fakturoid_invoice_id) return await actionCreate(orderId);
+  const oldId = order.fakturoid_invoice_id;
+  const oldNumber = order.fakturoid_invoice_number;
   try {
     await fakturoid.cancelInvoice(Number(oldId));
     await logIntegration(orderId, "cancel_invoice", true);
@@ -305,9 +305,9 @@ async function actionCancelAndReissue(orderId: string): Promise<Response> {
   // Null-out + recreate; on failure, persist the cancelled invoice ID into
   // invoice_error so the admin can recover the reference manually.
   await supabase.from("orders").update({
-    facturoid_invoice_id: null,
-    facturoid_invoice_number: null,
-    facturoid_invoice_url: null,
+    fakturoid_invoice_id: null,
+    fakturoid_invoice_number: null,
+    fakturoid_invoice_url: null,
     invoice_sent: false,
     invoice_sent_at: null,
   }).eq("id", orderId);

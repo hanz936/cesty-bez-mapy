@@ -76,11 +76,11 @@ export interface OrderRow {
   total_amount: string;
   stripe_payment_id: string;
   status: string;
-  facturoid_invoice_id: string | null;
-  facturoid_invoice_number: string | null;
-  facturoid_invoice_url: string | null;
-  facturoid_storno_id: string | null;
-  facturoid_storno_number: string | null;
+  fakturoid_invoice_id: string | null;
+  fakturoid_invoice_number: string | null;
+  fakturoid_invoice_url: string | null;
+  fakturoid_storno_id: string | null;
+  fakturoid_storno_number: string | null;
   invoice_sent: boolean;
   invoice_sent_at: string | null;
   invoice_error: string | null;
