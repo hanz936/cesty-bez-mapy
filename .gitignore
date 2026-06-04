@@ -60,6 +60,11 @@ backups/
 !supabase/migrations/*.sql
 # EXCEPTION: Allow archived pre-baseline migrations (konsolidace 2026-06-04)
 !supabase/_archive/migrations-pre-baseline/*.sql
+# EXCEPTION: Allow pgTAP test files
+!supabase/tests/
+!supabase/tests/**
+!supabase/tests/database/
+!supabase/tests/database/*.sql
 
 # Large and binary files
 *.zip
