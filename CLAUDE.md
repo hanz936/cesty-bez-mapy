@@ -101,6 +101,7 @@ VITE_DEBUG=true
 - [supabase.js](src/lib/supabase.js) - Supabase klient
 - [routes.js](src/constants/routes.js) - Definice všech rout (ROUTES objekt)
 - [vite.config.js](vite.config.js) - Build konfigurace, aliasy, chunk splitting
+- Database naming standard: [supabase/CONVENTIONS.md](supabase/CONVENTIONS.md) — vynucováno pgTAP lint guardem
 
 ## E-commerce flow
 
