@@ -146,3 +146,27 @@ Migrace navazují na `046` (tj. `047_…`+). Každý blok = smyčka: napsat → 
 **Migrace 047–049** aplikovány na remote přes MCP `apply_migration` (každá ověřena: `db reset --local` + introspekce + advisor re-run + review-subagent u rizikových). Data zachována (žádný remote reset).
 
 **Zbývá:** Fáze 5 (konsolidace 46+3 migrací → 1 baseline, Cesta 2) — gate před začátkem. Fáze 6 (docs).
+
+---
+
+## Fáze 5 + 6 dokončeny (2026-06-04)
+
+**Konsolidace 49 → 1 baseline (Cesta 2):**
+- `supabase/migrations/00000000000000_baseline.sql` = živé schéma (`db dump --keep-comments`)
+  + storage object policies (16) + explicitní function execute granty + auth.users triggery (2).
+  Posledních 3 sekce `db dump` na Supabase localu nereprodukuje (managed schémata + default privileges).
+- Původní migrace 001–049 → `supabase/_archive/migrations-pre-baseline/` (49 souborů, tracked).
+- Remote historie srovnána: `migration repair` 24 timestampů → reverted, baseline → applied.
+- **Verifikace:** `db reset --local` projde; introspekční hash schématu (tabulky/RLS, 67 policies
+  public+storage, 14 funkcí, execute granty, extensions, public+auth triggery) **identický local==remote**
+  (`8e26cb81…`, mimo base-image pg_graphql); `migration list --linked` = jen baseline na obou stranách;
+  `db diff --linked` čistý (jen 4 policy = známé migra false-positives, introspekcí prokázané identické).
+- Data zachována (záloha `db dump --data-only` vzata; repair mění jen tracking tabulku).
+
+**Reconciliace docs:** MIGRATIONS.md přepsán na baseline stav; RLS_AUDIT_PROMPT/RLS_UNIFICATION_PROPOSAL/
+rls-policies-audit-v2 → `_archive`; admin CLAUDE.md ref „migrace 035" → baseline.
+
+**Finální advisor (end-state):** akční linty pryč (0028/0029, 0014, 0006). Zbývají vědomě ponechané:
+0008 (deny-all), 0012 anon-access (admin policies gated `is_admin()`), leaked-password (Pro-deferred).
+
+**AUDIT KOMPLETNÍ.** Otevřené akce na uživateli: F6 (password ≥8, Free, dashboard), F3 (leaked-password, při přechodu na Pro).
