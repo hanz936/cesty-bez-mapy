@@ -29,9 +29,28 @@ Závazný standard pojmenování pro Postgres schéma (`public`). Vynucováno pg
 
 ## Funkce
 - `snake_case` verb_noun; predikáty `is_*`.
-- `SECURITY DEFINER` ⇒ povinně `set search_path = ''` (+ explicitní `public.` reference). Default `security invoker`.
+- **Každá funkce** nastavuje `set search_path = ''` a všechny reference plně kvalifikuje
+  (`public.…`, `extensions.…`). Povinné u `SECURITY DEFINER`; projektový standard i pro
+  `SECURITY INVOKER`. Default `security invoker`.
 
 ## Typy a komentáře
 - `text` (ne `varchar`), `jsonb` (ne `json`), `timestamptz` (ne `timestamp`).
 - Enumy: `text + CHECK`, povolené hodnoty v komentáři sloupce. Žádné native `enum` typy.
 - Komentáře **anglicky**; každá tabulka + netriviální sloupec má `COMMENT`.
+
+## Vynucování (pgTAP guard)
+
+`supabase/tests/database/00_naming_conventions.test.sql` (běží přes `supabase test db`,
+v CI `.github/workflows/db-lint.yml`) mechanicky vynucuje:
+
+1. žádný identifikátor ani tělo funkce neobsahuje `facturoid`;
+2. indexy `idx_*` mají plný název tabulky jako prefix;
+3. RLS policy (schémata `public` + `storage`) dodržují `<table>_<audience>_<action>`;
+4. constrainty mají suffix `_fkey` / `_key` / `_check`;
+5. **všechny** funkce mají `search_path = ''`;
+6. user triggery mají prefix `trg_`;
+7. type-preference (žádné `varchar` / `char` / `json` / `timestamp`-bez-tz);
+8. každá public tabulka má `COMMENT`.
+
+Mimo strojové vynucování (drží se dokumentací): plural tabulek (lingvistické),
+anglické komentáře a obsah komentářů u CHECK/enum sloupců.
