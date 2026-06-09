@@ -21,7 +21,7 @@
 | **FÁZE 4:** Blog Systém + Admin | ⏳ ČÁSTEČNĚ | 50% | Admin hotov, Frontend chybí |
 | **FÁZE 5:** Kvíz Systém | ⏳ ČÁSTEČNĚ | 30% | Možná už existuje na webu |
 | **FÁZE 6:** SEO, Analytics & Polish | ⏸️ ČEKÁ | 0% | Po FÁZI 3 |
-| **FÁZE 7:** Ecomail + Facturoid | ⏸️ ČEKÁ | 0% | Za ~8 týdnů |
+| **FÁZE 7:** Ecomail + Fakturoid | ⏸️ ČEKÁ | 0% | Za ~8 týdnů |
 | **FÁZE 8:** Testing, Legal & Launch | ⏸️ ČEKÁ | 0% | Finální fáze |
 
 ### ⚠️ Zbývající práce (TODO)
@@ -170,7 +170,7 @@ Nejsou kritické pro MVP, ale měly by být adresovány postupně.
 - ✅ Automatické dodání PDF po platbě
 - ✅ Platby přes Stripe
 - ✅ GDPR-friendly analytics (Plausible)
-- ✅ **Automatická integrace Ecomail + Facturoid**
+- ✅ **Automatická integrace Ecomail + Fakturoid**
 
 ---
 
@@ -191,7 +191,7 @@ Nejsou kritické pro MVP, ale měly by být adresovány postupně.
 - Resend (transactional emails) nebo Ecomail API
 - Ecomail (marketing + newsletter)
 - Plausible Analytics (220 Kč/měsíc)
-- Facturoid (fakturace, 219 Kč/měsíc)
+- Fakturoid (fakturace, 219 Kč/měsíc)
 
 **Hosting:**
 - Vercel (FREE tier → PRO při růstu)
@@ -209,7 +209,7 @@ Resend: 0 Kč
 Stripe: 0 Kč (jen % z prodejů: 1.5% + 3 Kč/transakce)
 Plausible: 220 Kč
 Ecomail: 249 Kč
-Facturoid: 219 Kč
+Fakturoid: 219 Kč
 ────────────────
 CELKEM: 688 Kč/měsíc
 ```
@@ -221,7 +221,7 @@ Supabase PRO: 620 Kč
 Resend: ~200 Kč
 Plausible: 220-440 Kč
 Ecomail Marketer+: 549 Kč
-Facturoid: 219 Kč
+Fakturoid: 219 Kč
 + Stripe fees (~1.5% z obratu)
 ────────────────
 CELKEM: ~2 300 Kč/měsíc + Stripe fees
@@ -256,7 +256,7 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
 
    E-commerce:
    - orders (id, customer_id, customer_email, customer_name, total_amount, currency,
-            stripe_payment_id, status, facturoid_invoice_id, facturoid_invoice_number,
+            stripe_payment_id, status, fakturoid_invoice_id, fakturoid_invoice_number,
             invoice_sent, ecomail_synced)
    - order_items (id, order_id, product_id, quantity, price_at_purchase, vat_rate_at_purchase)
    - download_tokens (id, order_id, token, expires_at)
@@ -803,7 +803,7 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
    - Děkujeme za nákup
    - Email s download linkem byl odeslán
    - Odkaz na stažení (rovnou)
-   - Faktura (Facturoid integrace optional)
+   - Faktura (Fakturoid integrace optional)
    ```
 
 7. **Custom itineráře workflow**
@@ -1012,7 +1012,7 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
 
 ---
 
-## 📅 FÁZE 7: Automatizace Ecomail + Facturoid (1.5 týdne)
+## 📅 FÁZE 7: Automatizace Ecomail + Fakturoid (1.5 týdne)
 
 ### Tasky:
 
@@ -1063,21 +1063,21 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
    - Quick link na Ecomail dashboard
    ```
 
-#### **B. Facturoid Automatizace**
+#### **B. Fakturoid Automatizace**
 
-1. **Facturoid API setup**
-   - Vytvoř API token v Facturoid účtu
+1. **Fakturoid API setup**
+   - Vytvoř API token v Fakturoid účtu
    - Nastav ENV variables:
      ```
-     VITE_FACTUROID_SLUG=your_account_slug
-     VITE_FACTUROID_API_TOKEN=your_token
+     VITE_FAKTUROID_SLUG=your_account_slug
+     VITE_FAKTUROID_API_TOKEN=your_token
      ```
    - Test connection
 
 2. **Rozšíření database schema**
    ```sql
-   ALTER TABLE orders ADD COLUMN facturoid_invoice_id VARCHAR;
-   ALTER TABLE orders ADD COLUMN facturoid_invoice_number VARCHAR;
+   ALTER TABLE orders ADD COLUMN fakturoid_invoice_id VARCHAR;
+   ALTER TABLE orders ADD COLUMN fakturoid_invoice_number VARCHAR;
    ALTER TABLE orders ADD COLUMN invoice_sent BOOLEAN DEFAULT false;
 
    ALTER TABLE products ADD COLUMN vat_rate INTEGER DEFAULT 21;
@@ -1086,12 +1086,12 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
 
 3. **Automatické generování faktury po platbě**
    ```typescript
-   // Supabase Edge Function: stripe-webhook-facturoid
+   // Supabase Edge Function: stripe-webhook-fakturoid
 
    Po successful payment:
-   1. Vytvoř fakturu v Facturoid API
+   1. Vytvoř fakturu v Fakturoid API
    2. Ulož invoice_id do orders table
-   3. Facturoid automaticky pošle fakturu na email
+   3. Fakturoid automaticky pošle fakturu na email
 
    Invoice data:
    - subject_name: customer name
@@ -1115,8 +1115,8 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
 5. **Admin panel - fakturace view**
    ```jsx
    /admin/objednavky/[id]
-   - Zobrazit Facturoid invoice number
-   - Tlačítko "Zobrazit fakturu" (link na Facturoid)
+   - Zobrazit Fakturoid invoice number
+   - Tlačítko "Zobrazit fakturu" (link na Fakturoid)
    - Status faktury (paid/unpaid)
    - Možnost ručně vygenerovat fakturu (fallback)
    ```
@@ -1134,9 +1134,9 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
    ✨ Pro custom itinerář: Konzultace info...
    ```
 
-7. **Sync objednávek do Facturoid**
+7. **Sync objednávek do Fakturoid**
    - Pro historické objednávky (pokud už nějaké máte)
-   - Admin tlačítko: "Sync s Facturoid"
+   - Admin tlačítko: "Sync s Fakturoid"
    - Bulk vytvoření faktur
 
 #### **C. Error Handling & Monitoring**
@@ -1149,7 +1149,7 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
    - Pošli admin notification
    - Nezablokuj hlavní flow (PDF delivery)
 
-   // Pokud Facturoid API selže:
+   // Pokud Fakturoid API selže:
    - Stejný retry mechanismus
    - Jana dostane email: "Fakturu vytvoř ručně"
    - Order status: "invoice_pending"
@@ -1159,7 +1159,7 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
    ```
    Email pro tebe/Janu když:
    - Ecomail API selhalo 3x
-   - Facturoid API selhalo 3x
+   - Fakturoid API selhalo 3x
    - Obsahuje order details
    - Návod jak vyřešit ručně
    ```
@@ -1169,7 +1169,7 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
    /admin/nastaveni/integrace
 
    ✅ Ecomail: Connected (1,234 subscribers)
-   ✅ Facturoid: Connected (Last sync: 2 min ago)
+   ✅ Fakturoid: Connected (Last sync: 2 min ago)
    ✅ Stripe: Connected
    ⚠️ Test Connection buttons
    ```
@@ -1187,7 +1187,7 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
    - Zkontroluj správné tagy
    - Test newsletter signup z blogu
 
-2. **Test Facturoid integrace**
+2. **Test Fakturoid integrace**
    - Testovací nákup (Stripe test mode)
    - Zkontroluj že faktura vznikla
    - Zkontroluj email s fakturou
@@ -1226,7 +1226,7 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
    - Test různých produktů (standard PDF + custom itinerář)
 
 2. **Test všech integrací**
-   - Stripe test payments → Ecomail → Facturoid → PDF delivery
+   - Stripe test payments → Ecomail → Fakturoid → PDF delivery
    - Verify retry logic při selhání
    - Test admin notifikací
    - Newsletter signup z blogu
@@ -1361,14 +1361,14 @@ CELKEM: ~2 300 Kč/měsíc + Stripe fees
 - ✅ SEO meta tagy
 - ✅ Custom itineráře workflow
 - ✅ **Ecomail automatizace** (zákazníci, newsletter)
-- ✅ **Facturoid automatizace** (faktury)
+- ✅ **Fakturoid automatizace** (faktury)
 
 **NICE-TO-HAVE (v2 později):**
 - ⏳ WYSIWYG editor pro blog
 - ⏳ Draft/Publish workflow
 - ⏳ Advanced analytics (funnels)
 - ⏳ User accounts pro zákazníky
-- ⏳ Automatická Facturoid integrace
+- ⏳ Automatická Fakturoid integrace
 - ⏳ Product reviews/ratings
 - ⏳ Affiliate system
 
