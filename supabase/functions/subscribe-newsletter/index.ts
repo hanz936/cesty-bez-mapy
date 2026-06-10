@@ -43,17 +43,24 @@ Deno.serve(withSentry(async (req) => {
   if (!email || email.length > MAX_EMAIL || !EMAIL_RE.test(email)) {
     return json({ error: "invalid_email" }, 400, cors);
   }
-  if (!body.captchaToken) return json({ error: "captcha_required" }, 400, cors);
+  if (!body.captchaToken || typeof body.captchaToken !== "string") return json({ error: "captcha_required" }, 400, cors);
 
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
   const userAgent = req.headers.get("user-agent")?.slice(0, 500) ?? null;
 
-  const turnstile = await verifyTurnstile(body.captchaToken, ip);
+  let turnstile;
+  try {
+    turnstile = await verifyTurnstile(body.captchaToken, ip);
+  } catch (err) {
+    console.error("Turnstile verify error", err);
+    return json({ error: "verify_unavailable" }, 503, cors);
+  }
   if (!turnstile.success) return json({ error: "captcha_failed" }, 403, cors);
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false } },
   );
 
   try {
