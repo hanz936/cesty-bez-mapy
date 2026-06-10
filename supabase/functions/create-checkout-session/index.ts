@@ -74,6 +74,8 @@ interface CreateCheckoutRequest {
   success_url: string;
   cancel_url: string;
   billing?: BillingFields;
+  marketing_consent?: boolean;
+  privacy_policy_version?: string;
 }
 
 Deno.serve(withSentry(async (req) => {
@@ -92,6 +94,8 @@ Deno.serve(withSentry(async (req) => {
       success_url,
       cancel_url,
       billing,
+      marketing_consent,
+      privacy_policy_version,
     } = body;
 
     // Extract user_id from JWT (not from body - prevents spoofing)
@@ -283,6 +287,17 @@ Deno.serve(withSentry(async (req) => {
 
     if (Object.keys(customRequestsMapping).length > 0) {
       metadata.custom_requests = JSON.stringify(customRequestsMapping);
+    }
+
+    // Marketingový souhlas (Ecomail). IP/UA zachytáváme TADY (okamžik souhlasu),
+    // webhook je z metadat zapíše do newsletter_consent_log.
+    if (marketing_consent) {
+      const consentIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
+      const consentUa = (req.headers.get("user-agent") ?? "").slice(0, 500);
+      metadata.marketing_consent = "true";
+      metadata.consent_ip = consentIp;
+      metadata.consent_ua = consentUa;
+      metadata.privacy_policy_version = privacy_policy_version ?? "unknown";
     }
 
     // Vytvoření Stripe Checkout Session
