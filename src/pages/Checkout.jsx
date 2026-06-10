@@ -70,6 +70,8 @@ const CheckoutItem = React.memo(({ item }) => {
 
 CheckoutItem.displayName = 'CheckoutItem';
 
+const PRIVACY_POLICY_VERSION = '2026-06-01';
+
 const Checkout = React.memo(() => {
   const navigate = useNavigate();
   const { cartItems, cartTotal, itemCount } = useCart();
@@ -77,6 +79,7 @@ const Checkout = React.memo(() => {
   const [error, setError] = useState(null);
   const [captchaToken, setCaptchaToken] = useState(null);
   const [billing, setBilling] = useState({ is_company: false });
+  const [marketingConsent, setMarketingConsent] = useState(false);
 
   // Automatické poescrollování na vrchol při načtení stránky
   useEffect(() => {
@@ -144,6 +147,8 @@ const Checkout = React.memo(() => {
           cancel_url: cancelUrl,
           user_id: userId,
           billing,
+          marketing_consent: marketingConsent,
+          privacy_policy_version: PRIVACY_POLICY_VERSION,
         },
       });
 
@@ -163,7 +168,7 @@ const Checkout = React.memo(() => {
       setError(err.message || 'Nastala chyba při zpracování platby. Zkus to prosím znovu.');
       setIsProcessing(false);
     }
-  }, [cartItems, captchaToken, billing]);
+  }, [cartItems, captchaToken, billing, marketingConsent]);
 
   // Prázdný košík - přesměrování probíhá v useEffect
   if (cartItems.length === 0) {
@@ -282,7 +287,12 @@ const Checkout = React.memo(() => {
 
               {/* Fakturační údaje (volitelně B2B) */}
               <div className="mb-6">
-                <BillingForm value={billing} onChange={setBilling} />
+                <BillingForm
+                  value={billing}
+                  onChange={setBilling}
+                  marketingConsent={marketingConsent}
+                  setMarketingConsent={setMarketingConsent}
+                />
               </div>
 
               {/* Turnstile bezpečnostní ověření */}

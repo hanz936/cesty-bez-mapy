@@ -3,7 +3,7 @@ import { lookupIco } from '../../utils/ares.js';
 import { isValidIco } from '../../utils/ico.js';
 import { wasBlockedByCsp } from '../../utils/cspBlocked.js';
 
-export function BillingForm({ value, onChange }) {
+export function BillingForm({ value, onChange, marketingConsent, setMarketingConsent }) {
   const [icoError, setIcoError] = useState('');
   const [loading, setLoading] = useState(false);
   const [icoInput, setIcoInput] = useState(value.company_ico ?? '');
@@ -68,6 +68,23 @@ export function BillingForm({ value, onChange }) {
         />
         Koupit na firmu (chci fakturu)
       </label>
+
+      {setMarketingConsent && (
+        <div className="mt-4">
+          <label className="flex items-start gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={!!marketingConsent}
+              onChange={(e) => setMarketingConsent(e.target.checked)}
+              className="mt-1"
+            />
+            <span>
+              Chci dostávat novinky a tipy na cesty e-mailem (nepovinné). Odhlásit se můžete kdykoli.{' '}
+              Více v <a href="#soukromi" className="underline">zásadách ochrany osobních údajů</a>.
+            </span>
+          </label>
+        </div>
+      )}
 
       {value.is_company && (
         <div className="mt-4 p-4 bg-gray-50 rounded-md space-y-3">
