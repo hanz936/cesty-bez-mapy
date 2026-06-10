@@ -15,6 +15,8 @@ import {
   buildOrderConfirmationItems,
 } from "./lib.ts";
 import { withSentry } from "../_shared/sentry.ts";
+import { makeEcomailClient, getEcomailListId } from "../_shared/ecomail/config.ts";
+import { syncCustomerToEcomail } from "../_shared/ecomail/syncCustomer.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
   apiVersion: "2025-12-15.clover",
@@ -279,6 +281,37 @@ async function fireCreateStornoInvoice(supabase: any, orderId: string): Promise<
     if (error) console.error("create-invoice storno_invoice invoke failed:", error);
   } catch (e) {
     console.error("create-invoice storno_invoice invoke threw:", e);
+  }
+}
+
+// Best-effort: zapíše GDPR consent log a přihlásí zákazníka do Ecomailu.
+// Nikdy nethrowuje — selhání nesmí shodit webhook.
+// deno-lint-ignore no-explicit-any
+async function syncOrderToEcomail(
+  supabase: any,
+  args: { orderId: string; customerId: string | null; email: string | null; name: string | null; metadata: Record<string, string> },
+): Promise<void> {
+  try {
+    if (args.metadata.marketing_consent !== "true" || !args.email || !args.customerId) return;
+    await supabase.from("newsletter_consent_log").insert({
+      email: args.email,
+      consent_given: true,
+      source: "checkout",
+      ip_address: args.metadata.consent_ip || null,
+      user_agent: args.metadata.consent_ua || null,
+      privacy_policy_version: args.metadata.privacy_policy_version || null,
+    });
+    await syncCustomerToEcomail({
+      client: makeEcomailClient(),
+      supabase,
+      listId: getEcomailListId(),
+      customerId: args.customerId,
+      orderId: args.orderId,
+      email: args.email,
+      name: args.name ?? undefined,
+    });
+  } catch (e) {
+    console.error(`Ecomail sync failed for order ${args.orderId}, continuing:`, e);
   }
 }
 
@@ -560,6 +593,21 @@ async function handleCheckoutCompleted(
       console.error(
         `sendCheckoutEmails failed for order ${orderId}, continuing:`,
         emailError
+      );
+    }
+
+    try {
+      await syncOrderToEcomail(supabase, {
+        orderId,
+        customerId,
+        email: customerEmail,
+        name: customerName ?? null,
+        metadata: metadata as Record<string, string>,
+      });
+    } catch (ecomailError) {
+      console.error(
+        `syncOrderToEcomail failed for order ${orderId}, continuing:`,
+        ecomailError
       );
     }
 
