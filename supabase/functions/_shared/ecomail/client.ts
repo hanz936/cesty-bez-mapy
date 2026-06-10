@@ -31,7 +31,7 @@ export class EcomailClient {
     this.#apiKey = cfg.apiKey;
     this.#baseUrl = cfg.baseUrl ?? DEFAULT_BASE_URL;
     this.#fetch = fetchImpl;
-    this.#maxRetries = opts.maxRetries ?? 2;
+    this.#maxRetries = Math.max(1, opts.maxRetries ?? 2);
     this.#baseDelayMs = opts.baseDelayMs ?? 1000;
   }
 
@@ -50,8 +50,12 @@ export class EcomailClient {
         return await res.json() as T;
       }
       if (res.status === 429 && attempt < this.#maxRetries) {
-        const retryAfter = Number(res.headers.get("Retry-After")) || 0;
-        await new Promise((r) => setTimeout(r, retryAfter * 1000 || this.#baseDelayMs));
+        const ra = res.headers.get("Retry-After");
+        const raNum = Number(ra);
+        const delayMs = ra !== null && Number.isFinite(raNum) && raNum >= 0
+          ? raNum * 1000
+          : this.#baseDelayMs;
+        await new Promise((r) => setTimeout(r, delayMs));
         continue;
       }
       throw new EcomailError(res.status, await res.text());
@@ -73,14 +77,17 @@ export class EcomailClient {
 
   /** GET /lists/{listId}/subscriber/{email} — null pokud neexistuje. */
   async getSubscriber(listId: number, email: string): Promise<EcomailSubscriber | null> {
-    const res = await this.#fetch(
-      `${this.#baseUrl}/lists/${listId}/subscriber/${encodeURIComponent(email)}`,
-      { method: "GET", headers: this.#headers() },
-    );
-    if (res.status === 404) return null;
-    if (!res.ok) throw new EcomailError(res.status, await res.text());
-    const data = await res.json() as Record<string, unknown>;
-    if (data.errors) return null;
+    let data: Record<string, unknown>;
+    try {
+      data = await this.#request<Record<string, unknown>>(
+        `/lists/${listId}/subscriber/${encodeURIComponent(email)}`,
+        { method: "GET" },
+      );
+    } catch (e) {
+      if (e instanceof EcomailError && e.status === 404) return null;
+      throw e;
+    }
+    if (Array.isArray(data.errors) && data.errors.length > 0) return null;
     return {
       id: data.id as number,
       email: data.email as string,

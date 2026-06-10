@@ -77,3 +77,12 @@ Deno.test("subscribe — non-2xx (422) vyhodí EcomailError", async () => {
   const client = new EcomailClient(CFG, fn);
   await assertRejects(() => client.subscribe(7, { email: "bad" }), EcomailError, "Ecomail 422");
 });
+
+Deno.test("unsubscribe — DELETE /lists/{id}/unsubscribe s tělem {email}", async () => {
+  const { fn, calls } = makeFakeFetch([{ status: 200, body: { id: 4, status: 2 } }]);
+  const client = new EcomailClient(CFG, fn);
+  await client.unsubscribe(7, "a@b.cz");
+  assertEquals(calls[0].url, "https://api2.ecomailapp.cz/lists/7/unsubscribe");
+  assertEquals(calls[0].init?.method, "DELETE");
+  assertEquals(JSON.parse(calls[0].init!.body as string).email, "a@b.cz");
+});
