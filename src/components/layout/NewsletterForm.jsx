@@ -44,7 +44,7 @@ const NewsletterForm = () => {
 
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          logger.error('[NewsletterForm] subscribe-newsletter error', { status: res.status, data });
+          logger.error('[NewsletterForm] subscribe-newsletter error', null, { status: res.status, data });
 
           if (res.status === 400 && data.error === 'invalid_email') {
             setErrorMsg('Neplatný e-mail. Zkontroluj adresu a zkus to znovu.');
@@ -80,7 +80,7 @@ const NewsletterForm = () => {
         <h3 className="text-green-800 font-bold text-base uppercase tracking-wider mb-6">
           Novinky na e-mail
         </h3>
-        <p className="text-sm text-green-800 font-medium leading-relaxed">
+        <p role="status" className="text-sm text-green-800 font-medium leading-relaxed">
           Děkujeme! Zkontroluj e-mail a potvrď přihlášení k odběru.
         </p>
       </div>
