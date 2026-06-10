@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { BASE_PATH, ROUTES } from '../../constants';
 import ImageWithFallback from '../common/ImageWithFallback';
 import logger from '../../utils/logger';
+import NewsletterForm from './NewsletterForm';
 
 class FooterErrorBoundary extends React.Component {
   constructor(props) {
@@ -170,12 +171,16 @@ const Footer = () => {
             className="md:ml-16"
           />
 
-          <NavigationSection 
+          <NavigationSection
             title="Plánování cest"
             links={planningLinks}
             ariaLabel="Plánování cest"
             className="md:ml-20"
           />
+
+          <div className="text-center md:text-left mb-12 md:mb-0 flex-shrink-0 md:ml-20">
+            <NewsletterForm />
+          </div>
         </div>
       </div>
 
