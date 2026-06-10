@@ -65,3 +65,21 @@ Deno.test("syncCustomerToEcomail — selhání Ecomailu → synced:false + log f
   assertEquals(res.synced, false);
   assertEquals(supabase.inserts["integration_logs"][0].status, "failed");
 });
+
+Deno.test("syncCustomerToEcomail — guard DB read throws → nethrowuje, pokračuje k syncu", async () => {
+  const badGuardSupabase = {
+    from(_t: string) {
+      return {
+        select: () => ({ eq: () => ({ single: async () => { throw new Error("row not found"); } }) }),
+        update: (_row: any) => ({ eq: async () => ({ error: null }) }),
+        insert: async () => ({ error: null }),
+      };
+    },
+  } as any;
+  const client = fakeClient(null);
+  const res = await syncCustomerToEcomail({
+    client, supabase: badGuardSupabase, listId: 7, customerId: "c", orderId: "o", email: "a@b.cz",
+  });
+  // Klíč: nevyhodí výjimku; guard chybu spolkne a sync proběhne.
+  assertEquals(res.synced, true);
+});

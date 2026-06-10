@@ -9,8 +9,6 @@ export function mergeTags(existing: string[], add: string[]): string[] {
   return out;
 }
 
-// mergeTags() definováno výše (Task 3).
-
 interface SyncParams {
   client: any; // EcomailClient
   supabase: any; // service-role
@@ -23,10 +21,17 @@ interface SyncParams {
 }
 
 export async function syncCustomerToEcomail(p: SyncParams): Promise<{ synced: boolean; subscriberId?: number; skipped?: boolean }> {
-  // Guard: idempotence proti webhook retries (admin posílá force:true)
+  // Guard: idempotence proti webhook retries (admin posílá force:true).
+  // Best-effort čtení — při jakékoli chybě/nenalezení pokračujeme k syncu (subscribe je idempotentní),
+  // a hlavně NIKDY nethrowujeme do callera (webhook se nesmí rozbít).
   if (!p.force && p.orderId) {
-    const { data: order } = await p.supabase.from("orders").select("ecomail_synced").eq("id", p.orderId).single();
-    if (order?.ecomail_synced) return { synced: true, skipped: true };
+    try {
+      const { data: order, error } = await p.supabase
+        .from("orders").select("ecomail_synced").eq("id", p.orderId).single();
+      if (!error && order?.ecomail_synced) return { synced: true, skipped: true };
+    } catch (_e) {
+      // ignore — pokračuj k syncu
+    }
   }
 
   try {
@@ -37,13 +42,18 @@ export async function syncCustomerToEcomail(p: SyncParams): Promise<{ synced: bo
       { email: p.email, name: p.name, source: "checkout", tags },
       { update_existing: true, skip_confirmation: true },
     );
-    const subscriberId: number | undefined = resp.id ?? existing?.id;
+    const rawId = resp.id ?? existing?.id;
+    const subscriberId = rawId != null && Number.isFinite(Number(rawId)) ? Number(rawId) : undefined;
 
-    if (subscriberId) {
-      await p.supabase.from("customers").update({ ecomail_subscriber_id: String(subscriberId) }).eq("id", p.customerId);
+    if (subscriberId != null) {
+      const { error: custErr } = await p.supabase
+        .from("customers").update({ ecomail_subscriber_id: String(subscriberId) }).eq("id", p.customerId);
+      if (custErr) console.warn("[syncCustomer] failed to set ecomail_subscriber_id:", custErr.message);
     }
     if (p.orderId) {
-      await p.supabase.from("orders").update({ ecomail_synced: true }).eq("id", p.orderId);
+      const { error: flagErr } = await p.supabase
+        .from("orders").update({ ecomail_synced: true }).eq("id", p.orderId);
+      if (flagErr) console.warn("[syncCustomer] failed to set ecomail_synced:", flagErr.message);
     }
     await logEcomail(p.supabase, "subscribe", "success", { order_id: p.orderId ?? null, customer_id: p.customerId, email: p.email });
     return { synced: true, subscriberId };
