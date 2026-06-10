@@ -57,3 +57,18 @@ Deno.test("processNewsletterSignup — existující zákazník: merge tagů zach
   });
   assertEquals(client.calls[0].data.tags.sort(), ["newsletter", "zakaznik"]);
 });
+
+Deno.test("processNewsletterSignup — selhání Ecomailu: log 'failed' + rethrow", async () => {
+  const client = { async getSubscriber() { return null; }, async subscribe() { throw new Error("boom"); } } as any;
+  const supabase = fakeSupabase();
+  let threw = false;
+  try {
+    await processNewsletterSignup({
+      client, supabase, listId: 7, email: "a@b.cz", ip: null, userAgent: null, privacyPolicyVersion: "v1",
+    });
+  } catch {
+    threw = true;
+  }
+  assertEquals(threw, true);
+  assertEquals(supabase.inserts["integration_logs"][0].status, "failed");
+});

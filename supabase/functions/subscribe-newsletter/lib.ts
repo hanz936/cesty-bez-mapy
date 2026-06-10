@@ -15,8 +15,9 @@ interface NewsletterSignupParams {
 
 /** Zapíše GDPR consent log a přihlásí e-mail do Ecomailu s double opt-in. */
 export async function processNewsletterSignup(p: NewsletterSignupParams): Promise<{ success: boolean }> {
-  // 1) GDPR audit (uživatelova akce — logujeme i kdyby Ecomail selhal)
-  await p.supabase.from("newsletter_consent_log").insert({
+  // 1) GDPR audit (uživatelova akce — logujeme i kdyby Ecomail selhal).
+  //    Pokud zápis selže, NEpokračujeme k Ecomailu — nesmíme přihlásit bez záznamu souhlasu.
+  const { error: consentError } = await p.supabase.from("newsletter_consent_log").insert({
     email: p.email,
     consent_given: true,
     source: "footer",
@@ -24,6 +25,7 @@ export async function processNewsletterSignup(p: NewsletterSignupParams): Promis
     user_agent: p.userAgent,
     privacy_policy_version: p.privacyPolicyVersion,
   });
+  if (consentError) throw new Error(`Consent log failed: ${consentError.message}`);
 
   // 2) read-merge-write tagů + subscribe (double opt-in)
   const existing = await p.client.getSubscriber(p.listId, p.email);
