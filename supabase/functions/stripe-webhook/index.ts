@@ -293,7 +293,7 @@ async function syncOrderToEcomail(
 ): Promise<void> {
   try {
     if (args.metadata.marketing_consent !== "true" || !args.email || !args.customerId) return;
-    await supabase.from("newsletter_consent_log").insert({
+    const { error: logErr } = await supabase.from("newsletter_consent_log").insert({
       email: args.email,
       consent_given: true,
       source: "checkout",
@@ -301,6 +301,10 @@ async function syncOrderToEcomail(
       user_agent: args.metadata.consent_ua || null,
       privacy_policy_version: args.metadata.privacy_policy_version || null,
     });
+    if (logErr) {
+      console.error(`[syncOrderToEcomail] consent_log insert failed for order ${args.orderId}:`, logErr.message);
+      return; // bez zapsaného souhlasu NEpřihlašujeme do Ecomailu
+    }
     await syncCustomerToEcomail({
       client: makeEcomailClient(),
       supabase,
