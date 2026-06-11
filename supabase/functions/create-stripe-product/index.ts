@@ -39,6 +39,7 @@ interface CreateProductRequest {
   image_url?: string;
   product_id: string; // Database product UUID
   stripe_product_id?: string; // Optional: existing Stripe Product ID for price updates
+  force_recreate?: boolean; // audit 3.7.4: skip update path, always create a NEW product + price
 }
 
 Deno.serve(withSentry(async (req) => {
@@ -87,7 +88,7 @@ Deno.serve(withSentry(async (req) => {
 
     // Parse request body
     const body: CreateProductRequest = await req.json();
-    const { title, description, price, image_url, product_id, stripe_product_id } = body;
+    const { title, description, price, image_url, product_id, stripe_product_id, force_recreate } = body;
 
     // Validation
     if (!title || !price || !product_id) {
@@ -132,8 +133,12 @@ Deno.serve(withSentry(async (req) => {
 
     let productId: string;
 
-    // If stripe_product_id exists, just create new Price for existing Product
-    if (stripe_product_id) {
+    // If stripe_product_id exists AND we're not force-recreating, just create a new Price
+    // for the existing Product. force_recreate (audit 3.7.4) is used after swapping
+    // STRIPE_SECRET_KEY test->live, where stored stripe_product_id/stripe_price_id point
+    // at test-mode objects that don't exist in live - in that case we must always create
+    // a brand new Stripe Product + Price, ignoring any incoming stripe_product_id.
+    if (stripe_product_id && !force_recreate) {
       console.log(
         `Updating Stripe price for existing product: ${stripe_product_id} (${price} CZK)`
       );
@@ -148,7 +153,9 @@ Deno.serve(withSentry(async (req) => {
     } else {
       // Create new Stripe Product
       console.log(
-        `Creating Stripe product for: ${title} (${price} CZK) - DB ID: ${product_id}`
+        force_recreate
+          ? `Force-recreating Stripe product for: ${title} (${price} CZK) - DB ID: ${product_id}`
+          : `Creating Stripe product for: ${title} (${price} CZK) - DB ID: ${product_id}`
       );
 
       const product = await stripe.products.create({
