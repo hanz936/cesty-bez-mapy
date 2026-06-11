@@ -621,33 +621,40 @@ interface FollowUpContext extends CheckoutEmailContext {
 // ostatní ani (dnes už odeslanou) odpověď webhooku.
 async function runFollowUps(ctx: FollowUpContext): Promise<void> {
   try {
-    await sendCheckoutEmails(ctx);
-  } catch (emailError) {
-    console.error(
-      `sendCheckoutEmails failed for order ${ctx.orderId}, continuing:`,
-      emailError
-    );
-  }
+    try {
+      await sendCheckoutEmails(ctx);
+    } catch (emailError) {
+      console.error(
+        `sendCheckoutEmails failed for order ${ctx.orderId}, continuing:`,
+        emailError
+      );
+    }
 
-  try {
-    await syncOrderToEcomail(ctx.supabase, {
-      orderId: ctx.orderId,
-      customerId: ctx.customerId,
-      email: ctx.customerEmail,
-      name: ctx.customerName ?? null,
-      metadata: ctx.metadata,
-    });
-  } catch (ecomailError) {
-    console.error(
-      `syncOrderToEcomail failed for order ${ctx.orderId}, continuing:`,
-      ecomailError
-    );
-  }
+    try {
+      await syncOrderToEcomail(ctx.supabase, {
+        orderId: ctx.orderId,
+        customerId: ctx.customerId,
+        email: ctx.customerEmail,
+        name: ctx.customerName ?? null,
+        metadata: ctx.metadata,
+      });
+    } catch (ecomailError) {
+      console.error(
+        `syncOrderToEcomail failed for order ${ctx.orderId}, continuing:`,
+        ecomailError
+      );
+    }
 
-  // Issue invoice for newly created orders only.
-  // Retries (Stripe webhook delivery retries) land here too — idempotency
-  // check inside create-invoice handles them.
-  await fireCreateInvoice(ctx.supabase, ctx.orderId);
+    // Issue invoice for newly created orders only.
+    // Retries (Stripe webhook delivery retries) land here too — idempotency
+    // check inside create-invoice handles them.
+    await fireCreateInvoice(ctx.supabase, ctx.orderId);
+  } catch (e) {
+    // Pojistka: webhook už vrátil 200, neodchycená chyba by tu skončila jako
+    // unhandled rejection uvnitř EdgeRuntime.waitUntil. Kroky výše mají vlastní
+    // catch — tohle se spustí, jen pokud ten kontrakt poruší budoucí změna.
+    console.error(`runFollowUps: unexpected error for order ${ctx.orderId}:`, e);
+  }
 }
 
 interface CheckoutEmailContext {
