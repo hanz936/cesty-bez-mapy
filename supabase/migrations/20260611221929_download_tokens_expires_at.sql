@@ -8,7 +8,7 @@ alter table public.download_tokens
   add column expires_at timestamptz;
 
 comment on column public.download_tokens.expires_at is
-  'Konec platnosti tokenu. NULL = bez expirace (perpetuální token vytvořený před zavedením expirace).';
+  'Token expiry. NULL = no expiry (perpetual token created before expiration was introduced).';
 
 -- Stejná definice jako 20260609090536_consistency_function_search_path.sql,
 -- jen insert do download_tokens nově ukládá i expires_at z payloadu
