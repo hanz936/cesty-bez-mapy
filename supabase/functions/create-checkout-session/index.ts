@@ -232,6 +232,22 @@ Deno.serve(withSentry(async (req) => {
       );
     }
 
+    // Validace množství položek - musí být celé číslo 1-10 (pokud je zadáno)
+    for (const item of line_items) {
+      const q = item.quantity;
+      if (q !== undefined && !(Number.isInteger(q) && q >= 1 && q <= 10)) {
+        return new Response(
+          JSON.stringify({
+            error: "Neplatné množství položky (povoleno 1–10)",
+          }),
+          {
+            status: 400,
+            headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
+          }
+        );
+      }
+    }
+
     // Mapování line_items na Stripe formát
     const stripeLineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
       products.map((product) => {

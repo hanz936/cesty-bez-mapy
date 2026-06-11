@@ -109,6 +109,27 @@ Deno.serve(withSentry(async (req) => {
       );
     }
 
+    if (typeof title !== "string" || title.length > 500) {
+      return new Response(
+        JSON.stringify({ error: "Neplatný název produktu (string, max 500 znaků)" }),
+        { status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
+      );
+    }
+
+    if (description !== undefined && (typeof description !== "string" || description.length > 2000)) {
+      return new Response(
+        JSON.stringify({ error: "Neplatný popis produktu (string, max 2000 znaků)" }),
+        { status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
+      );
+    }
+
+    if (image_url !== undefined && (typeof image_url !== "string" || !image_url.startsWith("https://"))) {
+      return new Response(
+        JSON.stringify({ error: "Neplatná image_url (musí začínat https://)" }),
+        { status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
+      );
+    }
+
     let productId: string;
 
     // If stripe_product_id exists, just create new Price for existing Product
