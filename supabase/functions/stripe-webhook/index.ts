@@ -22,6 +22,12 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
   apiVersion: "2025-12-15.clover",
 });
 
+// Supabase Edge Runtime extends the global scope with EdgeRuntime.waitUntil,
+// which lets a background task keep running after the response is returned.
+// Not present in `deno test` / `deno check` outside the edge runtime, hence
+// the optional declaration + runtime guard at the call site.
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
+
 const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
 
 const SITE_URL = Deno.env.get("SITE_URL") ?? "https://cestybezmapy.cz";
@@ -575,53 +581,73 @@ async function handleCheckoutCompleted(
   // (nebo selhaly trvale — Resend idempotencyKey je zachytí, kdyby se přesto
   // znovu pokusily projít).
   if (wasCreated) {
-    // Webhook musí vrátit 200 i kdyby selhala inicializace Resend klienta
-    // nebo cokoli dalšího kolem e-mailů — objednávka je v DB a Stripe retry
-    // by jen vedl k duplicitním e-mailům (idempotencyKey to sice zachytí,
-    // ale je čistší to vůbec nezkoušet) nebo nekonečnému retry loopu.
-    try {
-      await sendCheckoutEmails({
-        supabase,
-        sessionId: session.id,
-        orderId,
-        customerEmail,
-        customerName,
-        totalAmount,
-        products,
-        orderItems,
-        productIds,
-        customRequestsMapping,
-        downloadToken: downloadTokenString,
-      });
-    } catch (emailError) {
-      console.error(
-        `sendCheckoutEmails failed for order ${orderId}, continuing:`,
-        emailError
-      );
-    }
+    // Follow-up práce (e-maily, Ecomail sync, faktura) neblokuje odpověď
+    // webhooku — Stripe potřebuje 2xx co nejdřív, aby nedošlo k timeoutu
+    // (viz audit 3.1.1). Běží na pozadí přes EdgeRuntime.waitUntil; v lokálním
+    // testu / `functions serve` bez EdgeRuntime se prostě odawaituje.
+    const followUps = runFollowUps({
+      supabase,
+      sessionId: session.id,
+      orderId,
+      customerId,
+      customerEmail,
+      customerName,
+      totalAmount,
+      products,
+      orderItems,
+      productIds,
+      customRequestsMapping,
+      downloadToken: downloadTokenString,
+      metadata: metadata as Record<string, string>,
+    });
 
-    try {
-      await syncOrderToEcomail(supabase, {
-        orderId,
-        customerId,
-        email: customerEmail,
-        name: customerName ?? null,
-        metadata: metadata as Record<string, string>,
-      });
-    } catch (ecomailError) {
-      console.error(
-        `syncOrderToEcomail failed for order ${orderId}, continuing:`,
-        ecomailError
-      );
+    if (typeof EdgeRuntime !== "undefined" && EdgeRuntime) {
+      EdgeRuntime.waitUntil(followUps);
+    } else {
+      await followUps; // lokální deno test / functions serve fallback
     }
-
-    // Issue invoice for newly created orders only.
-    // Retries (Stripe webhook delivery retries) land here too — idempotency
-    // check inside create-invoice handles them.
-    await fireCreateInvoice(supabase, orderId);
   }
 
   return { success: true, orderId };
+}
+
+interface FollowUpContext extends CheckoutEmailContext {
+  customerId: string | null;
+  metadata: Record<string, string>;
+}
+
+// Follow-up práce po úspěšném vytvoření objednávky: e-maily, Ecomail sync,
+// faktura. Každý krok má vlastní try/catch — selhání jednoho nesmí ovlivnit
+// ostatní ani (dnes už odeslanou) odpověď webhooku.
+async function runFollowUps(ctx: FollowUpContext): Promise<void> {
+  try {
+    await sendCheckoutEmails(ctx);
+  } catch (emailError) {
+    console.error(
+      `sendCheckoutEmails failed for order ${ctx.orderId}, continuing:`,
+      emailError
+    );
+  }
+
+  try {
+    await syncOrderToEcomail(ctx.supabase, {
+      orderId: ctx.orderId,
+      customerId: ctx.customerId,
+      email: ctx.customerEmail,
+      name: ctx.customerName ?? null,
+      metadata: ctx.metadata,
+    });
+  } catch (ecomailError) {
+    console.error(
+      `syncOrderToEcomail failed for order ${ctx.orderId}, continuing:`,
+      ecomailError
+    );
+  }
+
+  // Issue invoice for newly created orders only.
+  // Retries (Stripe webhook delivery retries) land here too — idempotency
+  // check inside create-invoice handles them.
+  await fireCreateInvoice(ctx.supabase, ctx.orderId);
 }
 
 interface CheckoutEmailContext {
