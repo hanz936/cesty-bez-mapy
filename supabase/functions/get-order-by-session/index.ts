@@ -147,11 +147,12 @@ Deno.serve(withSentry(async (req) => {
       );
     }
 
-    // Načtení download tokenu (tokeny jsou perpetual — bez expirace; sloupec
-    // expires_at neexistuje, dřív kvůli němu select chyboval a token se nevracel). (audit F5)
+    // Načtení download tokenu. Tokeny vytvořené od audit 3.5.4 (F5) mají
+    // 7denní expiraci (expires_at); starší tokeny mají expires_at = NULL
+    // (perpetual, zachováno kvůli zpětné kompatibilitě).
     const { data: downloadToken, error: tokenError } = await supabase
       .from("download_tokens")
-      .select("token")
+      .select("token, expires_at")
       .eq("order_id", order.id)
       .single();
 
@@ -205,7 +206,7 @@ Deno.serve(withSentry(async (req) => {
           items: items,
         },
         download_token: downloadToken?.token || null,
-        download_expires_at: null, // tokeny jsou perpetual (bez expirace) — zachováno kvůli stabilitě API tvaru
+        download_expires_at: downloadToken?.expires_at ?? null,
       }),
       {
         status: 200,

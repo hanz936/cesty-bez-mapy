@@ -3,7 +3,9 @@
 // ================================================
 // Validates download token, generates 1-hour signed URLs for assets in
 // either products-pdfs (standard) or custom-itinerary-pdfs (custom)
-// based on asset_type discriminator. Tokens are perpetual (no expiration).
+// based on asset_type discriminator. Tokens created since audit 3.5.4 (F5)
+// expire after 7 days (expires_at); tokens created before that are NULL
+// (perpetual, kept for backward compatibility).
 // Audit columns (download_count, last_downloaded_at) updated on each call.
 // ================================================
 
@@ -72,13 +74,17 @@ Deno.serve(withSentry(async (req) => {
 
     const { data: tokenRow, error: tokenError } = await supabase
       .from("download_tokens")
-      .select("id, token, asset_type, order_id, custom_itinerary_request_id")
+      .select("id, token, asset_type, order_id, custom_itinerary_request_id, expires_at")
       .eq("token", token)
       .maybeSingle();
 
     if (tokenError || !tokenRow) {
       console.error("Token not found:", tokenError?.message);
       return jsonResponse(req, 404, { error: "Neplatný download token" });
+    }
+
+    if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
+      return jsonResponse(req, 410, { error: "Platnost odkazu ke stažení vypršela" });
     }
 
     let response: GetDownloadResponse;

@@ -58,6 +58,22 @@ const OrderItem = React.memo(({ item, onDownload, isDownloading }) => {
 
 OrderItem.displayName = 'OrderItem';
 
+// Vrátí české chybové hlášení z Edge Function odpovědi. supabase-js u
+// FunctionsHttpError nedává JSON tělo (s naším `error` polem) do `.message`,
+// ale do `.context` (Response) — proto je potřeba ho přečíst zvlášť
+// (audit F5: zobrazení 410 "Platnost odkazu ke stažení vypršela").
+async function getFunctionErrorMessage(fnError, fallback) {
+  try {
+    if (fnError?.context?.json) {
+      const body = await fnError.context.clone().json();
+      if (body?.error) return body.error;
+    }
+  } catch {
+    // tělo není JSON nebo už bylo přečtené — použijeme fallback
+  }
+  return fnError?.message || fallback;
+}
+
 // Loading komponenta
 const LoadingState = () => (
   <Layout>
@@ -100,6 +116,7 @@ const OrderConfirmation = React.memo(() => {
   const [downloadToken, setDownloadToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [downloadError, setDownloadError] = useState(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
   const pollingRef = useRef(null);
@@ -199,11 +216,12 @@ const OrderConfirmation = React.memo(() => {
   // Stažení PDF
   const handleDownload = useCallback(async (productId) => {
     if (!downloadToken) {
-      setError('Download token není dostupný');
+      setDownloadError('Download token není dostupný');
       return;
     }
 
     setIsDownloading(true);
+    setDownloadError(null);
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke('get-download-url', {
@@ -211,7 +229,7 @@ const OrderConfirmation = React.memo(() => {
       });
 
       if (fnError) {
-        throw new Error(fnError.message || 'Nepodařilo se získat odkaz ke stažení');
+        throw new Error(await getFunctionErrorMessage(fnError, 'Nepodařilo se získat odkaz ke stažení'));
       }
 
       if (data.downloads) {
@@ -222,7 +240,7 @@ const OrderConfirmation = React.memo(() => {
       }
     } catch (err) {
       console.error('Download error:', err);
-      setError(err.message || 'Nepodařilo se stáhnout soubor');
+      setDownloadError(err.message || 'Nepodařilo se stáhnout soubor');
     } finally {
       setIsDownloading(false);
     }
@@ -231,11 +249,12 @@ const OrderConfirmation = React.memo(() => {
   // Stažení všech PDF
   const handleDownloadAll = useCallback(async () => {
     if (!downloadToken) {
-      setError('Download token není dostupný');
+      setDownloadError('Download token není dostupný');
       return;
     }
 
     setIsDownloading(true);
+    setDownloadError(null);
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke('get-download-url', {
@@ -243,7 +262,7 @@ const OrderConfirmation = React.memo(() => {
       });
 
       if (fnError) {
-        throw new Error(fnError.message || 'Nepodařilo se získat odkazy ke stažení');
+        throw new Error(await getFunctionErrorMessage(fnError, 'Nepodařilo se získat odkazy ke stažení'));
       }
 
       if (data.downloads && data.downloads.length > 0) {
@@ -254,7 +273,7 @@ const OrderConfirmation = React.memo(() => {
       }
     } catch (err) {
       console.error('Download error:', err);
-      setError(err.message || 'Nepodařilo se stáhnout soubory');
+      setDownloadError(err.message || 'Nepodařilo se stáhnout soubory');
     } finally {
       setIsDownloading(false);
     }
@@ -357,6 +376,13 @@ const OrderConfirmation = React.memo(() => {
                   Odkaz je platný 7 dní od nákupu
                 </p>
               </div>
+            )}
+
+            {/* Chyba při stažení (např. vypršený odkaz) */}
+            {downloadError && (
+              <p className="mt-4 text-sm text-red-600">
+                {downloadError}
+              </p>
             )}
           </div>
         </section>
