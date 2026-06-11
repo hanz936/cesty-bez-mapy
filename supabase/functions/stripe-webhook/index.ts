@@ -126,7 +126,22 @@ Deno.serve(withSentry(async (req) => {
           .single();
 
         if (updateError) {
-          console.error("Failed to update order on refund:", updateError);
+          if (updateError.code === "PGRST116") {
+            // No matching order — permanent, retry won't help.
+            console.warn(
+              "No order found for refunded payment_intent:",
+              paymentIntentId
+            );
+          } else {
+            // Transient DB error (unavailable, timeout, ...) — let Stripe retry.
+            // Safe to retry: refund email is idempotent via refund_email_sent_at
+            // + Resend idempotencyKey, and storno faktura has its own idempotency.
+            result = {
+              success: false,
+              retryable: true,
+              error: `Failed to update order on refund: ${updateError.message}`,
+            };
+          }
           break;
         }
         if (!order) {
