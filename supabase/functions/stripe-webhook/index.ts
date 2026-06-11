@@ -94,12 +94,6 @@ Deno.serve(withSentry(async (req) => {
         break;
       }
 
-      case "payment_intent.succeeded": {
-        // Alternativní event - můžeme použít jako fallback
-        console.log("Payment intent succeeded:", event.data.object);
-        break;
-      }
-
       case "payment_intent.payment_failed": {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         console.error(
