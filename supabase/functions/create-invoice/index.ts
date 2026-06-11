@@ -82,12 +82,16 @@ const persister: TokenPersister = {
 const fakturoid = new FakturoidClient(CFG, fetch, { persister });
 
 async function logIntegration(orderId: string, action: string, success: boolean, error?: string) {
-  await supabase.from("integration_logs").insert({
+  const { error: insertError } = await supabase.from("integration_logs").insert({
     service: "fakturoid",
     action,
-    success,
-    metadata: { order_id: orderId, error: error ?? null },
+    status: success ? "success" : "failed",
+    error_message: error ?? null,
+    metadata: { order_id: orderId },
   });
+  if (insertError) {
+    console.error("integration_logs insert failed:", insertError.message);
+  }
 }
 
 async function sendAlertEmail(orderId: string, action: string, errorMessage: string): Promise<void> {
