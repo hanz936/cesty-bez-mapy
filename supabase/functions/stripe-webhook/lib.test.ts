@@ -159,3 +159,14 @@ Deno.test("buildAdminOrderUrl: ořeže trailing slash", () => {
     "https://admin.example.com/#/orders/ord-1"
   );
 });
+
+Deno.test("buildAdminOrderUrl: ořeže okolní whitespace z base URL", () => {
+  assertEquals(
+    buildAdminOrderUrl("  https://admin.example.com/  ", "ord-1"),
+    "https://admin.example.com/#/orders/ord-1"
+  );
+});
+
+Deno.test("buildAdminOrderUrl: string jen z mezer → undefined", () => {
+  assertEquals(buildAdminOrderUrl("   ", "ord-1"), undefined);
+});

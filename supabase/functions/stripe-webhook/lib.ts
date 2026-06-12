@@ -99,6 +99,7 @@ export function buildAdminOrderUrl(
   adminPanelUrl: string | undefined,
   orderId: string
 ): string | undefined {
-  if (!adminPanelUrl) return undefined;
-  return `${adminPanelUrl.replace(/\/+$/, "")}/#/orders/${orderId}`;
+  const base = adminPanelUrl?.trim();
+  if (!base) return undefined;
+  return `${base.replace(/\/+$/, "")}/#/orders/${orderId}`;
 }
