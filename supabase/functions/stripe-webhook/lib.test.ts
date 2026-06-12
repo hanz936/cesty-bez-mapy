@@ -8,6 +8,9 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   decideEmailTypes,
   buildOrderConfirmationItems,
+  parseAdminRecipients,
+  buildAdminNotificationItems,
+  buildAdminOrderUrl,
 } from "./lib.ts";
 
 Deno.test("decideEmailTypes: all standard products → OrderConfirmation only", () => {
@@ -90,4 +93,69 @@ Deno.test("buildOrderConfirmationItems: fallback title when product missing", ()
     new Set(["orphan-id"])
   );
   assertEquals(items[0].productTitle, "Neznámý produkt");
+});
+
+Deno.test("parseAdminRecipients: undefined env → výchozí adresa Jany", () => {
+  assertEquals(parseAdminRecipients(undefined), ["cestybezmapy@gmail.com"]);
+});
+
+Deno.test("parseAdminRecipients: prázdný string → výchozí adresa Jany", () => {
+  assertEquals(parseAdminRecipients(""), ["cestybezmapy@gmail.com"]);
+});
+
+Deno.test("parseAdminRecipients: jedna adresa", () => {
+  assertEquals(parseAdminRecipients("foo@example.com"), ["foo@example.com"]);
+});
+
+Deno.test("parseAdminRecipients: více adres s mezerami a prázdnými segmenty", () => {
+  assertEquals(
+    parseAdminRecipients("a@x.cz, b@y.cz ,,c@z.cz"),
+    ["a@x.cz", "b@y.cz", "c@z.cz"]
+  );
+});
+
+Deno.test("buildAdminNotificationItems: obsahuje i custom-itinerary položky", () => {
+  const products = [
+    { id: "p-standard", title: "Toskánsko – průvodce" },
+    { id: "p-custom", title: "Individuální itinerář" },
+  ];
+  const orderItems = [
+    { product_id: "p-standard", quantity: 2, price_at_purchase: 199 },
+    { product_id: "p-custom", quantity: 1, price_at_purchase: 2499 },
+  ];
+  const items = buildAdminNotificationItems(products, orderItems);
+  assertEquals(items, [
+    { productTitle: "Toskánsko – průvodce", quantity: 2, priceAtPurchase: 199 },
+    { productTitle: "Individuální itinerář", quantity: 1, priceAtPurchase: 2499 },
+  ]);
+});
+
+Deno.test("buildAdminNotificationItems: fallback titulek pro neznámý produkt", () => {
+  const items = buildAdminNotificationItems(
+    [],
+    [{ product_id: "p-missing", quantity: 1, price_at_purchase: 100 }]
+  );
+  assertEquals(items[0].productTitle, "Neznámý produkt");
+});
+
+Deno.test("buildAdminOrderUrl: undefined base URL → undefined (e-mail bez tlačítka)", () => {
+  assertEquals(buildAdminOrderUrl(undefined, "ord-1"), undefined);
+});
+
+Deno.test("buildAdminOrderUrl: prázdný string → undefined", () => {
+  assertEquals(buildAdminOrderUrl("", "ord-1"), undefined);
+});
+
+Deno.test("buildAdminOrderUrl: složí React Admin deep-link", () => {
+  assertEquals(
+    buildAdminOrderUrl("https://admin.example.com", "ord-1"),
+    "https://admin.example.com/#/orders/ord-1"
+  );
+});
+
+Deno.test("buildAdminOrderUrl: ořeže trailing slash", () => {
+  assertEquals(
+    buildAdminOrderUrl("https://admin.example.com/", "ord-1"),
+    "https://admin.example.com/#/orders/ord-1"
+  );
 });

@@ -64,3 +64,41 @@ export function buildOrderConfirmationItems(
       priceAtPurchase: item.price_at_purchase,
     }));
 }
+
+// Výchozí příjemce admin notifikací — Jana (vlastní byznys i operativu).
+// Stejný vzor jako FAKTUROID_ALERT_EMAIL v create-invoice.
+export const DEFAULT_ADMIN_NOTIFICATION_EMAIL = "cestybezmapy@gmail.com";
+
+// Parsuje ADMIN_NOTIFICATION_EMAIL env: více adres oddělených čárkou.
+// Prázdná / nenastavená hodnota → výchozí adresa.
+export function parseAdminRecipients(envValue: string | undefined): string[] {
+  const parsed = (envValue ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return parsed.length > 0 ? parsed : [DEFAULT_ADMIN_NOTIFICATION_EMAIL];
+}
+
+// Položky pro admin notifikaci — na rozdíl od buildOrderConfirmationItems
+// nefiltruje custom itineráře: admin vidí kompletní obsah objednávky.
+export function buildAdminNotificationItems(
+  products: ProductRow[],
+  orderItems: OrderItemForRpc[]
+): OrderItemForEmail[] {
+  const titleById = new Map(products.map((p) => [p.id, p.title]));
+  return orderItems.map((item) => ({
+    productTitle: titleById.get(item.product_id) ?? "Neznámý produkt",
+    quantity: item.quantity,
+    priceAtPurchase: item.price_at_purchase,
+  }));
+}
+
+// Deep-link na detail objednávky v React Admin panelu.
+// Bez nastavené base URL vrací undefined — šablona pak skryje tlačítko.
+export function buildAdminOrderUrl(
+  adminPanelUrl: string | undefined,
+  orderId: string
+): string | undefined {
+  if (!adminPanelUrl) return undefined;
+  return `${adminPanelUrl.replace(/\/+$/, "")}/#/orders/${orderId}`;
+}
