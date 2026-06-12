@@ -391,3 +391,70 @@ Deno.test("sendEmail proceeds when suppression query errors (fail-open with loud
   // Query errored → we logged and proceeded. Send went through.
   assertEquals(result.messageId, 're_fail_open');
 });
+
+Deno.test("admin-order-notification: subject pro běžnou objednávku", async () => {
+  const { client, getLastCall } = mockResendClientCapturing("msg-admin-1");
+  await sendEmail(client, {
+    type: "admin-order-notification",
+    to: "cestybezmapy@gmail.com",
+    idempotencyKey: "admin-order-notification/a1b2c3d4-e5f6/cestybezmapy@gmail.com",
+    templateProps: {
+      orderId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      customerName: "Petr Novák",
+      customerEmail: "petr@example.com",
+      items: [{ productTitle: "Toskánsko – průvodce", quantity: 2, priceAtPurchase: 299 }],
+      totalAmount: 598,
+      hasCustomItinerary: false,
+    },
+  });
+  const call = getLastCall()!;
+  assertEquals(call.subject, "🛒 Nová objednávka #a1b2c3d4 — 598 Kč");
+  assertEquals(call.idempotencyKey, "admin-order-notification/a1b2c3d4-e5f6/cestybezmapy@gmail.com");
+  assertEquals(call.to, "cestybezmapy@gmail.com");
+  // react element šablony je předán Resendu (render dělá Resend)
+  assertEquals(typeof call.react, "object");
+});
+
+Deno.test("admin-order-notification: subject pro itinerář na míru (vyhrává i v mixed košíku)", async () => {
+  const { client, getLastCall } = mockResendClientCapturing("msg-admin-2");
+  await sendEmail(client, {
+    type: "admin-order-notification",
+    to: "cestybezmapy@gmail.com",
+    idempotencyKey: "admin-order-notification/b2c3d4e5-f6a1/cestybezmapy@gmail.com",
+    templateProps: {
+      orderId: "b2c3d4e5-f6a1-7890-abcd-ef1234567890",
+      customerName: "Eva Malá",
+      customerEmail: "eva@example.com",
+      items: [
+        { productTitle: "Individuální itinerář", quantity: 1, priceAtPurchase: 2499 },
+        { productTitle: "Provence – průvodce", quantity: 1, priceAtPurchase: 199 },
+      ],
+      totalAmount: 2698,
+      hasCustomItinerary: true,
+    },
+  });
+  const call = getLastCall()!;
+  assertEquals(
+    call.subject,
+    "🗺️ ZAPLACENÝ ITINERÁŘ NA MÍRU — objednávka #b2c3d4e5 (2 698 Kč)"
+  );
+});
+
+Deno.test("admin-order-notification: render funguje bez adminOrderUrl (volitelné tlačítko)", async () => {
+  const { client, getLastCall } = mockResendClientCapturing("msg-admin-3");
+  await sendEmail(client, {
+    type: "admin-order-notification",
+    to: "cestybezmapy@gmail.com",
+    idempotencyKey: "admin-order-notification/c3d4e5f6-a1b2/cestybezmapy@gmail.com",
+    templateProps: {
+      orderId: "c3d4e5f6-a1b2-7890-abcd-ef1234567890",
+      customerName: "Jan Dvořák",
+      customerEmail: "jan@example.com",
+      items: [{ productTitle: "Toskánsko – průvodce", quantity: 1, priceAtPurchase: 199 }],
+      totalAmount: 199,
+      hasCustomItinerary: false,
+      // adminOrderUrl záměrně chybí
+    },
+  });
+  assertEquals(typeof getLastCall()!.react, "object");
+});

@@ -16,6 +16,7 @@ import { Invoice } from "./templates/Invoice.tsx";
 import { StornoInvoice } from "./templates/StornoInvoice.tsx";
 import { InvoiceCorrected } from "./templates/InvoiceCorrected.tsx";
 import { InvoiceAlert } from "./templates/InvoiceAlert.tsx";
+import { AdminOrderNotification } from "./templates/AdminOrderNotification.tsx";
 import { EmailSuppressedError, type EmailType, type PropsForType, type SendEmailParams, type SendEmailResult } from "./types.ts";
 
 // Allow mocking in tests via parametric client
@@ -38,6 +39,10 @@ interface SendOptions {
   supabase?: SuppressionLookupClient;
 }
 
+function formatCzkSubject(amount: number): string {
+  return `${new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 }).format(amount)} Kč`;
+}
+
 const SUBJECT_BUILDERS: Record<EmailType, (props: any) => string> = {
   'order-confirmation': (p) =>
     `Tvůj průvodce je připraven ke stažení – objednávka #${p.orderId}`,
@@ -57,6 +62,10 @@ const SUBJECT_BUILDERS: Record<EmailType, (props: any) => string> = {
     `Opravená faktura ${p.newInvoiceNumber}`,
   'invoice-alert': (p) =>
     `[Fakturoid alert] order ${p.orderId.slice(0, 8)}`,
+  'admin-order-notification': (p) =>
+    p.hasCustomItinerary
+      ? `🗺️ ZAPLACENÝ ITINERÁŘ NA MÍRU — objednávka #${p.orderId.slice(0, 8)} (${formatCzkSubject(p.totalAmount)})`
+      : `🛒 Nová objednávka #${p.orderId.slice(0, 8)} — ${formatCzkSubject(p.totalAmount)}`,
 };
 
 // deno-lint-ignore no-explicit-any
@@ -80,6 +89,8 @@ function renderTemplate<T extends EmailType>(type: T, props: PropsForType<T>): a
       return InvoiceCorrected(props as any);
     case 'invoice-alert':
       return InvoiceAlert(props as any);
+    case 'admin-order-notification':
+      return AdminOrderNotification(props as any);
   }
 }
 

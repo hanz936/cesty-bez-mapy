@@ -13,7 +13,8 @@ export type EmailType =
   | 'invoice'
   | 'storno-invoice'
   | 'invoice-corrected'
-  | 'invoice-alert';
+  | 'invoice-alert'
+  | 'admin-order-notification';
 
 export interface OrderItem {
   productTitle: string;
@@ -85,6 +86,18 @@ export interface InvoiceAlertProps {
   errorMessage: string;
 }
 
+export interface AdminOrderNotificationProps {
+  orderId: string;
+  customerName: string;
+  customerEmail: string;
+  items: OrderItem[];
+  totalAmount: number; // CZK
+  hasCustomItinerary: boolean;
+  // Deep-link na detail objednávky v admin panelu.
+  // Když chybí (ADMIN_PANEL_URL nenastaveno), šablona skryje tlačítko.
+  adminOrderUrl?: string;
+}
+
 export interface EmailAttachment {
   filename: string;
   content: string; // base64-encoded
@@ -101,6 +114,7 @@ export type PropsForType<T extends EmailType> =
   : T extends 'storno-invoice' ? StornoInvoiceProps
   : T extends 'invoice-corrected' ? InvoiceCorrectedProps
   : T extends 'invoice-alert' ? InvoiceAlertProps
+  : T extends 'admin-order-notification' ? AdminOrderNotificationProps
   : never;
 
 export interface SendEmailParams<T extends EmailType> {
