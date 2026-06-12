@@ -7,12 +7,12 @@
 // - Vrátí download token a info o objednávce
 // ================================================
 
-import Stripe from "https://esm.sh/stripe@20?target=denonext";
+import Stripe from "https://esm.sh/stripe@22.2.0?target=denonext";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withSentry } from "../_shared/sentry.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
-  apiVersion: "2025-12-15.clover",
+  apiVersion: "2026-05-27.dahlia",
 });
 
 const allowedOrigins = [

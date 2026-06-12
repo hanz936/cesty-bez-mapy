@@ -7,7 +7,7 @@
 // - Generuje download tokeny pro PDF
 // ================================================
 
-import Stripe from "https://esm.sh/stripe@20?target=denonext";
+import Stripe from "https://esm.sh/stripe@22.2.0?target=denonext";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendEmail, makeResendClient } from "../_shared/email/sendEmail.ts";
 import {
@@ -19,7 +19,7 @@ import { makeEcomailClient, getEcomailListId } from "../_shared/ecomail/config.t
 import { syncCustomerToEcomail } from "../_shared/ecomail/syncCustomer.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
-  apiVersion: "2025-12-15.clover",
+  apiVersion: "2026-05-27.dahlia",
 });
 
 // Supabase Edge Runtime extends the global scope with EdgeRuntime.waitUntil,

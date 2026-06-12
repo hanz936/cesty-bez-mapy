@@ -13,6 +13,6 @@
     "proseWrap": "preserve"
   },
   "imports": {
-    "stripe": "https://esm.sh/stripe@20?target=denonext"
+    "stripe": "https://esm.sh/stripe@22.2.0?target=denonext"
   }
 }
