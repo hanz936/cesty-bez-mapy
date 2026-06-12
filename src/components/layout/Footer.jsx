@@ -59,7 +59,7 @@ const NavigationSection = memo(({ title, links, ariaLabel, className = "" }) => 
   const location = useLocation();
   
   return (
-    <nav className={`text-center md:text-left mb-12 md:mb-0 flex-shrink-0 ${className}`.trim()} aria-label={ariaLabel}>
+    <nav className={`text-center md:text-left ${className}`.trim()} aria-label={ariaLabel}>
       <div className="mb-6">
         <h3 className="text-green-800 font-bold text-base uppercase tracking-wider">
           {title}
@@ -118,67 +118,68 @@ const Footer = () => {
       </div>
       
       <div className="max-w-6xl mx-auto px-8 pb-16 relative z-10">
-        <div className="flex flex-col md:flex-row items-center md:items-start">
-          <div className="mb-12 md:mb-0">
-            <ImageWithFallback 
-              src={`${BASE_PATH}/images/logo-footer.png`} 
-              alt="Cesty bez mapy logo" 
-              className="h-28 w-auto mx-auto"
+        <div className="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-12 lg:gap-8 lg:items-start">
+          {/* Značka: logo + název + tagline + sociální sítě */}
+          <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:items-start sm:justify-center sm:text-left md:col-span-2 md:justify-start lg:col-span-4">
+            <ImageWithFallback
+              src={`${BASE_PATH}/images/logo-footer.png`}
+              alt="Cesty bez mapy logo"
+              className="h-28 w-auto flex-shrink-0"
               loading="eager"
-              fallback={<div className="h-28 w-32 bg-gray-200 rounded mx-auto flex items-center justify-center text-gray-500 text-sm">Logo</div>}
+              fallback={<div className="h-28 w-32 bg-gray-200 rounded flex items-center justify-center text-gray-500 text-sm">Logo</div>}
             />
-          </div>
-          
-          <div className="text-center md:text-left space-y-6 mb-12 md:mb-0 md:ml-8 flex-1">
-            <div>
-              <h2 className="text-2xl mb-4 text-black font-bold tracking-wide">
-                CESTY (BEZ) MAPY
-              </h2>
-              <div className="w-16 h-1 bg-gradient-to-r from-green-600 to-green-800 mx-auto md:mx-0 mb-4" aria-hidden="true"></div>
-              <p className="text-black text-base leading-relaxed font-medium">
-                Podporuji tě, abys co nejlépe využil svůj čas na Zemi
-              </p>
-            </div>
-            
-            <div>
-              <span className="block text-sm font-bold text-green-800 mb-3 uppercase tracking-wider">
-                SLEDUJ MĚ NA
-              </span>
-              <div className="flex justify-center md:justify-start gap-3">
-                <a 
-                  href="https://www.instagram.com/cestybezmapy" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  aria-label="Sleduj mě na Instagramu @cestybezmapy"
-                  className="rounded focus:outline-none supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2"
-                >
-                  <ImageWithFallback 
-                    src={`${BASE_PATH}/images/instagram.svg`} 
-                    alt="Instagram" 
-                    className="w-7 h-7 grayscale hover:grayscale-0 transition-all duration-300 motion-reduce:transition-none"
-                    loading="eager"
-                    fallback={<div className="w-7 h-7 bg-gray-400 rounded flex items-center justify-center text-white text-xs">IG</div>}
-                  />
-                </a>
+
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl mb-4 text-black font-bold tracking-wide">
+                  CESTY (BEZ) MAPY
+                </h2>
+                <div className="w-16 h-1 bg-gradient-to-r from-green-600 to-green-800 mx-auto sm:mx-0 mb-4" aria-hidden="true"></div>
+                <p className="text-black text-base leading-relaxed font-medium">
+                  Podporuji tě, abys co nejlépe využil svůj čas na Zemi
+                </p>
+              </div>
+
+              <div>
+                <span className="block text-sm font-bold text-green-800 mb-3 uppercase tracking-wider">
+                  SLEDUJ MĚ NA
+                </span>
+                <div className="flex justify-center sm:justify-start gap-3">
+                  <a
+                    href="https://www.instagram.com/cestybezmapy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Sleduj mě na Instagramu @cestybezmapy"
+                    className="rounded focus:outline-none supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2"
+                  >
+                    <ImageWithFallback
+                      src={`${BASE_PATH}/images/instagram.svg`}
+                      alt="Instagram"
+                      className="w-7 h-7 grayscale hover:grayscale-0 transition-all duration-300 motion-reduce:transition-none"
+                      loading="eager"
+                      fallback={<div className="w-7 h-7 bg-gray-400 rounded flex items-center justify-center text-white text-xs">IG</div>}
+                    />
+                  </a>
+                </div>
               </div>
             </div>
           </div>
 
-          <NavigationSection 
+          <NavigationSection
             title="O mně"
             links={aboutLinks}
             ariaLabel="O mně"
-            className="md:ml-16"
+            className="lg:col-span-2"
           />
 
           <NavigationSection
             title="Plánování cest"
             links={planningLinks}
             ariaLabel="Plánování cest"
-            className="md:ml-20"
+            className="lg:col-span-2"
           />
 
-          <div className="text-center md:text-left mb-12 md:mb-0 flex-shrink-0 md:ml-20">
+          <div className="text-center md:text-left md:col-span-2 lg:col-span-4">
             <NewsletterForm />
           </div>
         </div>
