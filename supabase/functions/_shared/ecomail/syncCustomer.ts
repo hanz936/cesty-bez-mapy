@@ -2,6 +2,20 @@
 import { TAGS } from "./config.ts";
 import { logEcomail } from "./log.ts";
 
+/** Placeholder jména z checkout fallbacků — do Ecomailu se neposílají. */
+const PLACEHOLDER_NAMES = new Set(["zákazník", "host", "neznámý zákazník"]);
+
+export interface SplitName { name?: string; surname?: string }
+
+/** Rozdělí celé jméno na křestní + příjmení (první token / zbytek). */
+export function splitFullName(full?: string | null): SplitName {
+  const normalized = (full ?? "").trim().replace(/\s+/g, " ");
+  if (!normalized || PLACEHOLDER_NAMES.has(normalized.toLowerCase())) return {};
+  const idx = normalized.indexOf(" ");
+  if (idx === -1) return { name: normalized };
+  return { name: normalized.slice(0, idx), surname: normalized.slice(idx + 1) };
+}
+
 /** Sjednotí existující a nové tagy (bez duplikátů, zachová pořadí). */
 export function mergeTags(existing: string[], add: string[]): string[] {
   const out = [...existing];

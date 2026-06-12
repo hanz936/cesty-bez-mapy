@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { syncCustomerToEcomail } from "./syncCustomer.ts";
+import { splitFullName, syncCustomerToEcomail } from "./syncCustomer.ts";
 
 function fakeClient(existingTags: string[] | null) {
   const calls: any[] = [];
@@ -82,4 +82,30 @@ Deno.test("syncCustomerToEcomail — guard DB read throws → nethrowuje, pokra�
   });
   // Klíč: nevyhodí výjimku; guard chybu spolkne a sync proběhne.
   assertEquals(res.synced, true);
+});
+
+Deno.test("splitFullName — dvě slova → name + surname", () => {
+  assertEquals(splitFullName("Jan Novák"), { name: "Jan", surname: "Novák" });
+});
+
+Deno.test("splitFullName — jedno slovo → jen name", () => {
+  assertEquals(splitFullName("Jan"), { name: "Jan" });
+});
+
+Deno.test("splitFullName — víceslovné příjmení + přebytečné mezery", () => {
+  assertEquals(splitFullName("  Jan   van der Berg "), { name: "Jan", surname: "van der Berg" });
+});
+
+Deno.test("splitFullName — prázdné/null/undefined → {}", () => {
+  assertEquals(splitFullName(""), {});
+  assertEquals(splitFullName("   "), {});
+  assertEquals(splitFullName(null), {});
+  assertEquals(splitFullName(undefined), {});
+});
+
+Deno.test("splitFullName — placeholder jména → {} (case-insensitive)", () => {
+  assertEquals(splitFullName("Zákazník"), {});
+  assertEquals(splitFullName("Host"), {});
+  assertEquals(splitFullName("Neznámý zákazník"), {});
+  assertEquals(splitFullName("neznámý zákazník"), {});
 });
