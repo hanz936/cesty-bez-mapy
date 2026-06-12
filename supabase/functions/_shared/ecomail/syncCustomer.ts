@@ -51,9 +51,10 @@ export async function syncCustomerToEcomail(p: SyncParams): Promise<{ synced: bo
   try {
     const existing = await p.client.getSubscriber(p.listId, p.email);
     const tags = mergeTags(existing?.tags ?? [], [TAGS.CUSTOMER]);
+    const { name, surname } = splitFullName(p.name);
     const resp = await p.client.subscribe(
       p.listId,
-      { email: p.email, name: p.name, source: "checkout", tags },
+      { email: p.email, name, surname, source: "checkout", tags },
       { update_existing: true, skip_confirmation: true },
     );
     const rawId = resp.id ?? existing?.id;

@@ -35,6 +35,8 @@ Deno.test("syncCustomerToEcomail — happy path: tag zakaznik, single opt-in, na
   assertEquals(res.subscriberId, 555);
   assertEquals(client.calls[0].data.tags, ["zakaznik"]);
   assertEquals(client.calls[0].o.skip_confirmation, true);
+  assertEquals(client.calls[0].data.name, "Jan");
+  assertEquals(client.calls[0].data.surname, "Novák");
   assertEquals(supabase.updates["customers"][0].ecomail_subscriber_id, "555");
   assertEquals(supabase.updates["orders"][0].ecomail_synced, true);
   assertEquals(supabase.inserts["integration_logs"][0].status, "success");
@@ -108,4 +110,15 @@ Deno.test("splitFullName — placeholder jména → {} (case-insensitive)", () =
   assertEquals(splitFullName("Host"), {});
   assertEquals(splitFullName("Neznámý zákazník"), {});
   assertEquals(splitFullName("neznámý zákazník"), {});
+});
+
+Deno.test("syncCustomerToEcomail — placeholder jméno se do Ecomailu neposílá", async () => {
+  const client = fakeClient(null);
+  const res = await syncCustomerToEcomail({
+    client, supabase: fakeSupabase(false), listId: 7, customerId: "c", orderId: "o",
+    email: "a@b.cz", name: "Neznámý zákazník",
+  });
+  assertEquals(res.synced, true);
+  assertEquals(client.calls[0].data.name, undefined);
+  assertEquals(client.calls[0].data.surname, undefined);
 });
