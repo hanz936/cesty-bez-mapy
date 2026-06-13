@@ -119,6 +119,12 @@ Deno.serve(withSentry(async (req) => {
     return jsonResponse({ error: "verify_unavailable" }, 503, cors);
   }
   if (!verifyResult.success) {
+    console.warn("[turnstile] verification failed", {
+      form: form_type,
+      errorCodes: verifyResult.errorCodes,
+      hostname: verifyResult.hostname,
+      remoteIp,
+    });
     return jsonResponse(
       { error: "captcha_failed", codes: verifyResult.errorCodes ?? [] },
       403,

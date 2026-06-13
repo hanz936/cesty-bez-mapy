@@ -82,7 +82,7 @@ To confirm protection works, temporarily set `TURNSTILE_SECRET_KEY` to the alway
 | Always pass  | `1x00000000000000000000AA`         | `1x0000000000000000000000000000000AA`       |
 | Always fail  | `2x00000000000000000000AB`         | `2x0000000000000000000000000000000AA`       |
 
-These work only on `localhost` / `127.0.0.1`. Submitting them from a production domain will fail.
+These universal test keys work on **any** domain — localhost, `127.0.0.1`, and any dev/preview/production domain (per Cloudflare docs); the earlier "localhost only" claim was incorrect. Because they always pass/fail regardless of origin, they must NEVER be deployed to production.
 
 ---
 

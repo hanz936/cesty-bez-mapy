@@ -55,7 +55,15 @@ Deno.serve(withSentry(async (req) => {
     console.error("Turnstile verify error", err);
     return json({ error: "verify_unavailable" }, 503, cors);
   }
-  if (!turnstile.success) return json({ error: "captcha_failed" }, 403, cors);
+  if (!turnstile.success) {
+    console.warn("[turnstile] verification failed", {
+      form: "newsletter",
+      errorCodes: turnstile.errorCodes,
+      hostname: turnstile.hostname,
+      remoteIp: ip,
+    });
+    return json({ error: "captcha_failed" }, 403, cors);
+  }
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
