@@ -13,6 +13,9 @@ import { sendEmail, makeResendClient } from "../_shared/email/sendEmail.ts";
 import {
   decideEmailTypes,
   buildOrderConfirmationItems,
+  parseAdminRecipients,
+  buildAdminNotificationItems,
+  buildAdminOrderUrl,
 } from "./lib.ts";
 import { withSentry } from "../_shared/sentry.ts";
 import { makeEcomailClient, getEcomailListId } from "../_shared/ecomail/config.ts";
@@ -640,6 +643,15 @@ async function runFollowUps(ctx: FollowUpContext): Promise<void> {
     }
 
     try {
+      await sendAdminNotification(ctx);
+    } catch (adminNotificationError) {
+      console.error(
+        `sendAdminNotification failed for order ${ctx.orderId}, continuing:`,
+        adminNotificationError
+      );
+    }
+
+    try {
       await syncOrderToEcomail(ctx.supabase, {
         orderId: ctx.orderId,
         customerId: ctx.customerId,
@@ -753,6 +765,46 @@ async function sendCheckoutEmails(ctx: CheckoutEmailContext): Promise<void> {
       .eq("id", ctx.orderId);
     if (trackingError) {
       console.error("Failed to persist email tracking:", trackingError);
+    }
+  }
+}
+
+// Interní notifikace pro admina (Janu) o nové zaplacené objednávce.
+// Itinerář na míru = kritický signál (závazek začít plánovat), proto má
+// vlastní subjekt i banner. Fire-and-forget: selhání se loguje a nikdy
+// neblokuje webhook, zákaznické e-maily, Ecomail sync ani fakturu.
+// Idempotence: wasCreated guard v handleru + Resend idempotencyKey per adresa.
+async function sendAdminNotification(ctx: FollowUpContext): Promise<void> {
+  const recipients = parseAdminRecipients(
+    Deno.env.get("ADMIN_NOTIFICATION_EMAIL")
+  );
+  const decision = decideEmailTypes(ctx.productIds, ctx.customRequestsMapping);
+  const items = buildAdminNotificationItems(ctx.products, ctx.orderItems);
+  const adminOrderUrl = buildAdminOrderUrl(
+    Deno.env.get("ADMIN_PANEL_URL"),
+    ctx.orderId
+  );
+
+  const resend = makeResendClient();
+  for (const recipient of recipients) {
+    try {
+      await sendEmail(resend, {
+        type: "admin-order-notification",
+        to: recipient,
+        idempotencyKey: `admin-order-notification/${ctx.orderId}/${recipient}`,
+        templateProps: {
+          orderId: ctx.orderId,
+          customerName: ctx.customerName,
+          customerEmail: ctx.customerEmail,
+          items,
+          totalAmount: ctx.totalAmount,
+          hasCustomItinerary: decision.hasCustomItinerary,
+          adminOrderUrl,
+        },
+      }, { supabase: ctx.supabase });
+    } catch (err) {
+      // Jedna selhaná adresa nesmí zastavit odeslání ostatním příjemcům.
+      console.error(`Failed to send AdminOrderNotification to ${recipient}:`, err);
     }
   }
 }
