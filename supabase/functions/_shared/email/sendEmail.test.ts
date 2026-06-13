@@ -66,17 +66,20 @@ function mockResendClient(behaviors: Array<
 function mockResendClientCapturing(messageId: string): {
   client: ResendClient;
   getLastCall: () => Record<string, unknown> | null;
+  getLastOptions: () => Record<string, unknown> | null;
 } {
   let lastCall: Record<string, unknown> | null = null;
+  let lastOptions: Record<string, unknown> | null = null;
   const client: ResendClient = {
     emails: {
-      send: async (params: unknown) => {
+      send: async (params: unknown, options?: unknown) => {
         lastCall = params as Record<string, unknown>;
+        lastOptions = (options ?? null) as Record<string, unknown> | null;
         return { data: { id: messageId }, error: null };
       },
     },
   };
-  return { client, getLastCall: () => lastCall };
+  return { client, getLastCall: () => lastCall, getLastOptions: () => lastOptions };
 }
 
 Deno.test("sendEmail returns messageId on first-attempt success", async () => {
@@ -393,7 +396,7 @@ Deno.test("sendEmail proceeds when suppression query errors (fail-open with loud
 });
 
 Deno.test("admin-order-notification: subject pro běžnou objednávku", async () => {
-  const { client, getLastCall } = mockResendClientCapturing("msg-admin-1");
+  const { client, getLastCall, getLastOptions } = mockResendClientCapturing("msg-admin-1");
   await sendEmail(client, {
     type: "admin-order-notification",
     to: "cestybezmapy@gmail.com",
@@ -408,8 +411,10 @@ Deno.test("admin-order-notification: subject pro běžnou objednávku", async ()
     },
   });
   const call = getLastCall()!;
+  const options = getLastOptions()!;
   assertEquals(call.subject, "🛒 Nová objednávka #a1b2c3d4 — 598 Kč");
-  assertEquals(call.idempotencyKey, "admin-order-notification/a1b2c3d4-e5f6/cestybezmapy@gmail.com");
+  assertEquals(call.idempotencyKey, undefined); // no longer in payload
+  assertEquals(options.idempotencyKey, "admin-order-notification/a1b2c3d4-e5f6/cestybezmapy@gmail.com");
   assertEquals(call.to, "cestybezmapy@gmail.com");
   // react element šablony je předán Resendu (render dělá Resend)
   assertEquals(typeof call.react, "object");

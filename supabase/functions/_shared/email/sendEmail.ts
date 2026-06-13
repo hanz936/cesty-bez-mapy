@@ -22,7 +22,7 @@ import { EmailSuppressedError, type EmailType, type PropsForType, type SendEmail
 // Allow mocking in tests via parametric client
 export interface ResendClient {
   emails: {
-    send(params: unknown): Promise<{
+    send(params: unknown, options?: unknown): Promise<{
       data: { id: string } | null;
       error: { statusCode: number; message: string; name: string } | null;
     }>;
@@ -177,8 +177,9 @@ export async function sendEmail<T extends EmailType>(
       replyTo,
       subject,
       react: reactElement,
-      idempotencyKey: params.idempotencyKey,
       ...(params.attachments ? { attachments: params.attachments } : {}),
+    }, {
+      idempotencyKey: params.idempotencyKey,
     });
 
     if (data && !error) {
