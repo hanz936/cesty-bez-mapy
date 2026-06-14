@@ -15,7 +15,8 @@ export const ROUTES = {
   COLLABORATION: '/spoluprace',
   FAQ: '/caste-dotazy',
   REVIEWS: '/recenze',
-  CONTACT: '/kontakt'
+  CONTACT: '/kontakt',
+  PRIVACY: '/ochrana-osobnich-udaju'
 };
 
 export const ROUTE_LABELS = {

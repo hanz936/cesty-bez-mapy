@@ -1,7 +1,9 @@
 import { useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import TurnstileField from '../ui/TurnstileField';
 import logger from '../../utils/logger';
 import { trackEvent, ANALYTICS_EVENTS } from '../../lib/analytics';
+import { ROUTES } from '../../constants';
 
 const PRIVACY_POLICY_VERSION = '2026-06-01';
 
@@ -163,12 +165,12 @@ const NewsletterForm = ({ location = 'footer' }) => {
         <p className="text-xs text-gray-500 mt-3 leading-relaxed">
           Přihlášením souhlasíte se zpracováním e-mailu pro zasílání novinek.
           Odhlásit se můžete kdykoli.{' '}
-          <a
-            href="#soukromi"
+          <Link
+            to={ROUTES.PRIVACY}
             className="text-green-700 hover:text-green-800 underline transition-colors duration-300 motion-reduce:transition-none focus:outline-none"
           >
             Ochrana údajů
-          </a>
+          </Link>
           .
         </p>
       </form>

@@ -22,6 +22,7 @@ import FAQ from './pages/FAQ';
 import Reviews from './pages/Reviews';
 import SalzburgItinerary from './pages/SalzburgItinerary';
 import Contact from './pages/Contact';
+import Privacy from './pages/Privacy';
 import NotFound from './pages/NotFound';
 import logger from './utils/logger';
 import { testSupabaseConnection } from './lib/testConnection';
@@ -106,6 +107,7 @@ function App() {
             <Route path={ROUTES.FAQ} element={<FAQ />} />
             <Route path={ROUTES.REVIEWS} element={<Reviews />} />
             <Route path={ROUTES.CONTACT} element={<Contact />} />
+            <Route path={ROUTES.PRIVACY} element={<Privacy />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Router>

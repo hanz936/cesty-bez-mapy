@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ROUTES } from '../../constants';
 import { lookupIco } from '../../utils/ares.js';
 import { isValidIco } from '../../utils/ico.js';
 import { wasBlockedByCsp } from '../../utils/cspBlocked.js';
@@ -80,7 +82,7 @@ export function BillingForm({ value, onChange, marketingConsent, setMarketingCon
             />
             <span>
               Chci dostávat novinky a tipy na cesty e-mailem (nepovinné). Odhlásit se můžete kdykoli.{' '}
-              Více v <a href="#soukromi" className="underline">zásadách ochrany osobních údajů</a>.
+              Více v <Link to={ROUTES.PRIVACY} className="underline">zásadách ochrany osobních údajů</Link>.
             </span>
           </label>
         </div>
