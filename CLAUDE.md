@@ -145,3 +145,14 @@ Chráněné submission flows:
 - **Main branch:** Manuální deploy
 - **Dev branch:** Auto-deploy na preview
 - SPA rewrites v `vercel.json`
+
+## Analytika (Umami)
+
+Cookieless analytika (bez consent banneru). Tracker se injektuje do `index.html`
+přes Vite plugin [`vite/umami-plugin.js`](vite/umami-plugin.js) jen v produkci, když
+je `VITE_UMAMI_WEBSITE_ID` nastavené. Custom e-commerce eventy přes
+[`src/lib/analytics.js`](src/lib/analytics.js) (`trackEvent` + `ANALYTICS_EVENTS`).
+URL se čistí v [`src/lib/umamiBeforeSend.js`](src/lib/umamiBeforeSend.js).
+Setup: [`docs/MANUAL_SETUP_UMAMI.md`](docs/MANUAL_SETUP_UMAMI.md).
+
+Env: `VITE_UMAMI_WEBSITE_ID` (povinné pro aktivaci), `VITE_UMAMI_SRC` (volitelné).
