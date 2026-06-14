@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'path'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
+import { umamiPlugin } from './vite/umami-plugin.js'
 
 // Pre-compiled regex for better performance
 const MEDIA_REGEX = /\.(mp4|webm|ogg|mp3|wav|flac|aac)(\?.*)?$/i;
@@ -26,6 +27,7 @@ export default defineConfig({
       sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] },
       disable: !process.env.SENTRY_AUTH_TOKEN, // active only on CI/Vercel, not local
     }),
+    umamiPlugin(),
   ],
 
   // Development server optimization
