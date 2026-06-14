@@ -5,6 +5,7 @@ import { Button } from '../components/ui';
 import { BASE_PATH, ROUTES, SEASONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import { useCart } from '../contexts';
+import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 
 // Custom hook for cross-device scroll lock
 const useScrollLock = (isLocked) => {
@@ -202,6 +203,7 @@ const ProductDetail = () => {
     if (product) {
       const success = addToCart(product);
       if (success) {
+        trackEvent(ANALYTICS_EVENTS.ADD_TO_CART, { product: product.slug, price: product.price });
         setAddedToCart(true);
         // Reset notifikace po 3 sekundách
         setTimeout(() => setAddedToCart(false), 3000);
@@ -213,6 +215,7 @@ const ProductDetail = () => {
   const handleBuyNow = useCallback(() => {
     if (product) {
       addToCart(product);
+      trackEvent(ANALYTICS_EVENTS.ADD_TO_CART, { product: product.slug, price: product.price });
       navigate(ROUTES.CHECKOUT);
     }
   }, [product, addToCart, navigate]);
