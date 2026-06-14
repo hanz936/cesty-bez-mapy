@@ -12,6 +12,7 @@ import { BillingForm } from '../components/cart/BillingForm.jsx';
 import { BASE_PATH, ROUTES } from '../constants';
 import { useCart } from '../contexts';
 import { supabase } from '../lib/supabase';
+import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 
 // Komponenta pro položku v checkoutu
 const CheckoutItem = React.memo(({ item }) => {
@@ -102,6 +103,7 @@ const Checkout = React.memo(() => {
   const handleCheckout = useCallback(async () => {
     setIsProcessing(true);
     setError(null);
+    trackEvent(ANALYTICS_EVENTS.BEGIN_CHECKOUT, { items: itemCount, value: cartTotal });
 
     try {
       // Přihlášení anonymního uživatele pokud není přihlášen
@@ -168,7 +170,7 @@ const Checkout = React.memo(() => {
       setError(err.message || 'Nastala chyba při zpracování platby. Zkus to prosím znovu.');
       setIsProcessing(false);
     }
-  }, [cartItems, captchaToken, billing, marketingConsent]);
+  }, [cartItems, captchaToken, billing, marketingConsent, itemCount, cartTotal]);
 
   // Prázdný košík - přesměrování probíhá v useEffect
   if (cartItems.length === 0) {
