@@ -43,6 +43,13 @@ Chceme měřit **návštěvnost + klíčové e-commerce události** způsobem, k
   PostHog ani Vercel Analytics češtinu nemají).
 - **Funnel + Revenue + Goals** reporty pokrývají „kde lidé odpadávají" a tržby.
 
+### Integrace = oficiální metoda, žádné komunitní balíčky
+Umami pro React/Vite oficiálně doporučuje **script tag v `index.html`**; náš `trackEvent`
+wrapper má ~10 řádků. **Nepoužíváme** komunitní balíčky (`@danielgtmn/umami-react`,
+`@giof/react-umami`, `react-umami`, …) — byly by zbytečná dependency a odklon od oficiální
+metody (karpathy: vyhnout se overengineeringu). Nepoužíváme ani komunitní **Umami MCP**
+v rámci implementace (volitelně až po launchi pro dotazování analytiky přes Claude — prověřit).
+
 ### Zamítnuté alternativy
 - **GA4** — v EU právně nejproblematičtější (transfery do US, Schrems II), vynucuje
   opt-in banner + Consent Mode v2, ztráta 30–60 % dat od odmítnutí. Proti všem cílům.
@@ -153,6 +160,10 @@ Resend, Fakturoid, ARES (client-side lookup IČO, bez cookie).
 
 **D) Analytika:** Umami (EU region) — cookieless, anonymní, bez PII.
 
+**Lokace dat (ověřeno):** Supabase `eu-central-1` (Frankfurt, EU), Sentry EU, Umami EU
+region, Ecomail ČR, Fakturoid ČR → **v EU**. Mimo EU (US): Stripe (hostovaný checkout),
+YouTube, Resend → sekce „předání mimo EU" se zúží na tyto + zaštítí SCC/DPF.
+
 > Pozn.: Web nenačítá Google Fonts (běží na systémových fontech) — žádný GDPR problém
 > s fonty, byť CSP je zatím povoluje.
 
@@ -238,3 +249,37 @@ Inline bootstrap (`umamiBeforeSend`) využije **už existující `'unsafe-inline
 - **Realita adblock** — Nuxt Scripts / Blockthrough 2026: 25–45 % blokace trackerů.
 - **Kód projektu** — ověřen inventář úložišť/třetích stran (jen `cbm_cart` + Supabase
   auth v localStorage; bez client Stripe.js; bez Google Fonts; YouTube nocookie; ARES).
+- **Supabase region** — MCP `list_projects`: `eu-central-1` (Frankfurt).
+- **Nástroje** — Context7 + WebSearch: žádný oficiální Umami React balíček (jen komunitní,
+  zamítnuto); existují komunitní Umami MCP servery (volitelné po launchi).
+
+## 12. Nástroje a postup (závazné)
+
+**Balíčky:** žádné komunitní Umami wrappery — oficiální script tag + vlastní `trackEvent`
+wrapper (viz §2). Žádný nový runtime dependency.
+
+**MCP:**
+- **Context7** — ověřování Umami/Vite/React API během implementace.
+- **Firecrawl** — doplňkový scrape Umami docs při nejasnostech.
+- **Supabase MCP** — read-only ověření (region hotov); jen pokud by přibyl DB/edge kousek.
+- Komunitní **Umami MCP** — NE v implementaci; volitelně po launchi (dotazy na analytiku).
+
+**Skills:**
+- Proces: `superpowers:writing-plans` → `superpowers:subagent-driven-development`
+  (implementer + 2 revieweři) → `superpowers:test-driven-development`
+  (`analytics.js`, Vite plugin, `beforeSend`) → `superpowers:verification-before-completion`
+  → `superpowers:requesting-code-review`.
+- Kvalita: `karpathy-guidelines`, `vercel-react-best-practices`, `web-design-guidelines`
+  (a11y revize Privacy stránky).
+- Tooling: `vercel-cli` / `deploy-to-vercel` (env + deploy), `playwright-cli` (živé ověření
+  pageviews/eventů/CSP na ne-captcha flows), `commit-commands`, `code-review`,
+  `claude-md-management:revise-claude-md`.
+
+**CLI:** `git` / `gh` · `firecrawl` · `vercel` (env add + deploy + kontrola CSP hlavičky)
+· `npm` / `vite` / `vitest` / `eslint` / `prettier`. Bez Umami CLI (Cloud setup je manuální).
+Supabase CLI jen u případného budoucího edge/DB (pgTAP guard).
+
+**Supabase naming konvence:** `supabase/CONVENTIONS.md` je scoped na Postgres schéma; MVP
+se schématu nedotýká → neomezuje. Uplatní se jen u případného budoucího Supabase kousku
+(self-host DB, proxy edge fn, consent tabulka). Kebab-case eventy ≠ DB identifikátory;
+`VITE_` env = screaming-snake → žádný konflikt.
