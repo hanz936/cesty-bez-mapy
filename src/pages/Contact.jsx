@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
 import { Button, Form, Input, TextArea, Dropdown, TurnstileField } from '../components/ui';
@@ -93,6 +94,7 @@ const Contact = () => {
       }
 
       setIsSubmitted(true);
+      trackEvent(ANALYTICS_EVENTS.CONTACT_SUBMIT, { type: 'contact' });
       setFormData({ name: '', email: '', subject: 'Obecný dotaz', message: '' });
       setCaptchaToken(null);
     } catch {
