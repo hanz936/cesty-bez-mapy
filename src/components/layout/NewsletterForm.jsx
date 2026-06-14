@@ -1,10 +1,11 @@
 import { useState, useCallback } from 'react';
 import TurnstileField from '../ui/TurnstileField';
 import logger from '../../utils/logger';
+import { trackEvent, ANALYTICS_EVENTS } from '../../lib/analytics';
 
 const PRIVACY_POLICY_VERSION = '2026-06-01';
 
-const NewsletterForm = () => {
+const NewsletterForm = ({ location = 'footer' }) => {
   const [email, setEmail] = useState('');
   const [token, setToken] = useState(null);
   const [status, setStatus] = useState('idle'); // 'idle' | 'loading' | 'done' | 'error'
@@ -63,6 +64,7 @@ const NewsletterForm = () => {
         }
 
         setStatus('done');
+        trackEvent(ANALYTICS_EVENTS.NEWSLETTER_SIGNUP, { location });
         setEmail('');
         setToken(null);
       } catch (err) {
@@ -71,7 +73,7 @@ const NewsletterForm = () => {
         setStatus('error');
       }
     },
-    [email, token]
+    [email, token, location]
   );
 
   if (status === 'done') {
