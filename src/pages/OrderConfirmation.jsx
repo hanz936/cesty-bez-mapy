@@ -14,6 +14,7 @@ import { Button } from '../components/ui';
 import { ROUTES } from '../constants';
 import { useCart } from '../contexts';
 import { supabase } from '../lib/supabase';
+import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 
 // Komponenta pro položku objednávky
 const OrderItem = React.memo(({ item, onDownload, isDownloading }) => {
@@ -121,6 +122,7 @@ const OrderConfirmation = React.memo(() => {
 
   const pollingRef = useRef(null);
   const cartClearedRef = useRef(false);
+  const purchaseTrackedRef = useRef(false);
 
   const sessionId = searchParams.get('session_id');
 
@@ -156,6 +158,32 @@ const OrderConfirmation = React.memo(() => {
         setOrder(data.order);
         setDownloadToken(data.download_token);
         setLoading(false);
+
+        // Track purchase once per Stripe checkout session — survives polling re-entry
+        // (ref) AND a page refresh (sessionStorage keyed by session_id), so a reload of
+        // the confirmation page does not double-count revenue in Umami.
+        if (!purchaseTrackedRef.current) {
+          purchaseTrackedRef.current = true;
+          const purchaseKey = `cbm_purchase_tracked_${sessionId}`;
+          let alreadyTracked = false;
+          try {
+            alreadyTracked = window.sessionStorage.getItem(purchaseKey) === '1';
+          } catch {
+            // sessionStorage unavailable (e.g. private mode) — rely on the in-mount ref guard
+          }
+          if (!alreadyTracked) {
+            trackEvent(ANALYTICS_EVENTS.PURCHASE, {
+              revenue: data.order.total_amount,
+              currency: 'CZK',
+              items: data.order.items?.length ?? 0,
+            });
+            try {
+              window.sessionStorage.setItem(purchaseKey, '1');
+            } catch {
+              // best-effort cross-refresh dedup; ignore storage failures
+            }
+          }
+        }
 
         // Vyprázdnit košík (jen jednou)
         if (!cartClearedRef.current) {
