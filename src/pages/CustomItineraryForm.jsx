@@ -5,6 +5,7 @@ import { Input, TextArea, MultiStepForm, CustomCheckbox, CustomRadio, TurnstileF
 import { ROUTES } from '../constants';
 import { BASE_PATH } from '../constants/app';
 import { supabase } from '../lib/supabase';
+import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 
 const CustomItineraryForm = React.memo(() => {
   const navigate = useNavigate();
@@ -199,6 +200,7 @@ const CustomItineraryForm = React.memo(() => {
 
       // STEP 4: Navigate to preview page with request ID
       showNotification('Požadavek byl úspěšně uložen!', 'success');
+      trackEvent(ANALYTICS_EVENTS.ITINERARY_SUBMIT);
       navigate(`/cestovni-pruvodci/itinerar-na-miru/nahled/${insertedRequest.id}`);
 
     } catch (error) {
@@ -221,6 +223,11 @@ const CustomItineraryForm = React.memo(() => {
   // Automatické poescrollování na vrchol při načtení stránky
   useEffect(() => {
     window.scrollTo(0, 0);
+  }, []);
+
+  // Analytika: uživatel otevřel dotazník itineráře na míru
+  useEffect(() => {
+    trackEvent(ANALYTICS_EVENTS.ITINERARY_START);
   }, []);
 
   // Multi-step form steps configuration
