@@ -37,6 +37,7 @@ interface CreateProductRequest {
   description: string;
   price: number; // Price in CZK (koruna)
   image_url?: string;
+  image_urls?: string[]; // Card image + gallery (up to 8 https URLs) shown in Checkout
   product_id: string; // Database product UUID
   stripe_product_id?: string; // Optional: existing Stripe Product ID for price updates
   force_recreate?: boolean; // audit 3.7.4: skip update path, always create a NEW product + price
@@ -88,7 +89,7 @@ Deno.serve(withSentry(async (req) => {
 
     // Parse request body
     const body: CreateProductRequest = await req.json();
-    const { title, description, price, image_url, product_id, stripe_product_id, force_recreate } = body;
+    const { title, description, price, image_url, image_urls, product_id, stripe_product_id, force_recreate } = body;
 
     // Validation
     if (!title || !price || !product_id) {
@@ -131,6 +132,28 @@ Deno.serve(withSentry(async (req) => {
       );
     }
 
+    if (
+      image_urls !== undefined &&
+      (!Array.isArray(image_urls) ||
+        image_urls.length > 8 ||
+        image_urls.some((u) => typeof u !== "string" || !u.startsWith("https://")))
+    ) {
+      return new Response(
+        JSON.stringify({ error: "Neplatné image_urls (pole až 8 https URL)" }),
+        { status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
+      );
+    }
+
+    // Stripe Product images: prefer image_urls (card + gallery), fall back to single image_url.
+    // Stripe replaces the whole array on update; omit (undefined) when there are none so we
+    // don't accidentally clear existing images.
+    const images: string[] | undefined =
+      image_urls && image_urls.length > 0
+        ? image_urls.slice(0, 8)
+        : image_url
+        ? [image_url]
+        : undefined;
+
     let productId: string;
 
     // If stripe_product_id exists AND we're not force-recreating, just create a new Price
@@ -148,7 +171,7 @@ Deno.serve(withSentry(async (req) => {
       await stripe.products.update(stripe_product_id, {
         name: title,
         description: description || undefined,
-        images: image_url ? [image_url] : undefined,
+        images,
       });
     } else {
       // Create new Stripe Product
@@ -161,7 +184,7 @@ Deno.serve(withSentry(async (req) => {
       const product = await stripe.products.create({
         name: title,
         description: description || undefined,
-        images: image_url ? [image_url] : undefined,
+        images,
         metadata: {
           supabase_product_id: product_id, // Link to our database
         },
