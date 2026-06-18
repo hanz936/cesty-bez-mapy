@@ -192,6 +192,22 @@ Deno.serve(withSentry(async (req) => {
 
       console.log(`Stripe Product created: ${product.id}`);
       productId = product.id;
+
+      // Force-recreate replaces the product, so best-effort archive the previous
+      // one (passed as stripe_product_id) to avoid leaving an orphaned active
+      // product behind. Tolerate failure: after a test->live key swap the old ID
+      // belongs to the other mode and won't be found with the current key.
+      if (force_recreate && stripe_product_id) {
+        try {
+          await stripe.products.update(stripe_product_id, { active: false });
+          console.log(`Archived previous Stripe product: ${stripe_product_id}`);
+        } catch (archiveError) {
+          console.warn(
+            `Could not archive previous product ${stripe_product_id}:`,
+            archiveError
+          );
+        }
+      }
     }
 
     // Create Stripe Price (in CZK)
