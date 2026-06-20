@@ -13,7 +13,9 @@
     "lint": "eslint .",
     "type-check": "tsc -p jsconfig.json",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:edge": "deno test --allow-all --no-check --node-modules-dir=none supabase/functions/"
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.5.1",

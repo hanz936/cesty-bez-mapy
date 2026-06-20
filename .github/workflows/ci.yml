@@ -1,0 +1,29 @@
+name: ci
+on:
+  pull_request:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run type-check
+      - run: npm run test:run
+      # Jen bundling (vite build) — prerender (scripts/prerender.mjs) vyžaduje
+      # Supabase creds + Chromium a běží až na Vercelu při deploji.
+      - run: npx vite build
+
+  edge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: npm run test:edge
