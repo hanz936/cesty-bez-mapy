@@ -555,7 +555,7 @@ const CustomItineraryDetail = React.memo(() => {
 
       {/* Fullscreen Modal Gallery */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Galerie obrázků">
           <div className="relative w-full h-full">
             {/* Close button */}
             <button
