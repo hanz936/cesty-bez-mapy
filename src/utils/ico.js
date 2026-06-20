@@ -1,3 +1,4 @@
+// @ts-check
 // ico.js
 // IČO mod-11 checksum validation. Mirrors Edge Function ares.ts.
 // Formula: check digit = (11 - (sum % 11)) % 10. The outer % 10 cleanly

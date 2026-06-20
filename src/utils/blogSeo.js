@@ -1,3 +1,4 @@
+// @ts-check
 export const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://www.cestybezmapy.cz';
 const AUTHOR_NAME = 'Jana — Cesty bez mapy';
 

@@ -1,3 +1,4 @@
+// @ts-check
 import DOMPurify from 'dompurify';
 import logger from './logger';
 
@@ -33,7 +34,10 @@ function ensureHook() {
   DOMPurify.addHook('uponSanitizeElement', (node) => {
     if (!_active) return;
     if (node.nodeName && node.nodeName.toLowerCase() === 'img') {
-      const src = (node.getAttribute && node.getAttribute('src')) || '';
+      // DOMPurify typuje `uponSanitizeElement` jako `Node`, ale element node
+      // má vždy `getAttribute` — defenzivní `&&` check zůstává pro běhové jistoty.
+      const elNode = /** @type {Element} */ (node);
+      const src = (elNode.getAttribute && elNode.getAttribute('src')) || '';
       if (!_storagePrefix || !src.startsWith(_storagePrefix)) {
         node.parentNode?.removeChild(node);
       }

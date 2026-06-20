@@ -11,6 +11,7 @@
     "postinstall": "node scripts/postinstall.mjs",
     "email:dev": "email dev --dir supabase/functions/_shared/email/templates --port 3001",
     "lint": "eslint .",
+    "type-check": "tsc -p jsconfig.json",
     "preview": "vite preview",
     "test": "vitest"
   },
@@ -49,6 +50,7 @@
     "jsdom": "^26.1.0",
     "playwright": "^1.60.0",
     "supabase": "^2.98.0",
+    "typescript": "^5.9.3",
     "vite": "^7.0.4",
     "vitest": "^3.2.4"
   }
