@@ -10,6 +10,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withSentry } from "../_shared/sentry.ts";
+import { enforceRateLimit } from "../_shared/rateLimit.ts";
 
 const MAX_BODY_BYTES = 50 * 1024;
 
@@ -163,6 +164,17 @@ Deno.serve(withSentry(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { auth: { persistSession: false } },
   );
+
+  // SEC-03: cap report volume per IP to keep csp_reports from bloating.
+  const allowedCsp = await enforceRateLimit(supabase, {
+    bucket: `csp:${clientIp ?? "unknown"}`,
+    limit: 60,
+    windowSeconds: 60,
+  });
+  if (!allowedCsp) {
+    // Fire-and-forget endpoint: silently drop over-limit reports.
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
 
   const { error } = await supabase.from("csp_reports").insert(
     rows.map((r) => ({ ...r, client_ip: clientIp })),

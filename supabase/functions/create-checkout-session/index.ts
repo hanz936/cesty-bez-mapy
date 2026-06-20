@@ -11,6 +11,7 @@
 import Stripe from "https://esm.sh/stripe@22.2.0?target=denonext";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withSentry } from "../_shared/sentry.ts";
+import { clientIp, enforceRateLimit } from "../_shared/rateLimit.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
   apiVersion: "2026-05-27.dahlia",
@@ -97,6 +98,27 @@ Deno.serve(withSentry(async (req) => {
       marketing_consent,
       privacy_policy_version,
     } = body;
+
+    // SEC-02/SEC-03: per-IP rate limit (abuse / Stripe cost protection).
+    const rlClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } },
+    );
+    const allowed = await enforceRateLimit(rlClient, {
+      bucket: `checkout:${clientIp(req)}`,
+      limit: 10,
+      windowSeconds: 60,
+    });
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({ error: "Příliš mnoho požadavků, zkus to prosím za chvíli." }),
+        {
+          status: 429,
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
+        },
+      );
+    }
 
     // Extract user_id from JWT (not from body - prevents spoofing)
     let userId: string | null = null;
