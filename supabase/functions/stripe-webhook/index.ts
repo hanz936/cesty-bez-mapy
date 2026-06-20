@@ -16,6 +16,8 @@ import {
   parseAdminRecipients,
   buildAdminNotificationItems,
   buildAdminOrderUrl,
+  computeOrderTotal,
+  haleruToCzk,
 } from "./lib.ts";
 import { withSentry } from "../_shared/sentry.ts";
 import { makeEcomailClient, getEcomailListId } from "../_shared/ecomail/config.ts";
@@ -163,7 +165,7 @@ Deno.serve(withSentry(async (req) => {
         }
 
         try {
-          const amount = charge.amount_refunded / 100;
+          const amount = haleruToCzk(charge.amount_refunded);
           const emailResult = await sendEmail(makeResendClient(), {
             type: "refund",
             to: order.customer_email,
@@ -187,7 +189,7 @@ Deno.serve(withSentry(async (req) => {
         }
 
         // Storno faktura assumes a full refund. For partial refunds, admin must handle manually.
-        const refundedAmountCzk = charge.amount_refunded / 100;
+        const refundedAmountCzk = haleruToCzk(charge.amount_refunded);
         const orderTotalCzk = Number(order.total_amount);
         if (refundedAmountCzk < orderTotalCzk - 0.01) {
           console.warn(
@@ -501,12 +503,7 @@ async function handleCheckoutCompleted(
   }
 
   // Výpočet celkové částky
-  const totalAmount = session.amount_total
-    ? session.amount_total / 100
-    : products.reduce(
-        (sum: number, p: { price: number }) => sum + p.price,
-        0
-      );
+  const totalAmount = computeOrderTotal(session, products);
 
   // Načtení Stripe line items pro správné quantity a zaplacené ceny
   let stripeLineItems: Stripe.LineItem[] = [];
@@ -526,7 +523,7 @@ async function handleCheckoutCompleted(
       );
       const quantity = stripeItem?.quantity ?? 1;
       // amount_total je celková cena za položku v haléřích (quantity * jednotková cena)
-      const paidAmount = stripeItem ? stripeItem.amount_total / 100 : product.price;
+      const paidAmount = stripeItem ? haleruToCzk(stripeItem.amount_total) : product.price;
       const pricePerUnit = paidAmount / quantity;
 
       return {

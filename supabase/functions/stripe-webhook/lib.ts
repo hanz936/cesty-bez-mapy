@@ -103,3 +103,22 @@ export function buildAdminOrderUrl(
   if (!base) return undefined;
   return `${base.replace(/\/+$/, "")}/#/orders/${orderId}`;
 }
+
+// Stripe posílá částky v haléřích (minor units). Převede na celé Kč.
+export function haleruToCzk(amountInHaleru: number): number {
+  return amountInHaleru / 100;
+}
+
+// Celková částka objednávky v Kč.
+// Preferuje Stripe `amount_total` (haléře → Kč); když chybí (null/0),
+// fallback = součet jednotkových cen produktů. Logika 1:1 přenesená
+// z index.ts, aby šla unit-testovat (haléř-bug regresní síť).
+export function computeOrderTotal(
+  session: { amount_total: number | null },
+  products: { price: number }[],
+): number {
+  if (session.amount_total) {
+    return haleruToCzk(session.amount_total);
+  }
+  return products.reduce((sum, p) => sum + p.price, 0);
+}

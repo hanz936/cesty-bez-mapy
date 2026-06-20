@@ -170,3 +170,28 @@ Deno.test("buildAdminOrderUrl: ořeže okolní whitespace z base URL", () => {
 Deno.test("buildAdminOrderUrl: string jen z mezer → undefined", () => {
   assertEquals(buildAdminOrderUrl("   ", "ord-1"), undefined);
 });
+
+import { computeOrderTotal, haleruToCzk } from "./lib.ts";
+
+Deno.test("haleruToCzk: 149000 haléřů → 1490 Kč", () => {
+  assertEquals(haleruToCzk(149000), 1490);
+});
+
+Deno.test("haleruToCzk: 0 → 0", () => {
+  assertEquals(haleruToCzk(0), 0);
+});
+
+Deno.test("computeOrderTotal: použije Stripe amount_total (haléře → celé Kč)", () => {
+  assertEquals(computeOrderTotal({ amount_total: 149000 }, []), 1490);
+});
+
+Deno.test("computeOrderTotal: amount_total null → fallback součet cen produktů", () => {
+  assertEquals(
+    computeOrderTotal({ amount_total: null }, [{ price: 1490 }, { price: 590 }]),
+    2080,
+  );
+});
+
+Deno.test("computeOrderTotal: amount_total 0 → fallback (0 je falsy, zachováno z originálu)", () => {
+  assertEquals(computeOrderTotal({ amount_total: 0 }, [{ price: 1490 }]), 1490);
+});
