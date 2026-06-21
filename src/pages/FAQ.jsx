@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
 import { Button } from '../components/ui';
+import SeoTags from '../components/common/SeoTags';
+import { buildPageMeta } from '../utils/pageSeo';
 import { BASE_PATH, ROUTES } from '../constants';
 
 const FAQ_DATA = [
@@ -168,10 +170,11 @@ const FAQ = () => {
   }, [navigate]);
 
   return (
-    <Layout>
-      
+    <Layout ready>
+      <SeoTags meta={buildPageMeta(ROUTES.FAQ)} />
+
       {/* Hero Section */}
-      <PageHero 
+      <PageHero
         backgroundImage={`${BASE_PATH}/images/hero-background-faq.png`}
         title="Časté dotazy"
         subtitle="Odpovědi na nejčastější otázky o cestování a mých službách."

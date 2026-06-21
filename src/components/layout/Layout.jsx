@@ -47,10 +47,13 @@ class LayoutErrorBoundary extends React.Component {
 
 LayoutErrorBoundary.displayName = 'LayoutErrorBoundary';
 
-const Layout = ({ children, className = '' }) => {
+const Layout = ({ children, className = '', ready }) => {
   return (
     <LayoutErrorBoundary>
-      <div className={`min-h-screen bg-white ${className}`.trim()}>
+      <div
+        className={`min-h-screen bg-white ${className}`.trim()}
+        data-prerender-ready={ready ? 'true' : undefined}
+      >
         {/* Skip to main content for keyboard users */}
         <a 
           href="#main-content" 

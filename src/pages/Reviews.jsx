@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
 import ReviewsSection from '../components/reviews/ReviewsSection';
+import SeoTags from '../components/common/SeoTags';
+import { buildPageMeta } from '../utils/pageSeo';
 import { BASE_PATH, ROUTES } from '../constants';
 
 const Reviews = memo(() => {
@@ -17,7 +19,8 @@ const Reviews = memo(() => {
   };
 
   return (
-    <Layout>
+    <Layout ready>
+      <SeoTags meta={buildPageMeta(ROUTES.REVIEWS)} />
       {/* Hero Section */}
       <PageHero
         backgroundImage={`${BASE_PATH}/images/blog-hero-review.png`}

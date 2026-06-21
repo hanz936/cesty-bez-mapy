@@ -1,5 +1,8 @@
 // src/pages/Privacy.jsx
 import Layout from '../components/layout/Layout';
+import SeoTags from '../components/common/SeoTags';
+import { buildPageMeta } from '../utils/pageSeo';
+import { ROUTES } from '../constants';
 
 // PrivacyContent is exported separately so it can be unit-tested without Layout.
 // NOTE: Legal wording (controller identity, IČO, address) is a placeholder — to be
@@ -72,7 +75,8 @@ export function PrivacyContent() {
 }
 
 const Privacy = () => (
-  <Layout>
+  <Layout ready>
+    <SeoTags meta={buildPageMeta(ROUTES.PRIVACY)} />
     <PrivacyContent />
   </Layout>
 );

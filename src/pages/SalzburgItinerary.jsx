@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
 import { Button } from '../components/ui';
+import SeoTags from '../components/common/SeoTags';
+import { buildPageMeta } from '../utils/pageSeo';
 import { BASE_PATH, ROUTES } from '../constants';
 
 // Custom hook for cross-device scroll lock
@@ -249,7 +251,8 @@ const SalzburgItinerary = () => {
   }, []);
 
   return (
-    <Layout>
+    <Layout ready>
+      <SeoTags meta={buildPageMeta(ROUTES.SALZBURG_ITINERARY)} />
       {/* Hero Section */}
       <PageHero
         backgroundImage={`${BASE_PATH}/images/placeholder-salzburg-hero.jpg`}

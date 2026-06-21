@@ -3,7 +3,9 @@ import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
 import { Button, Form, Input, TextArea, TurnstileField } from '../components/ui';
-import { BASE_PATH } from '../constants';
+import SeoTags from '../components/common/SeoTags';
+import { buildPageMeta } from '../utils/pageSeo';
+import { BASE_PATH, ROUTES } from '../constants';
 import logger from '../utils/logger';
 
 const CLASSES = {
@@ -137,8 +139,9 @@ const Collaboration = () => {
 
 
   return (
-    <Layout>
-      <PageHero 
+    <Layout ready>
+      <SeoTags meta={buildPageMeta(ROUTES.COLLABORATION)} />
+      <PageHero
         backgroundImage={`${BASE_PATH}/images/hero-background-collaboration.png`}
         title="Spolupráce"
         subtitle="UGC obsah z reálného cestování – uvěřitelný, použitelný a účinný."

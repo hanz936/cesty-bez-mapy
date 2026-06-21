@@ -2,7 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
-import { BASE_PATH } from '../constants';
+import SeoTags from '../components/common/SeoTags';
+import { buildPageMeta } from '../utils/pageSeo';
+import { BASE_PATH, ROUTES } from '../constants';
 import { fetchPublishedPosts, fetchTags, tagNameMap } from '../lib/blog';
 
 const BlogCard = ({ post, tagNames }) => {
@@ -96,7 +98,8 @@ const TravelInspiration = () => {
     (post.tag_ids || []).map((id) => tagNameById.get(id)).filter(Boolean);
 
   return (
-    <Layout>
+    <Layout ready={!loading}>
+      <SeoTags meta={buildPageMeta(ROUTES.INSPIRATION)} />
       <PageHero
         backgroundImage={`${BASE_PATH}/images/blog-hero.jpg`}
         title="Inspirace na cesty"
@@ -105,7 +108,7 @@ const TravelInspiration = () => {
         ariaLabel="Hero sekce s názvem stránky"
       />
 
-      <main className="py-16 px-5 max-w-6xl mx-auto" role="main" aria-label="Seznam článků o cestování" style={{ overflowAnchor: 'none' }} data-prerender-ready={!loading ? 'true' : undefined}>
+      <main className="py-16 px-5 max-w-6xl mx-auto" role="main" aria-label="Seznam článků o cestování" style={{ overflowAnchor: 'none' }}>
         {usedTags.length > 0 && (
           <div className="flex flex-wrap gap-2 justify-center mb-10">
             <button

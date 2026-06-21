@@ -1,7 +1,9 @@
 import { useState, useCallback } from 'react';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
-import { BASE_PATH } from '../constants';
+import SeoTags from '../components/common/SeoTags';
+import { buildPageMeta } from '../utils/pageSeo';
+import { BASE_PATH, ROUTES } from '../constants';
 
 const MyStory = () => {
   const [imageError, setImageError] = useState(false);
@@ -11,8 +13,9 @@ const MyStory = () => {
   }, []);
 
   return (
-    <Layout>
-      <PageHero 
+    <Layout ready>
+      <SeoTags meta={buildPageMeta(ROUTES.MY_STORY)} />
+      <PageHero
         backgroundImage={`${BASE_PATH}/images/hero-background-mystory.png`}
         title="Můj příběh"
         subtitle="Jak obyčejná holka z korporátu objevila radost z cestování na vlastní pěst."

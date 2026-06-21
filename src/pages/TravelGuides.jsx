@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
 import { Button, Dropdown } from '../components/ui';
+import SeoTags from '../components/common/SeoTags';
+import { buildPageMeta } from '../utils/pageSeo';
 import { BASE_PATH, ROUTES } from '../constants';
 import { supabase } from '../lib/supabase';
 
@@ -666,10 +668,11 @@ const TravelGuides = () => {
   }, [products, deferredSearchQuery, categories, selectedCategories, selectedPriceRanges, selectedDurationRanges, selectedRatingRanges, activeSortOption]);
 
   return (
-    <Layout>
-      
+    <Layout ready>
+      <SeoTags meta={buildPageMeta(ROUTES.TRAVEL_GUIDES)} />
+
       {/* Hero Section */}
-      <PageHero 
+      <PageHero
         backgroundImage={`${BASE_PATH}/images/blog-hero-cestovni-pruvodci.png`}
         title="Cestovní průvodci"
         subtitle="Zde najdeš všechno, co ti můžu nabídnout."

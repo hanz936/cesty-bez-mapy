@@ -3,7 +3,9 @@ import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
 import { Button, Form, Input, TextArea, Dropdown, TurnstileField } from '../components/ui';
-import { BASE_PATH } from '../constants';
+import SeoTags from '../components/common/SeoTags';
+import { buildPageMeta } from '../utils/pageSeo';
+import { BASE_PATH, ROUTES } from '../constants';
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -113,7 +115,8 @@ const Contact = () => {
 
   if (isSubmitted) {
     return (
-      <Layout>
+      <Layout ready>
+        <SeoTags meta={buildPageMeta(ROUTES.CONTACT)} />
         <div className="min-h-[70vh] sm:min-h-[80vh] flex items-center justify-center px-4 sm:px-5">
           <div className="text-center max-w-sm sm:max-w-md mx-auto">
             <div className="w-14 h-14 sm:w-16 sm:h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -139,8 +142,9 @@ const Contact = () => {
   }
 
   return (
-    <Layout>
-      <PageHero 
+    <Layout ready>
+      <SeoTags meta={buildPageMeta(ROUTES.CONTACT)} />
+      <PageHero
         backgroundImage={`${BASE_PATH}/images/hero-background-contact.png`}
         title="Kontakt"
         subtitle="Máš dotaz nebo potřebuješ poradit? Ráda ti pomůžu."

@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui';
+import SeoTags from '../components/common/SeoTags';
+import { buildPageMeta } from '../utils/pageSeo';
 import { BASE_PATH, ROUTES } from '../constants';
 
 const CLASSES = {
@@ -70,9 +72,10 @@ const PlanYourDreamTrip = () => {
   }, []);
 
   return (
-    <Layout>
+    <Layout ready>
+      <SeoTags meta={buildPageMeta(ROUTES.PLAN_YOUR_DREAM_TRIP)} />
       {/* Hero Section */}
-      <section 
+      <section
         className={CLASSES.heroSection}
         style={{
           backgroundImage: `url(${BASE_PATH}/images/about-background.png)`,

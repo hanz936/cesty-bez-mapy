@@ -2,6 +2,8 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui';
+import SeoTags from '../components/common/SeoTags';
+import { buildPageMeta } from '../utils/pageSeo';
 import { BASE_PATH, ROUTES } from '../constants';
 
 // Custom hook for cross-device scroll lock
@@ -247,7 +249,8 @@ const CustomItineraryDetail = React.memo(() => {
   }, []);
 
   return (
-    <Layout>
+    <Layout ready>
+      <SeoTags meta={buildPageMeta(ROUTES.CUSTOM_ITINERARY_DETAIL)} />
       <main className="min-h-screen bg-white">
         {/* Hero Section with Breadcrumb */}
         <section className="relative pt-6 pb-20 bg-white">
