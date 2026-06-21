@@ -5,7 +5,7 @@ export const APP_CONFIG = {
   BASE_PATH,
   SITE_NAME: 'Cesty bez mapy',
   SITE_TAGLINE: 'Místo, kde najdeš inspiraci na cesty',
-  CONTACT_EMAIL: 'info@cestybelmapy.cz',
+  CONTACT_EMAIL: 'info@cestybezmapy.cz',
   AUTHOR_NAME: 'Jana'
 };
 
