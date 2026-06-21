@@ -77,7 +77,8 @@ Deno.serve(withSentry(async (req) => {
       },
     });
   } catch (e) {
-    return new Response(`PDF download failed: ${e instanceof Error ? e.message : e}`, {
+    console.error("[download-invoice-pdf] download failed:", e instanceof Error ? e.message : e);
+    return new Response("Stažení PDF se nezdařilo", {
       status: 502, headers: cors,
     });
   }

@@ -21,6 +21,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { FakturoidClient, type TokenPersister } from "./fakturoid.ts";
 import { mapOrderToInvoice, mapOrderToStornoInvoice, mapOrderToSubject, todayIso } from "./mapping.ts";
 import { isValidIco } from "./ares.ts";
+import { clientFail } from "./clientFail.ts";
 import type {
   CreateInvoiceRequest, OrderRow, OrderItemRow,
 } from "./types.ts";
@@ -228,7 +229,8 @@ async function actionCreate(orderId: string): Promise<Response> {
     await supabase.from("orders").update({ invoice_error: msg }).eq("id", orderId);
     await logIntegration(orderId, "create_invoice", false, msg);
     await sendAlertEmail(orderId, "create_invoice", msg);
-    return jsonOk({ status: "error", error: msg });
+    console.error("[create-invoice] create failed:", msg);
+    return jsonOk(clientFail("error"));
   }
 }
 
@@ -250,7 +252,8 @@ async function actionResendEmail(orderId: string): Promise<Response> {
     const msg = e instanceof Error ? e.message : String(e);
     await logIntegration(orderId, "resend_invoice", false, msg);
     await sendAlertEmail(orderId, "resend_invoice", msg);
-    return jsonOk({ status: "error", error: msg });
+    console.error("[create-invoice] resend failed:", msg);
+    return jsonOk(clientFail("error"));
   }
 }
 
@@ -288,7 +291,8 @@ async function actionStornoInvoice(orderId: string): Promise<Response> {
     const msg = e instanceof Error ? e.message : String(e);
     await logIntegration(orderId, "create_storno", false, msg);
     await sendAlertEmail(orderId, "create_storno", msg);
-    return jsonOk({ status: "error", error: msg });
+    console.error("[create-invoice] storno failed:", msg);
+    return jsonOk(clientFail("error"));
   }
 }
 
@@ -304,7 +308,8 @@ async function actionCancelAndReissue(orderId: string): Promise<Response> {
     const msg = e instanceof Error ? e.message : String(e);
     await logIntegration(orderId, "cancel_invoice", false, msg);
     await sendAlertEmail(orderId, "cancel_invoice", msg);
-    return jsonOk({ status: "cancel_failed", error: msg });
+    console.error("[create-invoice] cancel failed:", msg);
+    return jsonOk(clientFail("cancel_failed"));
   }
   // Null-out + recreate; on failure, persist the cancelled invoice ID into
   // invoice_error so the admin can recover the reference manually.
