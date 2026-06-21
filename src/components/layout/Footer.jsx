@@ -1,6 +1,7 @@
-import React, { useState, memo, useEffect } from 'react';
+import React, { memo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { BASE_PATH, ROUTES } from '../../constants';
+import { SITE_URL, serializeJsonLd } from '../../utils/blogSeo';
 import ImageWithFallback from '../common/ImageWithFallback';
 import logger from '../../utils/logger';
 import NewsletterForm from './NewsletterForm';
@@ -95,14 +96,6 @@ NavigationSection.displayName = 'NavigationSection';
 
 
 const Footer = () => {
-  const [currentOrigin, setCurrentOrigin] = useState('');
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setCurrentOrigin(window.location.origin);
-    }
-  }, []);
-
   return (
     <footer className="bg-gradient-to-br from-gray-50 to-gray-100 text-black pt-20 mt-32 relative overflow-hidden" role="contentinfo">
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-800 via-green-600 to-green-800" aria-hidden="true"></div>
@@ -221,28 +214,24 @@ const Footer = () => {
         </div>
       </div>
       
-      {currentOrigin && (
-        <script 
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "Organization",
-              "name": "Cesty (bez) mapy",
-              "url": currentOrigin,
-              "logo": currentOrigin + `${BASE_PATH}/images/logo-footer.png`,
-              "sameAs": [
-                "https://www.instagram.com/cestybezmapy"
-              ],
-              "contactPoint": {
-                "@type": "ContactPoint",
-                "contactType": "customer service",
-                "availableLanguage": "Czech"
-              }
-            })
-          }}
-        />
-      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd({
+            '@context': 'https://schema.org',
+            '@type': 'Organization',
+            name: 'Cesty (bez) mapy',
+            url: SITE_URL,
+            logo: `${SITE_URL}${BASE_PATH}/images/logo-footer.png`,
+            sameAs: ['https://www.instagram.com/cestybezmapy'],
+            contactPoint: {
+              '@type': 'ContactPoint',
+              contactType: 'customer service',
+              availableLanguage: 'Czech',
+            },
+          }),
+        }}
+      />
     </footer>
   );
 };
