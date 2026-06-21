@@ -14,9 +14,10 @@ const MobileMenu = forwardRef(({ isMenuOpen, onClose, firstMenuItemRef, onCartCl
   const location = useLocation();
 
   return (
-    <div 
+    <div
       ref={ref}
       id="mobile-menu"
+      inert={!isMenuOpen}
       className={`${MOBILE_MENU_CLASSES.base} ${isMenuOpen ? MOBILE_MENU_CLASSES.open : MOBILE_MENU_CLASSES.closed}`}
       role="menu"
       aria-labelledby="mobile-menu-button"
