@@ -6,6 +6,8 @@ import { BASE_PATH, ROUTES, SEASONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import { useCart } from '../contexts';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
+import SeoTags from '../components/common/SeoTags';
+import { buildProductMeta } from '../utils/productSeo';
 
 // Custom hook for cross-device scroll lock
 const useScrollLock = (isLocked) => {
@@ -348,7 +350,8 @@ const ProductDetail = () => {
   const isFree = product.price === 0;
 
   return (
-    <Layout>
+    <Layout ready={!loading && !!product}>
+      {product && <SeoTags meta={buildProductMeta(product)} />}
       <main className="min-h-screen bg-white">
         {/* Hero Section with Breadcrumb */}
         <section className="relative pt-6 pb-20 bg-white">
