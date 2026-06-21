@@ -14,7 +14,7 @@ import {
 import { readingTimeMinutes, extractProductSlugs } from '../utils/blogContent';
 import { buildBlogMeta } from '../utils/blogSeo';
 import BlogContentRenderer from '../components/blog/BlogContentRenderer';
-import SeoTags from '../components/blog/SeoTags';
+import SeoTags from '../components/common/SeoTags';
 
 const formatDate = (iso) =>
   iso ? new Date(iso).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
@@ -109,7 +109,7 @@ const BlogPostDetail = () => {
 
   return (
     <Layout>
-      <SeoTags meta={meta} />
+      <SeoTags meta={meta} type="article" />
 
       {isPreview && (
         <div className="bg-yellow-100 border-b border-yellow-300 text-yellow-900 text-sm text-center py-2 px-4">
