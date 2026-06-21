@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/prerender.mjs",
+    "build": "vite build && node scripts/prerender.mjs && node scripts/sitemap.mjs",
     "build:novite": "node scripts/prerender.mjs",
     "prerender": "node scripts/prerender.mjs",
+    "sitemap": "node scripts/sitemap.mjs",
     "postinstall": "node scripts/postinstall.mjs",
     "email:dev": "email dev --dir supabase/functions/_shared/email/templates --port 3001",
     "lint": "eslint .",
