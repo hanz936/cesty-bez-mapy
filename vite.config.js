@@ -172,7 +172,6 @@ export default defineConfig({
         '**/*.test.{js,jsx}',
         '**/*.spec.{js,jsx}',
         'vite.config.js',
-        'tailwind.config.js',
         'eslint.config.js',
       ],
     },
