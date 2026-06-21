@@ -6,16 +6,19 @@ import { describe, it, expect } from 'vitest';
 import { collectRoutes, outputPathForRoute, validateHtml } from './prerender.mjs';
 
 describe('collectRoutes', () => {
-  it('složí statické routy + detail z publikovaných slugů, bez duplikátů', () => {
-    const routes = collectRoutes([{ slug: 'a' }, { slug: 'b' }, { slug: 'a' }]);
+  it('složí veřejné statické routy + blog + produkty bez duplikátů', () => {
+    const routes = collectRoutes([{ slug: 'a' }, { slug: 'a' }], [{ slug: 'tos' }]);
     expect(routes).toContain('/');
-    expect(routes).toContain('/inspirace');
+    expect(routes).toContain('/kontakt');
     expect(routes).toContain('/inspirace/a');
-    expect(routes).toContain('/inspirace/b');
+    expect(routes).toContain('/cestovni-pruvodci/tos');
     expect(routes.filter((r) => r === '/inspirace/a')).toHaveLength(1);
   });
-  it('bez článků vrátí jen statické routy', () => {
-    expect(collectRoutes([])).toEqual(['/', '/inspirace']);
+  it('bez obsahu vrátí jen statické veřejné routy (z PUBLIC_PAGES)', () => {
+    const routes = collectRoutes([], []);
+    expect(routes).toContain('/');
+    expect(routes).toContain('/ochrana-osobnich-udaju');
+    expect(routes).not.toContain('/cestovni-pruvodci/itinerar-na-miru/dotaznik');
   });
 });
 

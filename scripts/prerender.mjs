@@ -1,15 +1,18 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { preview } from 'vite';
+import { PUBLIC_PAGES } from '../src/constants/publicRoutes.js';
+import { fetchBlogSlugs, fetchProductSlugs } from './contentSlugs.mjs';
 
 const DIST = 'dist';
 const BRAND = 'Cesty';
-const STATIC_ROUTES = ['/', '/inspirace'];
+const STATIC_ROUTES = PUBLIC_PAGES.map((p) => p.path);
 
-/** Statické routy + /inspirace/:slug ze seznamu publikovaných článků (bez duplikátů). */
-export function collectRoutes(posts) {
-  const detail = (posts || []).map((p) => `/inspirace/${p.slug}`);
-  return [...new Set([...STATIC_ROUTES, ...detail])];
+/** Statické veřejné routy + /inspirace/:slug + /cestovni-pruvodci/:slug (bez duplikátů). */
+export function collectRoutes(blogPosts, productSlugs = []) {
+  const blog = (blogPosts || []).map((p) => `/inspirace/${p.slug}`);
+  const products = (productSlugs || []).map((p) => `/cestovni-pruvodci/${p.slug}`);
+  return [...new Set([...STATIC_ROUTES, ...blog, ...products])];
 }
 
 /** Cesta k výstupnímu souboru pro routu (directory-index). */
@@ -29,18 +32,6 @@ export function validateHtml(html, { minBytes, requireH1, brand }) {
   if (brand && !html.includes(brand)) {
     throw new Error(`Prerender: chybí značka „${brand}" v HTML`);
   }
-}
-
-async function fetchPublishedSlugs() {
-  const url = process.env.VITE_SUPABASE_URL;
-  const key = process.env.VITE_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error('Prerender: chybí VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY');
-  const res = await fetch(
-    `${url}/rest/v1/blog_posts?select=slug&published_at=not.is.null&published_at=lte.${new Date().toISOString()}`,
-    { headers: { apikey: key, Authorization: `Bearer ${key}` } },
-  );
-  if (!res.ok) throw new Error(`Prerender: Supabase ${res.status}`);
-  return res.json();
 }
 
 /**
@@ -64,8 +55,8 @@ async function launchBrowser() {
 }
 
 async function run() {
-  const posts = await fetchPublishedSlugs();
-  const routes = collectRoutes(posts);
+  const [posts, products] = await Promise.all([fetchBlogSlugs(), fetchProductSlugs()]);
+  const routes = collectRoutes(posts, products);
 
   const server = await preview({ appType: 'spa', preview: { port: 4173, strictPort: false, open: false } });
   const base = server.resolvedUrls.local[0].replace(/\/$/, '');
@@ -97,7 +88,12 @@ async function run() {
         keepLast('head link[rel="canonical"]', 'rel');
       });
       const html = await page.content();
-      const requireH1 = route.startsWith('/inspirace/'); // detail má vždy h1
+      // /cestovni-pruvodci (listing) a /cestovni-pruvodci/itinerar-na-miru (statická routa)
+      // také odpovídají prefixu, ale nejsou detail → vyloučit přes STATIC_ROUTES.
+      const isDetail =
+        (route.startsWith('/inspirace/') || route.startsWith('/cestovni-pruvodci/')) &&
+        !STATIC_ROUTES.includes(route);
+      const requireH1 = isDetail; // detail má vždy h1
       validateHtml(html, { minBytes: 1024, requireH1, brand: BRAND });
       const out = outputPathForRoute(DIST, route);
       await fs.mkdir(path.dirname(out), { recursive: true });
