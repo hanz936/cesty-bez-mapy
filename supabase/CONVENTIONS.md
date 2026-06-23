@@ -54,3 +54,8 @@ v CI `.github/workflows/db-lint.yml`) mechanicky vynucuje:
 
 Mimo strojové vynucování (drží se dokumentací): plural tabulek (lingvistické),
 anglické komentáře a obsah komentářů u CHECK/enum sloupců.
+
+## Generované TS typy pro edge funkce
+`supabase/functions/_shared/database.types.ts` je generovaný (`npm run gen:types`).
+Regenerovat při KAŽDÉ změně schématu (migrace). Edge funkce typují klienta přes
+`createClient<Database>(...)`; selecty se narrowují automaticky.

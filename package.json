@@ -16,7 +16,9 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:edge": "deno test --allow-all --no-check --node-modules-dir=none supabase/functions/"
+    "test:edge": "deno test --allow-all --no-check --node-modules-dir=none supabase/functions/",
+    "gen:types": "supabase gen types typescript --project-id dkblgznhnixubyoghrqe --schema public > supabase/functions/_shared/database.types.ts",
+    "check:edge": "bash scripts/check-edge.sh"
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.5.1",
