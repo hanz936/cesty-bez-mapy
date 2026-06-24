@@ -10,24 +10,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendEmail, makeResendClient } from "../_shared/email/sendEmail.ts";
 import { withSentry } from "../_shared/sentry.ts";
-
-const allowedOrigins = [
-  "https://cesty-bez-mapy-admin.vercel.app",
-  "https://admin.cestybezmapy.cz",
-  "http://localhost:5173",
-  "http://localhost:5174",
-];
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("Origin") || "";
-  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
-}
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { jsonResponse } from "../_shared/http.ts";
+import { requireAdmin } from "../_shared/requireAdmin.ts";
+import { logInfo, logError } from "../_shared/log.ts";
+import type { Database } from "../_shared/database.types.ts";
 
 interface RequestBody {
   request_id: string;
@@ -35,39 +22,23 @@ interface RequestBody {
 }
 
 Deno.serve(withSentry(async (req) => {
+  const cors = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: getCorsHeaders(req) });
+    return new Response("ok", { headers: cors });
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return jsonResponse(req, 401, { error: "Missing Authorization header" });
-    }
-
-    const userClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
-
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
-      return jsonResponse(req, 401, { error: "Invalid auth token" });
-    }
-
-    const { data: isAdmin, error: adminCheckError } = await userClient.rpc('is_admin');
-    if (adminCheckError || !isAdmin) {
-      return jsonResponse(req, 403, { error: "Admin role required" });
-    }
+    const gate = await requireAdmin(req, cors);
+    if (!gate.ok) return gate.response;
+    const user = gate.user;
 
     const body: RequestBody = await req.json();
     const { request_id, force = false } = body;
     if (!request_id) {
-      return jsonResponse(req, 400, { error: "Missing request_id" });
+      return jsonResponse({ error: "Missing request_id" }, 400, cors);
     }
 
-    const supabase = createClient(
+    const supabase = createClient<Database>(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
@@ -79,28 +50,27 @@ Deno.serve(withSentry(async (req) => {
       .single();
 
     if (loadError || !request) {
-      return jsonResponse(req, 404, { error: "Custom request not found" });
+      return jsonResponse({ error: "Custom request not found" }, 404, cors);
     }
 
     if (!request.final_pdf_url) {
-      return jsonResponse(req, 400, { error: "Custom request has no final PDF uploaded" });
+      return jsonResponse({ error: "Custom request has no final PDF uploaded" }, 400, cors);
     }
 
     if (!request.customer_email) {
-      return jsonResponse(req, 400, { error: "Custom request has no customer_email" });
+      return jsonResponse({ error: "Custom request has no customer_email" }, 400, cors);
     }
 
     if (request.delivery_email_sent_at && !force) {
-      console.log(JSON.stringify({
-        event: "email_skipped_already_sent",
+      logInfo("email_skipped_already_sent", {
         email_type: "custom-itinerary-delivered",
         request_id,
-      }));
-      return jsonResponse(req, 200, {
+      });
+      return jsonResponse({
         skipped: true,
         message: "Email už byl odeslán dříve. Pro odeslání znovu použij force=true.",
         previously_sent_at: request.delivery_email_sent_at,
-      });
+      }, 200, cors);
     }
 
     let idempotencyKey = `custom-delivered/${request_id}`;
@@ -127,10 +97,10 @@ Deno.serve(withSentry(async (req) => {
         .maybeSingle();
 
       if (claimError || !claimed) {
-        return jsonResponse(req, 200, {
+        return jsonResponse({
           skipped: true,
           message: "Email už byl odeslán souběžně.",
-        });
+        }, 200, cors);
       }
     }
 
@@ -145,14 +115,17 @@ Deno.serve(withSentry(async (req) => {
       });
 
     if (tokenError) {
-      console.error("Failed to create download_token:", tokenError);
+      logError("download_token_create_failed", {
+        request_id,
+        error: tokenError.message,
+      });
       if (!force) {
         await supabase
           .from('custom_itinerary_requests')
           .update({ delivery_email_sent_at: null })
           .eq('id', request_id);
       }
-      return jsonResponse(req, 500, { error: "Failed to create download token" });
+      return jsonResponse({ error: "Failed to create download token" }, 500, cors);
     }
 
     const siteUrl = Deno.env.get('SITE_URL') || 'https://cestybezmapy.cz';
@@ -179,42 +152,39 @@ Deno.serve(withSentry(async (req) => {
         })
         .eq('id', request_id);
 
-      console.log(JSON.stringify({
-        event: force ? "email_manually_resent" : "email_sent",
+      logInfo(force ? "email_manually_resent" : "email_sent", {
         email_type: "custom-itinerary-delivered",
         request_id,
-        admin_user_id: user.id,
+        admin_user_id: user?.id,
         retry_n: retryN,
         resend_message_id: result.messageId,
-      }));
+      });
 
-      return jsonResponse(req, 200, {
+      return jsonResponse({
         ok: true,
         message_id: result.messageId,
         retry_n: retryN,
-      });
+      }, 200, cors);
     } catch (sendErr) {
-      console.error("Send failed:", sendErr);
+      logError("send_custom_itinerary_email_send_failed", {
+        request_id,
+        error: sendErr instanceof Error ? sendErr.message : String(sendErr),
+      });
       if (!force) {
         await supabase
           .from('custom_itinerary_requests')
           .update({ delivery_email_sent_at: null })
           .eq('id', request_id);
       }
-      return jsonResponse(req, 500, {
+      return jsonResponse({
         error: sendErr instanceof Error ? sendErr.message : "Send failed",
-      });
+      }, 500, cors);
     }
 
   } catch (error) {
-    console.error("send-custom-itinerary-email error:", error);
-    return jsonResponse(req, 500, { error: "Internal error" });
+    logError("send_custom_itinerary_email_failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return jsonResponse({ error: "Internal error" }, 500, cors);
   }
 }, "send-custom-itinerary-email"));
-
-function jsonResponse(req: Request, status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-  });
-}

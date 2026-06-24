@@ -2,27 +2,14 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { FakturoidClient, type TokenPersister } from "../create-invoice/fakturoid.ts";
 import { withSentry } from "../_shared/sentry.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { requireAdmin } from "../_shared/requireAdmin.ts";
+import { logError } from "../_shared/log.ts";
+import type { Database } from "../_shared/database.types.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-
-const allowedOrigins = [
-  "https://cesty-bez-mapy-admin.vercel.app",
-  "https://admin.cestybezmapy.cz",
-  "http://localhost:5173",
-  "http://localhost:5174",
-];
-
-function corsHeaders(req: Request) {
-  const origin = req.headers.get("Origin") || "";
-  return {
-    "Access-Control-Allow-Origin": allowedOrigins.includes(origin) ? origin : allowedOrigins[0],
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Vary": "Origin",
-  };
-}
+const supabase = createClient<Database>(SUPABASE_URL, SERVICE_ROLE_KEY);
 
 const persister: TokenPersister = {
   async load() {
@@ -45,19 +32,12 @@ const fakturoid = new FakturoidClient({
 }, fetch, { persister });
 
 Deno.serve(withSentry(async (req) => {
-  const cors = corsHeaders(req);
+  const cors = getCorsHeaders(req, { methods: "GET, OPTIONS" });
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   // Admin auth check
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return new Response("Unauthorized", { status: 401, headers: cors });
-  const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return new Response("Unauthorized", { status: 401, headers: cors });
-  const { data: isAdmin } = await userClient.rpc("is_admin");
-  if (!isAdmin) return new Response("Forbidden", { status: 403, headers: cors });
+  const gate = await requireAdmin(req, cors);
+  if (!gate.ok) return gate.response;
 
   const url = new URL(req.url);
   const invoiceIdStr = url.searchParams.get("invoice_id");
@@ -77,7 +57,9 @@ Deno.serve(withSentry(async (req) => {
       },
     });
   } catch (e) {
-    console.error("[download-invoice-pdf] download failed:", e instanceof Error ? e.message : e);
+    logError("download_invoice_pdf_failed", {
+      error: e instanceof Error ? e.message : String(e),
+    });
     return new Response("Stažení PDF se nezdařilo", {
       status: 502, headers: cors,
     });

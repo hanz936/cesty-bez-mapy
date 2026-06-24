@@ -6,31 +6,15 @@
 // ================================================
 
 import Stripe from "https://esm.sh/stripe@22.2.0?target=denonext";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withSentry } from "../_shared/sentry.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { jsonResponse } from "../_shared/http.ts";
+import { requireAdmin } from "../_shared/requireAdmin.ts";
+import { logInfo, logWarn, logError } from "../_shared/log.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
   apiVersion: "2026-05-27.dahlia",
 });
-
-const allowedOrigins = [
-  "https://cesty-bez-mapy-admin.vercel.app",
-  "https://admin.cestybezmapy.cz",
-  "https://cesty-bez-mapy-git-development-jana-novakovas-projects.vercel.app",
-  "http://localhost:5173",
-  "http://localhost:5174",
-];
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("Origin") || "";
-  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
-}
 
 interface CreateProductRequest {
   title: string;
@@ -44,48 +28,17 @@ interface CreateProductRequest {
 }
 
 Deno.serve(withSentry(async (req) => {
+  const cors = getCorsHeaders(req);
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: getCorsHeaders(req) });
+    return new Response("ok", { headers: cors });
   }
 
   try {
-    // Auth check - only admins can create/update Stripe products
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing Authorization header" }),
-        { status: 401, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
-      );
-    }
-
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Neplatný token" }),
-        { status: 401, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
-      );
-    }
-
-    // Check admin role
-    const { data: roleData } = await supabaseClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
-
-    if (roleData?.role !== "admin") {
-      return new Response(
-        JSON.stringify({ error: "Přístup odepřen - vyžadována role admin" }),
-        { status: 403, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
-      );
-    }
+    // Auth check - only admins can create/update Stripe products.
+    // SEC-06: tightened from aal1 (user_roles.role==='admin') to is_admin()/aal2 via requireAdmin.
+    const gate = await requireAdmin(req, cors);
+    if (!gate.ok) return gate.response;
 
     // Parse request body
     const body: CreateProductRequest = await req.json();
@@ -93,42 +46,42 @@ Deno.serve(withSentry(async (req) => {
 
     // Validation
     if (!title || !price || !product_id) {
-      return new Response(
-        JSON.stringify({
-          error: "Missing required fields: title, price, product_id",
-        }),
-        {
-          status: 400,
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        }
+      return jsonResponse(
+        { error: "Missing required fields: title, price, product_id" },
+        400,
+        cors,
       );
     }
 
     if (typeof price !== "number" || price <= 0 || price > 100000) {
-      return new Response(
-        JSON.stringify({ error: "Neplatná cena - musí být číslo mezi 0 a 100 000 Kč" }),
-        { status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
+      return jsonResponse(
+        { error: "Neplatná cena - musí být číslo mezi 0 a 100 000 Kč" },
+        400,
+        cors,
       );
     }
 
     if (typeof title !== "string" || title.length > 500) {
-      return new Response(
-        JSON.stringify({ error: "Neplatný název produktu (string, max 500 znaků)" }),
-        { status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
+      return jsonResponse(
+        { error: "Neplatný název produktu (string, max 500 znaků)" },
+        400,
+        cors,
       );
     }
 
     if (description !== undefined && (typeof description !== "string" || description.length > 2000)) {
-      return new Response(
-        JSON.stringify({ error: "Neplatný popis produktu (string, max 2000 znaků)" }),
-        { status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
+      return jsonResponse(
+        { error: "Neplatný popis produktu (string, max 2000 znaků)" },
+        400,
+        cors,
       );
     }
 
     if (image_url !== undefined && (typeof image_url !== "string" || !image_url.startsWith("https://"))) {
-      return new Response(
-        JSON.stringify({ error: "Neplatná image_url (musí začínat https://)" }),
-        { status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
+      return jsonResponse(
+        { error: "Neplatná image_url (musí začínat https://)" },
+        400,
+        cors,
       );
     }
 
@@ -138,9 +91,10 @@ Deno.serve(withSentry(async (req) => {
         image_urls.length > 8 ||
         image_urls.some((u) => typeof u !== "string" || !u.startsWith("https://")))
     ) {
-      return new Response(
-        JSON.stringify({ error: "Neplatné image_urls (pole až 8 https URL)" }),
-        { status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
+      return jsonResponse(
+        { error: "Neplatné image_urls (pole až 8 https URL)" },
+        400,
+        cors,
       );
     }
 
@@ -162,9 +116,10 @@ Deno.serve(withSentry(async (req) => {
     // at test-mode objects that don't exist in live - in that case we must always create
     // a brand new Stripe Product + Price, ignoring any incoming stripe_product_id.
     if (stripe_product_id && !force_recreate) {
-      console.log(
-        `Updating Stripe price for existing product: ${stripe_product_id} (${price} CZK)`
-      );
+      logInfo("stripe_price_update_for_existing_product", {
+        stripe_product_id,
+        price,
+      });
       productId = stripe_product_id;
 
       // Optionally update product details in Stripe
@@ -175,10 +130,9 @@ Deno.serve(withSentry(async (req) => {
       });
     } else {
       // Create new Stripe Product
-      console.log(
-        force_recreate
-          ? `Force-recreating Stripe product for: ${title} (${price} CZK) - DB ID: ${product_id}`
-          : `Creating Stripe product for: ${title} (${price} CZK) - DB ID: ${product_id}`
+      logInfo(
+        force_recreate ? "stripe_product_force_recreate" : "stripe_product_create",
+        { title, price, product_id },
       );
 
       const product = await stripe.products.create({
@@ -190,7 +144,7 @@ Deno.serve(withSentry(async (req) => {
         },
       });
 
-      console.log(`Stripe Product created: ${product.id}`);
+      logInfo("stripe_product_created", { stripe_product_id: product.id });
       productId = product.id;
 
       // Force-recreate replaces the product, so best-effort archive the previous
@@ -200,12 +154,12 @@ Deno.serve(withSentry(async (req) => {
       if (force_recreate && stripe_product_id) {
         try {
           await stripe.products.update(stripe_product_id, { active: false });
-          console.log(`Archived previous Stripe product: ${stripe_product_id}`);
+          logInfo("stripe_product_archived", { stripe_product_id });
         } catch (archiveError) {
-          console.warn(
-            `Could not archive previous product ${stripe_product_id}:`,
-            archiveError
-          );
+          logWarn("stripe_product_archive_failed", {
+            stripe_product_id,
+            error: archiveError instanceof Error ? archiveError.message : String(archiveError),
+          });
         }
       }
     }
@@ -220,35 +174,33 @@ Deno.serve(withSentry(async (req) => {
       },
     });
 
-    console.log(
-      `Stripe Price created: ${stripePrice.id} (${price} CZK / ${stripePrice.unit_amount} haléřů)`
-    );
+    logInfo("stripe_price_created", {
+      stripe_price_id: stripePrice.id,
+      price,
+      unit_amount: stripePrice.unit_amount,
+    });
 
     // Return both IDs
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         success: true,
         stripe_product_id: productId,
         stripe_price_id: stripePrice.id,
         price_amount: stripePrice.unit_amount,
         currency: stripePrice.currency,
-      }),
-      {
-        status: 200,
-        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-      }
+      },
+      200,
+      cors,
     );
   } catch (error) {
-    console.error("Error creating Stripe product:", error);
+    logError("create_stripe_product_failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
 
-    return new Response(
-      JSON.stringify({
-        error: "Nepodařilo se vytvořit produkt ve Stripe",
-      }),
-      {
-        status: 500,
-        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-      }
+    return jsonResponse(
+      { error: "Nepodařilo se vytvořit produkt ve Stripe" },
+      500,
+      cors,
     );
   }
 }, "create-stripe-product"));

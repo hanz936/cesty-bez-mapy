@@ -15,24 +15,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendEmail, makeResendClient } from "../_shared/email/sendEmail.ts";
 import type { OrderItem } from "../_shared/email/types.ts";
 import { withSentry } from "../_shared/sentry.ts";
-
-const allowedOrigins = [
-  "https://cesty-bez-mapy-admin.vercel.app",
-  "https://admin.cestybezmapy.cz",
-  "http://localhost:5173",
-  "http://localhost:5174",
-];
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("Origin") || "";
-  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
-}
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { jsonResponse } from "../_shared/http.ts";
+import { requireAdmin } from "../_shared/requireAdmin.ts";
+import { logInfo, logError } from "../_shared/log.ts";
+import type { Database } from "../_shared/database.types.ts";
 
 type ResendableEmailType =
   | 'order-confirmation'
@@ -57,35 +44,26 @@ const TYPE_TO_RESEND_COUNT_KEY: Record<ResendableEmailType, string> = {
 };
 
 Deno.serve(withSentry(async (req) => {
+  const cors = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: getCorsHeaders(req) });
+    return new Response("ok", { headers: cors });
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return jsonResponse(req, 401, { error: "Missing Authorization header" });
-
-    const userClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) return jsonResponse(req, 401, { error: "Invalid auth" });
-
-    const { data: isAdmin, error: adminCheckError } = await userClient.rpc('is_admin');
-    if (adminCheckError || !isAdmin) return jsonResponse(req, 403, { error: "Admin role required" });
+    const gate = await requireAdmin(req, cors);
+    if (!gate.ok) return gate.response;
+    const user = gate.user;
 
     const body: RequestBody = await req.json();
     const { order_id, type } = body;
     if (!order_id || !type) {
-      return jsonResponse(req, 400, { error: "Missing order_id or type" });
+      return jsonResponse({ error: "Missing order_id or type" }, 400, cors);
     }
     if (!(type in TYPE_TO_KEY_PREFIX)) {
-      return jsonResponse(req, 400, { error: "Invalid type" });
+      return jsonResponse({ error: "Invalid type" }, 400, cors);
     }
 
-    const supabase = createClient(
+    const supabase = createClient<Database>(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
@@ -96,7 +74,7 @@ Deno.serve(withSentry(async (req) => {
       .eq('id', order_id)
       .single();
 
-    if (orderError || !order) return jsonResponse(req, 404, { error: "Order not found" });
+    if (orderError || !order) return jsonResponse({ error: "Order not found" }, 404, cors);
 
     const countKey = TYPE_TO_RESEND_COUNT_KEY[type];
     const { data: newCount } = await supabase.rpc('increment_email_resend_count', {
@@ -125,8 +103,7 @@ Deno.serve(withSentry(async (req) => {
         .eq('asset_type', 'product_pdf')
         .maybeSingle();
 
-      // deno-lint-ignore no-explicit-any
-      const orderItems: OrderItem[] = (items || []).map((it: any) => ({
+      const orderItems: OrderItem[] = (items || []).map((it) => ({
         productTitle: it.products?.title || 'Průvodce',
         quantity: it.quantity,
         priceAtPurchase: Number(it.price_at_purchase),
@@ -190,32 +167,26 @@ Deno.serve(withSentry(async (req) => {
         .eq('id', order_id);
     }
 
-    console.log(JSON.stringify({
-      event: "email_manually_resent",
+    logInfo("email_manually_resent", {
       email_type: type,
       order_id,
-      admin_user_id: user.id,
+      admin_user_id: user?.id,
       retry_n: retryN,
       resend_message_id: result.messageId,
-    }));
+    });
 
-    return jsonResponse(req, 200, {
+    return jsonResponse({
       ok: true,
       message_id: result.messageId,
       retry_n: retryN,
-    });
+    }, 200, cors);
 
   } catch (error) {
-    console.error("resend-email error:", error);
-    return jsonResponse(req, 500, {
-      error: error instanceof Error ? error.message : "Internal error",
+    logError("resend_email_failed", {
+      error: error instanceof Error ? error.message : String(error),
     });
+    return jsonResponse({
+      error: error instanceof Error ? error.message : "Internal error",
+    }, 500, cors);
   }
 }, "resend-email"));
-
-function jsonResponse(req: Request, status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-  });
-}
