@@ -7,12 +7,13 @@
 // Soft bounces are logged only — Resend retries internally.
 // ================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Webhook } from "npm:svix@1";
 import { withSentry } from "../_shared/sentry.ts";
+import type { Database, Json } from "../_shared/database.types.ts";
+import { logInfo, logError, maskEmail } from "../_shared/log.ts";
 
-// deno-lint-ignore no-explicit-any
-type Supabase = any;
+type Supabase = SupabaseClient<Database>;
 
 interface Verifier {
   verify(payload: string, headers: Record<string, string>): unknown;
@@ -58,7 +59,7 @@ export async function handleWebhook(
     event = verifier.verify(rawBody, headers) as ResendEvent;
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error(JSON.stringify({ event: "webhook_signature_invalid", reason: msg }));
+    logError("webhook_signature_invalid", { reason: msg });
     return { status: 400, body: "Invalid signature" };
   }
 
@@ -72,18 +73,17 @@ export async function handleWebhook(
         resend_email_id: resendEmailId,
         event_type: event.type,
         email_to: emailTo,
-        payload: event,
+        payload: event as unknown as Json,
       },
       { onConflict: "resend_email_id,event_type", ignoreDuplicates: true },
     );
 
   if (insertErr) {
-    console.error(JSON.stringify({
-      event: "email_event_insert_failed",
+    logError("email_event_insert_failed", {
       resend_email_id: resendEmailId,
       event_type: event.type,
       error: insertErr.message,
-    }));
+    });
     return { status: 500, body: "DB error" };
   }
 
@@ -107,29 +107,26 @@ export async function handleWebhook(
       );
 
     if (suppressErr) {
-      console.error(JSON.stringify({
-        event: "email_suppression_insert_failed",
-        email: emailTo,
+      logError("email_suppression_insert_failed", {
+        email: maskEmail(emailTo),
         reason: suppressionReason,
         error: suppressErr.message,
-      }));
+      });
       return { status: 500, body: "DB error" };
     }
 
-    console.log(JSON.stringify({
-      event: "email_suppressed",
-      email: emailTo,
+    logInfo("email_suppressed", {
+      email: maskEmail(emailTo),
       reason: suppressionReason,
       source_event_id: resendEmailId,
-    }));
+    });
   }
 
-  console.log(JSON.stringify({
-    event: "resend_webhook_processed",
+  logInfo("resend_webhook_processed", {
     type: event.type,
     resend_email_id: resendEmailId,
     suppressed: suppressionReason !== null,
-  }));
+  });
 
   return { status: 200, body: JSON.stringify({ received: true }) };
 }
@@ -141,13 +138,13 @@ Deno.serve(withSentry(async (req) => {
 
   const secret = Deno.env.get("RESEND_WEBHOOK_SECRET");
   if (!secret) {
-    console.error("RESEND_WEBHOOK_SECRET not set");
+    logError("resend_webhook_secret_not_set", {});
     return new Response("Misconfigured", { status: 500 });
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
 
   const rawBody = await req.text();
   const headers: Record<string, string> = {

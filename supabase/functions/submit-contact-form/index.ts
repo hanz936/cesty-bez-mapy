@@ -7,33 +7,12 @@
 // ================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { Database } from "../_shared/database.types.ts";
 import { verifyTurnstile } from "../_shared/verifyTurnstile.ts";
 import { withSentry } from "../_shared/sentry.ts";
-
-const allowedOrigins = [
-  "https://cestybezmapy.cz",
-  "https://www.cestybezmapy.cz",
-  "https://admin.cestybezmapy.cz",
-  "https://cesty-bez-mapy-git-development-jana-novakovas-projects.vercel.app",
-  "http://localhost:5173",
-  "http://localhost:5174",
-  "http://localhost:3000",
-  "http://localhost:4173",
-];
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("Origin") || "";
-  const allowedOrigin = allowedOrigins.includes(origin)
-    ? origin
-    : allowedOrigins[0];
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
-}
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { jsonResponse } from "../_shared/http.ts";
+import { logWarn, logError } from "../_shared/log.ts";
 
 interface SubmitContactFormBody {
   form_type: "contact" | "collaboration";
@@ -49,17 +28,6 @@ const MAX_NAME = 200;
 const MAX_EMAIL = 320;
 const MAX_SUBJECT = 200;
 const MAX_MESSAGE = 5000;
-
-function jsonResponse(
-  body: unknown,
-  status: number,
-  cors: Record<string, string>,
-) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", ...cors },
-  });
-}
 
 Deno.serve(withSentry(async (req) => {
   const cors = getCorsHeaders(req);
@@ -115,11 +83,11 @@ Deno.serve(withSentry(async (req) => {
   try {
     verifyResult = await verifyTurnstile(captchaToken, remoteIp);
   } catch (err) {
-    console.error("Turnstile verify error", err);
+    logError("turnstile_verify_error", { message: err instanceof Error ? err.message : String(err) });
     return jsonResponse({ error: "verify_unavailable" }, 503, cors);
   }
   if (!verifyResult.success) {
-    console.warn("[turnstile] verification failed", {
+    logWarn("turnstile_verification_failed", {
       form: form_type,
       errorCodes: verifyResult.errorCodes,
       hostname: verifyResult.hostname,
@@ -133,7 +101,7 @@ Deno.serve(withSentry(async (req) => {
   }
 
   // Insert
-  const supabase = createClient(
+  const supabase = createClient<Database>(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { auth: { persistSession: false } },
@@ -148,7 +116,7 @@ Deno.serve(withSentry(async (req) => {
   });
 
   if (dbError) {
-    console.error("contact_messages insert error", dbError);
+    logError("contact_messages_insert_error", { message: dbError.message });
     return jsonResponse({ error: "db_error" }, 500, cors);
   }
 
