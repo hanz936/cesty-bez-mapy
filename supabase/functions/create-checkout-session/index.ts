@@ -12,31 +12,14 @@ import Stripe from "https://esm.sh/stripe@22.2.0?target=denonext";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withSentry } from "../_shared/sentry.ts";
 import { clientIp, enforceRateLimit } from "../_shared/rateLimit.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { jsonResponse } from "../_shared/http.ts";
+import { logInfo, logError } from "../_shared/log.ts";
+import type { Database } from "../_shared/database.types.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
   apiVersion: "2026-05-27.dahlia",
 });
-
-const allowedOrigins = [
-  "https://cestybezmapy.cz",
-  "https://www.cestybezmapy.cz",
-  "https://cesty-bez-mapy-admin.vercel.app",
-  "https://admin.cestybezmapy.cz",
-  "https://cesty-bez-mapy-git-development-jana-novakovas-projects.vercel.app",
-  "http://localhost:5173",
-  "http://localhost:5174",
-];
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("Origin") || "";
-  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
-}
 
 const allowedUrlPrefixes = [
   "https://cestybezmapy.cz",
@@ -80,9 +63,10 @@ interface CreateCheckoutRequest {
 }
 
 Deno.serve(withSentry(async (req) => {
+  const cors = getCorsHeaders(req);
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: getCorsHeaders(req) });
+    return new Response("ok", { headers: cors });
   }
 
   try {
@@ -100,7 +84,7 @@ Deno.serve(withSentry(async (req) => {
     } = body;
 
     // SEC-02/SEC-03: per-IP rate limit (abuse / Stripe cost protection).
-    const rlClient = createClient(
+    const rlClient = createClient<Database>(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } },
@@ -111,20 +95,14 @@ Deno.serve(withSentry(async (req) => {
       windowSeconds: 60,
     });
     if (!allowed) {
-      return new Response(
-        JSON.stringify({ error: "Příliš mnoho požadavků, zkus to prosím za chvíli." }),
-        {
-          status: 429,
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        },
-      );
+      return jsonResponse({ error: "Příliš mnoho požadavků, zkus to prosím za chvíli." }, 429, cors);
     }
 
     // Extract user_id from JWT (not from body - prevents spoofing)
     let userId: string | null = null;
     const authHeader = req.headers.get("Authorization");
     if (authHeader) {
-      const supabaseAuth = createClient(
+      const supabaseAuth = createClient<Database>(
         Deno.env.get("SUPABASE_URL") ?? "",
         Deno.env.get("SUPABASE_ANON_KEY") ?? "",
         { global: { headers: { Authorization: authHeader } } }
@@ -135,39 +113,15 @@ Deno.serve(withSentry(async (req) => {
 
     // Validace
     if (!line_items || !Array.isArray(line_items) || line_items.length === 0) {
-      return new Response(
-        JSON.stringify({
-          error: "Chybí položky k objednání (line_items)",
-        }),
-        {
-          status: 400,
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        }
-      );
+      return jsonResponse({ error: "Chybí položky k objednání (line_items)" }, 400, cors);
     }
 
     if (!success_url || !cancel_url) {
-      return new Response(
-        JSON.stringify({
-          error: "Chybí success_url nebo cancel_url",
-        }),
-        {
-          status: 400,
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        }
-      );
+      return jsonResponse({ error: "Chybí success_url nebo cancel_url" }, 400, cors);
     }
 
     if (!isAllowedUrl(success_url) || !isAllowedUrl(cancel_url)) {
-      return new Response(
-        JSON.stringify({
-          error: "Nepovolená URL adresa",
-        }),
-        {
-          status: 400,
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        }
-      );
+      return jsonResponse({ error: "Nepovolená URL adresa" }, 400, cors);
     }
 
     // Validace fakturačních údajů pro B2B (firma = chce fakturu)
@@ -180,26 +134,19 @@ Deno.serve(withSentry(async (req) => {
         !b.billing_city ||
         !b.billing_zip
       ) {
-        return new Response(
-          JSON.stringify({
-            error: "Incomplete billing fields",
-          }),
-          {
-            status: 400,
-            headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-          }
-        );
+        return jsonResponse({ error: "Incomplete billing fields" }, 400, cors);
       }
     }
 
-    console.log(
-      `Vytvářím Checkout Session pro ${line_items.length} položek, user: ${userId || "anonymous"}`
-    );
+    logInfo("checkout_session_requested", {
+      line_items_count: line_items.length,
+      user_id: userId ?? "anonymous",
+    });
 
     // Vytvoření Supabase klienta pro načtení produktů
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
 
     // Načtení stripe_price_id pro všechny produkty z databáze
     const productIds = line_items.map((item) => item.product_id);
@@ -212,61 +159,30 @@ Deno.serve(withSentry(async (req) => {
       .eq("is_deleted", false);
 
     if (productsError) {
-      console.error("Chyba při načítání produktů:", productsError);
-      return new Response(
-        JSON.stringify({
-          error: "Nepodařilo se načíst produkty z databáze",
-        }),
-        {
-          status: 500,
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        }
-      );
+      logError("checkout_products_load_failed", { message: productsError.message });
+      return jsonResponse({ error: "Nepodařilo se načíst produkty z databáze" }, 500, cors);
     }
 
     if (!products || products.length === 0) {
-      return new Response(
-        JSON.stringify({
-          error: "Žádné platné produkty nebyly nalezeny",
-        }),
-        {
-          status: 400,
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        }
-      );
+      return jsonResponse({ error: "Žádné platné produkty nebyly nalezeny" }, 400, cors);
     }
 
     // Kontrola, že všechny produkty mají stripe_price_id
     const missingStripeProducts = products.filter((p) => !p.stripe_price_id);
     if (missingStripeProducts.length > 0) {
-      console.error(
-        "Produkty bez stripe_price_id:",
-        missingStripeProducts.map((p) => p.title)
-      );
-      return new Response(
-        JSON.stringify({
-          error: `Některé produkty nemají nastavenou cenu ve Stripe: ${missingStripeProducts.map((p) => p.title).join(", ")}`,
-        }),
-        {
-          status: 400,
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        }
-      );
+      logError("checkout_products_missing_stripe_price", {
+        titles: missingStripeProducts.map((p) => p.title),
+      });
+      return jsonResponse({
+        error: `Některé produkty nemají nastavenou cenu ve Stripe: ${missingStripeProducts.map((p) => p.title).join(", ")}`,
+      }, 400, cors);
     }
 
     // Validace množství položek - musí být celé číslo 1-10 (pokud je zadáno)
     for (const item of line_items) {
       const q = item.quantity;
       if (q !== undefined && !(Number.isInteger(q) && q >= 1 && q <= 10)) {
-        return new Response(
-          JSON.stringify({
-            error: "Neplatné množství položky (povoleno 1–10)",
-          }),
-          {
-            status: 400,
-            headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-          }
-        );
+        return jsonResponse({ error: "Neplatné množství položky (povoleno 1–10)" }, 400, cors);
       }
     }
 
@@ -277,15 +193,17 @@ Deno.serve(withSentry(async (req) => {
           (item) => item.product_id === product.id
         );
         return {
-          price: product.stripe_price_id,
+          // Sem se dostanou jen produkty, které prošly missingStripeProducts
+          // kontrolou výše (stripe_price_id je truthy) — null→undefined je jen
+          // typový přemostění pro Stripe.LineItem (runtime beze změny).
+          price: product.stripe_price_id ?? undefined,
           quantity: requestItem?.quantity || 1,
         };
       });
 
-    console.log(
-      "Stripe line items:",
-      stripeLineItems.map((item) => `${item.price} x${item.quantity}`)
-    );
+    logInfo("checkout_stripe_line_items", {
+      line_items: stripeLineItems.map((item) => `${item.price} x${item.quantity}`),
+    });
 
     // Příprava metadata pro session
     const metadata: Record<string, string> = {
@@ -362,31 +280,19 @@ Deno.serve(withSentry(async (req) => {
 
     const session = await stripe.checkout.sessions.create(sessionParams);
 
-    console.log(`Stripe Checkout Session vytvořena: ${session.id}`);
+    logInfo("checkout_session_created", { session_id: session.id });
 
     // Vrácení URL pro redirect
-    return new Response(
-      JSON.stringify({
-        success: true,
-        session_id: session.id,
-        url: session.url,
-      }),
-      {
-        status: 200,
-        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-      }
-    );
+    return jsonResponse({
+      success: true,
+      session_id: session.id,
+      url: session.url,
+    }, 200, cors);
   } catch (error) {
-    console.error("Chyba při vytváření Checkout Session:", error);
+    logError("checkout_session_creation_failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
 
-    return new Response(
-      JSON.stringify({
-        error: "Nepodařilo se vytvořit platební session",
-      }),
-      {
-        status: 500,
-        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-      }
-    );
+    return jsonResponse({ error: "Nepodařilo se vytvořit platební session" }, 500, cors);
   }
 }, "create-checkout-session"));

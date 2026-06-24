@@ -17,7 +17,7 @@
 // CORS configured for admin browser callers; webhook calls (server-to-server) ignore it.
 // ================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type QueryData } from "https://esm.sh/@supabase/supabase-js@2";
 import { FakturoidClient, type TokenPersister } from "./fakturoid.ts";
 import { mapOrderToInvoice, mapOrderToStornoInvoice, mapOrderToSubject, todayIso } from "./mapping.ts";
 import { isValidIco } from "./ares.ts";
@@ -27,30 +27,15 @@ import type {
 } from "./types.ts";
 import { sendEmail, makeResendClient } from "../_shared/email/sendEmail.ts";
 import { withSentry } from "../_shared/sentry.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { requireAdmin } from "../_shared/requireAdmin.ts";
+import { logError } from "../_shared/log.ts";
+import type { Database } from "../_shared/database.types.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-const ADMIN_ORIGINS = [
-  "https://cesty-bez-mapy-admin.vercel.app",
-  "https://admin.cestybezmapy.cz",
-  "http://localhost:5173",
-  "http://localhost:5174",
-];
-
-function corsHeaders(req: Request) {
-  const origin = req.headers.get("Origin") || "";
-  const allowedOrigin = ADMIN_ORIGINS.includes(origin) ? origin : ADMIN_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
-}
-
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+const supabase = createClient<Database>(SUPABASE_URL, SERVICE_ROLE_KEY);
 const resend = makeResendClient();
 
 const CFG = {
@@ -91,7 +76,7 @@ async function logIntegration(orderId: string, action: string, success: boolean,
     metadata: { order_id: orderId },
   });
   if (insertError) {
-    console.error("integration_logs insert failed:", insertError.message);
+    logError("integration_logs_insert_failed", { order_id: orderId, action, message: insertError.message });
   }
 }
 
@@ -105,28 +90,45 @@ async function sendAlertEmail(orderId: string, action: string, errorMessage: str
       templateProps: { orderId, action, errorMessage },
     }, { supabase });
   } catch (e) {
-    console.error("Failed to send alert email:", e);
+    logError("invoice_alert_email_failed", {
+      order_id: orderId,
+      action,
+      error: e instanceof Error ? e.message : String(e),
+    });
   }
 }
+
+const orderItemsQuery = (orderId: string) =>
+  supabase
+    .from("order_items")
+    .select("product_id, quantity, price_at_purchase, vat_rate_at_purchase, products!inner(title)")
+    .eq("order_id", orderId);
+type OrderItemsQueryRow = QueryData<ReturnType<typeof orderItemsQuery>>[number];
 
 async function loadOrderWithItems(orderId: string): Promise<{ order: OrderRow; items: OrderItemRow[] }> {
   const { data: order, error: oErr } = await supabase
     .from("orders").select("*").eq("id", orderId).single();
   if (oErr || !order) throw new Error(`Order ${orderId} not found`);
-  const { data: items, error: iErr } = await supabase
-    .from("order_items")
-    .select("product_id, quantity, price_at_purchase, vat_rate_at_purchase, products!inner(title)")
-    .eq("order_id", orderId);
+  const { data: items, error: iErr } = await orderItemsQuery(orderId);
   if (iErr || !items) throw new Error(`Items for ${orderId} not found`);
-  // deno-lint-ignore no-explicit-any
-  const mapped: OrderItemRow[] = items.map((i: any) => ({
+  // DB numeric columns (price_at_purchase, vat_rate_at_purchase, total_amount)
+  // serialize as strings at runtime (Postgres numeric → JSON string, avoids
+  // precision loss); the generated Database type labels them `number` but the
+  // app-level OrderRow/OrderItemRow contract (consumed by mapping.ts/Fakturoid's
+  // string decimal API) has always been `string` — same pattern as
+  // stripe-webhook's `Number(order.total_amount)`, just the inverse direction.
+  // String() here is a typing bridge only; runtime values are unchanged.
+  const mapped: OrderItemRow[] = (items as OrderItemsQueryRow[]).map((i) => ({
     product_id: i.product_id,
     product_title: i.products.title,
     quantity: i.quantity,
-    price_at_purchase: i.price_at_purchase,
-    vat_rate_at_purchase: i.vat_rate_at_purchase,
+    price_at_purchase: String(i.price_at_purchase),
+    vat_rate_at_purchase: String(i.vat_rate_at_purchase),
   }));
-  return { order: order as OrderRow, items: mapped };
+  return {
+    order: { ...order, total_amount: String(order.total_amount) } as unknown as OrderRow,
+    items: mapped,
+  };
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -212,7 +214,7 @@ async function actionCreate(orderId: string): Promise<Response> {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       await logIntegration(orderId, "record_payment", false, msg);
-      console.error("Failed to record payment on invoice:", msg);
+      logError("record_payment_failed", { order_id: orderId, invoice_id: invoice.id, message: msg });
       await sendAlertEmail(orderId, "record_payment", `Platba se nepodařilo zaznamenat na faktuře: ${msg}`);
     }
     await supabase.from("orders").update({
@@ -229,7 +231,7 @@ async function actionCreate(orderId: string): Promise<Response> {
     await supabase.from("orders").update({ invoice_error: msg }).eq("id", orderId);
     await logIntegration(orderId, "create_invoice", false, msg);
     await sendAlertEmail(orderId, "create_invoice", msg);
-    console.error("[create-invoice] create failed:", msg);
+    logError("create_invoice_failed", { order_id: orderId, message: msg });
     return jsonOk(clientFail("error"));
   }
 }
@@ -252,7 +254,7 @@ async function actionResendEmail(orderId: string): Promise<Response> {
     const msg = e instanceof Error ? e.message : String(e);
     await logIntegration(orderId, "resend_invoice", false, msg);
     await sendAlertEmail(orderId, "resend_invoice", msg);
-    console.error("[create-invoice] resend failed:", msg);
+    logError("resend_invoice_failed", { order_id: orderId, message: msg });
     return jsonOk(clientFail("error"));
   }
 }
@@ -277,7 +279,7 @@ async function actionStornoInvoice(orderId: string): Promise<Response> {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       await logIntegration(orderId, "record_payment", false, msg);
-      console.error("Failed to record payment on storno invoice:", msg);
+      logError("record_payment_storno_failed", { order_id: orderId, storno_id: storno.id, message: msg });
       await sendAlertEmail(orderId, "record_payment", `Platba se nepodařilo zaznamenat na storno faktuře: ${msg}`);
     }
     await supabase.from("orders").update({
@@ -291,7 +293,7 @@ async function actionStornoInvoice(orderId: string): Promise<Response> {
     const msg = e instanceof Error ? e.message : String(e);
     await logIntegration(orderId, "create_storno", false, msg);
     await sendAlertEmail(orderId, "create_storno", msg);
-    console.error("[create-invoice] storno failed:", msg);
+    logError("create_storno_failed", { order_id: orderId, message: msg });
     return jsonOk(clientFail("error"));
   }
 }
@@ -308,7 +310,7 @@ async function actionCancelAndReissue(orderId: string): Promise<Response> {
     const msg = e instanceof Error ? e.message : String(e);
     await logIntegration(orderId, "cancel_invoice", false, msg);
     await sendAlertEmail(orderId, "cancel_invoice", msg);
-    console.error("[create-invoice] cancel failed:", msg);
+    logError("cancel_invoice_failed", { order_id: orderId, message: msg });
     return jsonOk(clientFail("cancel_failed"));
   }
   // Null-out + recreate; on failure, persist the cancelled invoice ID into
@@ -338,35 +340,13 @@ function jsonOk(body: unknown): Response {
 }
 
 Deno.serve(withSentry(async (req) => {
-  const cors = corsHeaders(req);
+  const cors = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: cors });
 
   // Dual-auth gate: service-role bypass (stripe-webhook) OR admin user (admin UI).
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return new Response("Unauthorized", { status: 401, headers: cors });
-  }
-  // Service-role bypass: webhook calls use the service-role JWT.
-  // We compare the bearer token to SERVICE_ROLE_KEY directly — simpler and
-  // faster than round-tripping through getUser() which would return null for
-  // the service-role token.
-  const bearer = authHeader.replace(/^Bearer\s+/i, "");
-  const isServiceRole = bearer === SERVICE_ROLE_KEY;
-  if (!isServiceRole) {
-    // Admin role check — same pattern as download-invoice-pdf and resend-email.
-    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) {
-      return new Response("Unauthorized", { status: 401, headers: cors });
-    }
-    const { data: isAdmin } = await userClient.rpc("is_admin");
-    if (!isAdmin) {
-      return new Response("Forbidden", { status: 403, headers: cors });
-    }
-  }
+  const gate = await requireAdmin(req, cors, { allowServiceRole: true });
+  if (!gate.ok) return gate.response;
 
   let body: CreateInvoiceRequest;
   try { body = await req.json(); } catch { return new Response("Bad JSON", { status: 400, headers: cors }); }
