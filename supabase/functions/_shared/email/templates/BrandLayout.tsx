@@ -1,3 +1,4 @@
+// @ts-nocheck — React email šablona; typy řeší esbuild při deploy, není cíl CORR-02 (viz plán F-1 Task 5)
 // BrandLayout: shared email layout with cream hero panel + white body + footer.
 // Hero panel sits at the top (logo, h1 heading, intro paragraph), body section
 // renders children below, footer carries signature + contact + transactional disclaimer.

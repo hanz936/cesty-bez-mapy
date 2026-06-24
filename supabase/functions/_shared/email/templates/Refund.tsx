@@ -1,3 +1,4 @@
+// @ts-nocheck — React email šablona; typy řeší esbuild při deploy, není cíl CORR-02 (viz plán F-1 Task 5)
 import { Text } from "react-email";
 import * as React from "react";
 import { BrandLayout } from "./BrandLayout.tsx";

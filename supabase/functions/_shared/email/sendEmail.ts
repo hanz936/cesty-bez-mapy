@@ -6,7 +6,10 @@
 // on 4xx. Logs success/failure as structured JSON to console (Supabase logs).
 // ================================================
 
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "resend";
+import { logInfo, logWarn, logError, maskEmail } from "../log.ts";
+import type { Database } from "../database.types.ts";
 import { OrderConfirmation } from "./templates/OrderConfirmation.tsx";
 import { CustomItineraryReceived } from "./templates/CustomItineraryReceived.tsx";
 import { Refund } from "./templates/Refund.tsx";
@@ -30,8 +33,7 @@ export interface ResendClient {
 }
 
 // Minimal shape needed for suppression lookup. Compatible with @supabase/supabase-js client.
-// deno-lint-ignore no-explicit-any
-export type SuppressionLookupClient = any;
+export type SuppressionLookupClient = SupabaseClient<Database>;
 
 interface SendOptions {
   maxRetries?: number;
@@ -120,22 +122,20 @@ async function checkSuppression(
     // Don't block sends on transient suppression query errors — log loudly and proceed.
     // The cost of a single duplicate send to a suppressed address (Resend will bounce
     // again, regenerating a webhook event) is lower than dropping legitimate mail.
-    console.error(JSON.stringify({
-      event: "suppression_check_failed",
-      email_to: emailLower,
+    logError("suppression_check_failed", {
+      email_domain: maskEmail(emailLower),
       idempotency_key: idempotencyKey,
       error: error.message,
-    }));
+    });
     return;
   }
 
   if (data) {
-    console.log(JSON.stringify({
-      event: "email_send_suppressed",
-      email_to: emailLower,
+    logInfo("email_send_suppressed", {
+      email_domain: maskEmail(emailLower),
       reason: data.reason,
       idempotency_key: idempotencyKey,
-    }));
+    });
     throw new EmailSuppressedError(emailLower, data.reason);
   }
 }
@@ -152,10 +152,9 @@ export async function sendEmail<T extends EmailType>(
   if (options.supabase) {
     await checkSuppression(options.supabase, emailLower, params.idempotencyKey);
   } else if (!suppressionWarningLogged) {
-    console.warn(JSON.stringify({
-      event: "sendEmail_without_suppression_check",
+    logWarn("sendEmail_without_suppression_check", {
       note: "supabase client not passed to sendEmail; suppression list bypassed",
-    }));
+    });
     suppressionWarningLogged = true;
   }
 
@@ -183,14 +182,12 @@ export async function sendEmail<T extends EmailType>(
     });
 
     if (data && !error) {
-      console.log(JSON.stringify({
-        event: "email_sent",
+      logInfo("email_sent", {
         email_type: params.type,
         idempotency_key: params.idempotencyKey,
         resend_message_id: data.id,
         attempt,
-        timestamp: new Date().toISOString(),
-      }));
+      });
       return { messageId: data.id, attempt };
     }
 
@@ -198,16 +195,14 @@ export async function sendEmail<T extends EmailType>(
       lastError = new Error(error.message);
       const retryable = isRetryable(error.statusCode);
 
-      console.error(JSON.stringify({
-        event: "email_send_failed",
+      logError("email_send_failed", {
         email_type: params.type,
         idempotency_key: params.idempotencyKey,
         error_status: error.statusCode,
         error_name: error.name,
         attempt,
         retryable,
-        timestamp: new Date().toISOString(),
-      }));
+      });
 
       if (!retryable || attempt === maxRetries) {
         throw lastError;

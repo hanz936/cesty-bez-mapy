@@ -1,6 +1,9 @@
-// deno-lint-ignore-file no-explicit-any
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { Database } from "../database.types.ts";
 import { TAGS } from "./config.ts";
+import { EcomailClient } from "./client.ts";
 import { logEcomail } from "./log.ts";
+import { logWarn } from "../log.ts";
 
 /** Placeholder jména z checkout fallbacků — do Ecomailu se neposílají. */
 const PLACEHOLDER_NAMES = new Set(["zákazník", "host", "neznámý zákazník"]);
@@ -24,8 +27,8 @@ export function mergeTags(existing: string[], add: string[]): string[] {
 }
 
 interface SyncParams {
-  client: any; // EcomailClient
-  supabase: any; // service-role
+  client: EcomailClient;
+  supabase: SupabaseClient<Database>;
   listId: number;
   customerId: string;
   orderId?: string;
@@ -63,12 +66,12 @@ export async function syncCustomerToEcomail(p: SyncParams): Promise<{ synced: bo
     if (subscriberId != null) {
       const { error: custErr } = await p.supabase
         .from("customers").update({ ecomail_subscriber_id: String(subscriberId) }).eq("id", p.customerId);
-      if (custErr) console.warn("[syncCustomer] failed to set ecomail_subscriber_id:", custErr.message);
+      if (custErr) logWarn("syncCustomer_set_subscriber_id_failed", { error: custErr.message });
     }
     if (p.orderId) {
       const { error: flagErr } = await p.supabase
         .from("orders").update({ ecomail_synced: true }).eq("id", p.orderId);
-      if (flagErr) console.warn("[syncCustomer] failed to set ecomail_synced:", flagErr.message);
+      if (flagErr) logWarn("syncCustomer_set_synced_flag_failed", { error: flagErr.message });
     }
     await logEcomail(p.supabase, "subscribe", "success", { order_id: p.orderId ?? null, customer_id: p.customerId, email: p.email });
     return { synced: true, subscriberId };
