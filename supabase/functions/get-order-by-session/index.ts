@@ -8,42 +8,27 @@
 // ================================================
 
 import Stripe from "https://esm.sh/stripe@22.2.0?target=denonext";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type QueryData } from "https://esm.sh/@supabase/supabase-js@2";
+import type { Database } from "../_shared/database.types.ts";
 import { withSentry } from "../_shared/sentry.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { jsonResponse } from "../_shared/http.ts";
+import { logInfo, logWarn, logError, maskEmail } from "../_shared/log.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
   apiVersion: "2026-05-27.dahlia",
 });
-
-const allowedOrigins = [
-  "https://cestybezmapy.cz",
-  "https://www.cestybezmapy.cz",
-  "https://cesty-bez-mapy-admin.vercel.app",
-  "https://admin.cestybezmapy.cz",
-  "https://cesty-bez-mapy-git-development-jana-novakovas-projects.vercel.app",
-  "http://localhost:5173",
-  "http://localhost:5174",
-];
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("Origin") || "";
-  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
-}
 
 interface GetOrderRequest {
   session_id: string;
 }
 
 Deno.serve(withSentry(async (req) => {
+  const cors = getCorsHeaders(req);
+
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: getCorsHeaders(req) });
+    return new Response("ok", { headers: cors });
   }
 
   try {
@@ -53,57 +38,38 @@ Deno.serve(withSentry(async (req) => {
 
     // Validace
     if (!session_id) {
-      return new Response(
-        JSON.stringify({
-          error: "Chybí session_id",
-        }),
-        {
-          status: 400,
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        }
-      );
+      return jsonResponse({ error: "Chybí session_id" }, 400, cors);
     }
 
-    console.log(`Looking up order for session: ${session_id}`);
+    logInfo("looking_up_order_for_session", { sessionId: session_id });
 
     // Získání Stripe session pro payment_intent ID
     let session: Stripe.Checkout.Session;
     try {
       session = await stripe.checkout.sessions.retrieve(session_id);
     } catch (stripeError) {
-      console.error("Failed to retrieve Stripe session:", stripeError);
-      return new Response(
-        JSON.stringify({
-          error: "Neplatná platební session",
-        }),
-        {
-          status: 404,
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        }
-      );
+      logError("failed_to_retrieve_stripe_session", {
+        message: stripeError instanceof Error ? stripeError.message : String(stripeError),
+      });
+      return jsonResponse({ error: "Neplatná platební session" }, 404, cors);
     }
 
     // Kontrola, že platba byla úspěšná
     if (session.payment_status !== "paid") {
-      return new Response(
-        JSON.stringify({
-          status: "pending",
-          message: "Platba ještě nebyla dokončena",
-        }),
-        {
-          status: 200,
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        }
+      return jsonResponse(
+        { status: "pending", message: "Platba ještě nebyla dokončena" },
+        200,
+        cors,
       );
     }
 
     const paymentIntentId = session.payment_intent as string;
-    console.log(`Payment intent: ${paymentIntentId}`);
+    logInfo("payment_intent_resolved", { paymentIntentId });
 
     // Vytvoření Supabase klienta
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
 
     // Hledání objednávky podle stripe_payment_id
     const { data: order, error: orderError } = await supabase
@@ -121,30 +87,27 @@ Deno.serve(withSentry(async (req) => {
 
     if (orderError || !order) {
       // Objednávka ještě nebyla vytvořena webhookem
-      console.log("Order not found yet, webhook may still be processing");
-      return new Response(
-        JSON.stringify({
-          status: "processing",
-          message: "Objednávka se právě zpracovává",
-        }),
-        {
-          status: 200,
-          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-        }
+      logInfo("order_not_found_yet", { message: orderError?.message });
+      return jsonResponse(
+        { status: "processing", message: "Objednávka se právě zpracovává" },
+        200,
+        cors,
       );
     }
 
-    console.log(`Found order: ${order.id}`);
+    logInfo("found_order", { orderId: order.id });
 
     // Verify ownership — session email must match order email (fail-closed:
     // deny if the session has no email or it does not match the order). (audit F13)
     const sessionEmail = session.customer_details?.email?.toLowerCase() ?? null;
     if (!sessionEmail || !order.customer_email ||
         sessionEmail !== order.customer_email.toLowerCase()) {
-      return new Response(
-        JSON.stringify({ error: "Přístup odepřen" }),
-        { status: 403, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
-      );
+      logWarn("order_access_denied_email_mismatch", {
+        orderId: order.id,
+        sessionEmailDomain: sessionEmail ? maskEmail(sessionEmail) : null,
+        orderEmailDomain: order.customer_email ? maskEmail(order.customer_email) : null,
+      });
+      return jsonResponse({ error: "Přístup odepřen" }, 403, cors);
     }
 
     // Načtení download tokenu. Tokeny vytvořené od audit 3.5.4 (F5) mají
@@ -157,11 +120,11 @@ Deno.serve(withSentry(async (req) => {
       .single();
 
     if (tokenError) {
-      console.log("Download token not found:", tokenError);
+      logInfo("download_token_not_found", { message: tokenError.message });
     }
 
     // Načtení položek objednávky
-    const { data: orderItems, error: itemsError } = await supabase
+    const orderItemsQuery = supabase
       .from("order_items")
       .select(`
         id,
@@ -176,14 +139,16 @@ Deno.serve(withSentry(async (req) => {
         )
       `)
       .eq("order_id", order.id);
+    type OrderItemsRow = QueryData<typeof orderItemsQuery>[number];
+
+    const { data: orderItems, error: itemsError } = await orderItemsQuery;
 
     if (itemsError) {
-      console.error("Failed to load order items:", itemsError);
+      logError("failed_to_load_order_items", { message: itemsError.message });
     }
 
     // Formátování položek pro odpověď
-    // deno-lint-ignore no-explicit-any
-    const items = (orderItems || []).map((item: any) => ({
+    const items = ((orderItems ?? []) as OrderItemsRow[]).map((item) => ({
       id: item.products?.id,
       title: item.products?.title,
       duration: item.products?.duration,
@@ -194,8 +159,8 @@ Deno.serve(withSentry(async (req) => {
     }));
 
     // Vrácení objednávky
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         status: "completed",
         order: {
           id: order.id,
@@ -207,23 +172,14 @@ Deno.serve(withSentry(async (req) => {
         },
         download_token: downloadToken?.token || null,
         download_expires_at: downloadToken?.expires_at ?? null,
-      }),
-      {
-        status: 200,
-        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-      }
+      },
+      200,
+      cors,
     );
   } catch (error) {
-    console.error("Error getting order:", error);
-
-    return new Response(
-      JSON.stringify({
-        error: "Nepodařilo se načíst objednávku",
-      }),
-      {
-        status: 500,
-        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-      }
-    );
+    logError("get_order_by_session_error", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return jsonResponse({ error: "Nepodařilo se načíst objednávku" }, 500, cors);
   }
 }, "get-order-by-session"));

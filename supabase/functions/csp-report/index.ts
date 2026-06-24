@@ -9,16 +9,13 @@
 // ================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { Database, Json } from "../_shared/database.types.ts";
 import { withSentry } from "../_shared/sentry.ts";
 import { enforceRateLimit } from "../_shared/rateLimit.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { logError } from "../_shared/log.ts";
 
 const MAX_BODY_BYTES = 50 * 1024;
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "content-type",
-};
 
 interface NormalizedReport {
   disposition: "enforce" | "report";
@@ -32,7 +29,7 @@ interface NormalizedReport {
   status_code: number | null;
   sample: string | null;
   user_agent: string | null;
-  raw: unknown;
+  raw: Json;
 }
 
 function toIntOrNull(v: unknown): number | null {
@@ -103,7 +100,7 @@ function normalizeReport(
         status_code: toIntOrNull(cr["status-code"]),
         sample: toStrOrNull(cr["script-sample"]),
         user_agent: userAgent,
-        raw: body,
+        raw: body as Json,
       }];
     }
   }
@@ -114,52 +111,54 @@ function normalizeReport(
 }
 
 Deno.serve(withSentry(async (req) => {
+  const cors = getCorsHeaders(req, { publicAccess: true });
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: CORS_HEADERS });
+    return new Response("ok", { headers: cors });
   }
   if (req.method !== "POST") {
-    return new Response(null, { status: 405, headers: CORS_HEADERS });
+    return new Response(null, { status: 405, headers: cors });
   }
 
   // Defensive size cap — CSP reports are tiny in practice (<2 KB).
   const lenHeader = req.headers.get("content-length");
   if (lenHeader && Number(lenHeader) > MAX_BODY_BYTES) {
-    return new Response(null, { status: 413, headers: CORS_HEADERS });
+    return new Response(null, { status: 413, headers: cors });
   }
 
   let raw: string;
   try {
     raw = await req.text();
   } catch {
-    return new Response(null, { status: 400, headers: CORS_HEADERS });
+    return new Response(null, { status: 400, headers: cors });
   }
   if (raw.length > MAX_BODY_BYTES) {
-    return new Response(null, { status: 413, headers: CORS_HEADERS });
+    return new Response(null, { status: 413, headers: cors });
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return new Response(null, { status: 400, headers: CORS_HEADERS });
+    return new Response(null, { status: 400, headers: cors });
   }
 
   const contentType = req.headers.get("content-type") ?? "";
   const userAgent = req.headers.get("user-agent");
   const rows = normalizeReport(parsed, contentType, userAgent);
   if (!rows) {
-    return new Response(null, { status: 400, headers: CORS_HEADERS });
+    return new Response(null, { status: 400, headers: cors });
   }
   if (rows.length === 0) {
     // Valid shape but nothing CSP-related to record — still success.
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
+    return new Response(null, { status: 204, headers: cors });
   }
 
   // Supabase populates x-forwarded-for; take the first hop.
   const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
     null;
 
-  const supabase = createClient(
+  const supabase = createClient<Database>(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { auth: { persistSession: false } },
@@ -173,7 +172,7 @@ Deno.serve(withSentry(async (req) => {
   });
   if (!allowedCsp) {
     // Fire-and-forget endpoint: silently drop over-limit reports.
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
+    return new Response(null, { status: 204, headers: cors });
   }
 
   const { error } = await supabase.from("csp_reports").insert(
@@ -181,8 +180,8 @@ Deno.serve(withSentry(async (req) => {
   );
   if (error) {
     // Never block the caller — log and still return 204.
-    console.error("csp_reports insert error", error);
+    logError("csp_reports_insert_error", { message: error.message });
   }
 
-  return new Response(null, { status: 204, headers: CORS_HEADERS });
+  return new Response(null, { status: 204, headers: cors });
 }, "csp-report"));

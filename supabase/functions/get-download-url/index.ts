@@ -9,29 +9,12 @@
 // Audit columns (download_count, last_downloaded_at) updated on each call.
 // ================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type QueryData, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { Database } from "../_shared/database.types.ts";
 import { withSentry } from "../_shared/sentry.ts";
-
-const allowedOrigins = [
-  "https://cestybezmapy.cz",
-  "https://www.cestybezmapy.cz",
-  "https://cesty-bez-mapy-admin.vercel.app",
-  "https://admin.cestybezmapy.cz",
-  "https://cesty-bez-mapy-git-development-jana-novakovas-projects.vercel.app",
-  "http://localhost:5173",
-  "http://localhost:5174",
-];
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("Origin") || "";
-  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
-}
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { jsonResponse } from "../_shared/http.ts";
+import { logInfo, logError } from "../_shared/log.ts";
 
 interface GetDownloadRequest {
   token: string;
@@ -53,8 +36,10 @@ interface GetDownloadResponse {
 const SIGNED_URL_TTL_SECONDS = 3600;
 
 Deno.serve(withSentry(async (req) => {
+  const cors = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: getCorsHeaders(req) });
+    return new Response("ok", { headers: cors });
   }
 
   try {
@@ -62,12 +47,12 @@ Deno.serve(withSentry(async (req) => {
     const { token } = body;
 
     if (!token) {
-      return jsonResponse(req, 400, { error: "Chybí download token" });
+      return jsonResponse({ error: "Chybí download token" }, 400, cors);
     }
 
-    console.log(`Verifying download token: ${token.substring(0, 8)}...`);
+    logInfo("verifying_download_token", { tokenPrefix: token.substring(0, 8) });
 
-    const supabase = createClient(
+    const supabase = createClient<Database>(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
@@ -79,26 +64,35 @@ Deno.serve(withSentry(async (req) => {
       .maybeSingle();
 
     if (tokenError || !tokenRow) {
-      console.error("Token not found:", tokenError?.message);
-      return jsonResponse(req, 404, { error: "Neplatný download token" });
+      logError("download_token_not_found", { message: tokenError?.message });
+      return jsonResponse({ error: "Neplatný download token" }, 404, cors);
     }
 
     if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
-      return jsonResponse(req, 410, { error: "Platnost odkazu ke stažení vypršela" });
+      return jsonResponse({ error: "Platnost odkazu ke stažení vypršela" }, 410, cors);
     }
 
     let response: GetDownloadResponse;
 
+    // DB CHECK constraint download_tokens_one_target guarantees order_id is
+    // set iff asset_type='product_pdf' (and likewise for custom_itinerary_request_id) —
+    // these null guards only narrow the column type for TS, they are unreachable in practice.
     if (tokenRow.asset_type === 'product_pdf') {
+      if (!tokenRow.order_id) {
+        return jsonResponse({ error: "Unknown asset_type" }, 500, cors);
+      }
       response = await buildProductDownloads(supabase, tokenRow.order_id);
     } else if (tokenRow.asset_type === 'custom_itinerary_pdf') {
+      if (!tokenRow.custom_itinerary_request_id) {
+        return jsonResponse({ error: "Unknown asset_type" }, 500, cors);
+      }
       response = await buildCustomItineraryDownload(supabase, tokenRow.custom_itinerary_request_id);
     } else {
-      return jsonResponse(req, 500, { error: "Unknown asset_type" });
+      return jsonResponse({ error: "Unknown asset_type" }, 500, cors);
     }
 
     if (response.downloads.length === 0) {
-      return jsonResponse(req, 404, { error: "Žádné PDF soubory nejsou dostupné ke stažení" });
+      return jsonResponse({ error: "Žádné PDF soubory nejsou dostupné ke stažení" }, 404, cors);
     }
 
     await supabase
@@ -108,26 +102,16 @@ Deno.serve(withSentry(async (req) => {
 
     await supabase.rpc('increment_download_count', { token_id: tokenRow.id });
 
-    return jsonResponse(req, 200, response);
+    return jsonResponse(response, 200, cors);
 
   } catch (error) {
-    console.error("Error generating download URLs:", error);
-    return jsonResponse(req, 500, { error: "Nepodařilo se vygenerovat odkaz ke stažení" });
+    logError("get_download_url_error", { message: error instanceof Error ? error.message : String(error) });
+    return jsonResponse({ error: "Nepodařilo se vygenerovat odkaz ke stažení" }, 500, cors);
   }
 }, "get-download-url"));
 
-function jsonResponse(req: Request, status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-  });
-}
-
-async function buildProductDownloads(
-  supabase: ReturnType<typeof createClient>,
-  orderId: string,
-): Promise<GetDownloadResponse> {
-  const { data: orderItems, error } = await supabase
+const productDownloadsQuery = (supabase: SupabaseClient<Database>, orderId: string) =>
+  supabase
     .from("order_items")
     .select(`
       product_id,
@@ -139,15 +123,22 @@ async function buildProductDownloads(
     `)
     .eq("order_id", orderId);
 
+type ProductDownloadsRow = QueryData<ReturnType<typeof productDownloadsQuery>>[number];
+
+async function buildProductDownloads(
+  supabase: SupabaseClient<Database>,
+  orderId: string,
+): Promise<GetDownloadResponse> {
+  const { data: orderItems, error } = await productDownloadsQuery(supabase, orderId);
+
   if (error || !orderItems) {
-    console.error("Order items not found:", error?.message);
+    logError("order_items_not_found", { message: error?.message });
     return { success: true, asset_type: 'product_pdf', downloads: [], expires_in: SIGNED_URL_TTL_SECONDS };
   }
 
   const downloads: DownloadItem[] = [];
-  for (const item of orderItems) {
-    // deno-lint-ignore no-explicit-any
-    const product = item.products as any;
+  for (const item of orderItems as ProductDownloadsRow[]) {
+    const product = item.products;
     if (!product?.pdf_url) continue;
 
     const { data: signed, error: signError } = await supabase.storage
@@ -155,7 +146,7 @@ async function buildProductDownloads(
       .createSignedUrl(product.pdf_url, SIGNED_URL_TTL_SECONDS);
 
     if (signError || !signed) {
-      console.error(`Failed to sign URL for ${product.title}:`, signError?.message);
+      logError("failed_to_sign_url", { productTitle: product.title, message: signError?.message });
       continue;
     }
 
@@ -170,7 +161,7 @@ async function buildProductDownloads(
 }
 
 async function buildCustomItineraryDownload(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient<Database>,
   requestId: string,
 ): Promise<GetDownloadResponse> {
   const { data: request, error } = await supabase
@@ -180,7 +171,7 @@ async function buildCustomItineraryDownload(
     .single();
 
   if (error || !request?.final_pdf_url) {
-    console.error("Custom request not found or no PDF:", error?.message);
+    logError("custom_request_not_found_or_no_pdf", { message: error?.message });
     return { success: true, asset_type: 'custom_itinerary_pdf', downloads: [], expires_in: SIGNED_URL_TTL_SECONDS };
   }
 
@@ -189,12 +180,12 @@ async function buildCustomItineraryDownload(
     .createSignedUrl(request.final_pdf_url, SIGNED_URL_TTL_SECONDS);
 
   if (signError || !signed) {
-    console.error(`Failed to sign URL for custom itinerary ${requestId}:`, signError?.message);
+    logError("failed_to_sign_url_custom_itinerary", { requestId, message: signError?.message });
     return { success: true, asset_type: 'custom_itinerary_pdf', downloads: [], expires_in: SIGNED_URL_TTL_SECONDS };
   }
 
-  // deno-lint-ignore no-explicit-any
-  const destination = (request.form_data as any)?.specific_destination || "Tvůj individuální itinerář";
+  const formData = request.form_data as { specific_destination?: string } | null;
+  const destination = formData?.specific_destination || "Tvůj individuální itinerář";
 
   return {
     success: true,
