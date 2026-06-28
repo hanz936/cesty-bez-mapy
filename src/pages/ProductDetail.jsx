@@ -565,6 +565,7 @@ const ProductDetail = () => {
           isOpen={isModalOpen}
           initialIndex={currentImageIndex}
           onClose={() => setIsModalOpen(false)}
+          showCaption
         />
 
       </main>

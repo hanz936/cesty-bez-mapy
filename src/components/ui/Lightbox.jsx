@@ -3,7 +3,9 @@ import { RemoveScroll } from 'react-remove-scroll';
 
 // Sdílená fullscreen galerie (extrahováno z CustomItineraryDetail.jsx).
 // Vizuálně + behaviorálně identická s kanonickým modalem na všech 4 detail stránkách.
-const Lightbox = React.memo(({ images, isOpen, initialIndex = 0, onClose }) => {
+// showCaption: opt-in pro stránky, jejichž v2 modal měl popisek aktivního obrázku + "X / Y" counter
+// (ProductDetail, ItalyRoadtripDetail, SalzburgItinerary). CustomItineraryDetail (v1) tento prop neposílá.
+const Lightbox = React.memo(({ images, isOpen, initialIndex = 0, onClose, showCaption = false }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const modalGalleryRef = useRef(null);
   const modalTouchStartX = useRef(0);
@@ -192,6 +194,20 @@ const Lightbox = React.memo(({ images, isOpen, initialIndex = 0, onClose }) => {
                   <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
                 </svg>
               </button>
+
+              {/* Caption + counter (showCaption) nad dots, aby se nepřekrývaly */}
+              {showCaption && (
+                <div className="absolute bottom-12 sm:bottom-16 left-1/2 -translate-x-1/2 w-full text-center px-4">
+                  <p className="text-white text-sm sm:text-base font-medium leading-relaxed max-w-2xl mx-auto">
+                    {images[currentIndex]?.alt}
+                  </p>
+                  {images.length > 1 && (
+                    <div className="text-white/60 text-xs sm:text-sm mt-2">
+                      {currentIndex + 1} / {images.length}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Modal dots indicator */}
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">

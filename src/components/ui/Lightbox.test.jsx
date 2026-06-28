@@ -28,6 +28,17 @@ describe('Lightbox', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('showCaption vykreslí popisek aktivního obrázku a "1 / 2" counter', () => {
+    render(<Lightbox images={IMAGES} isOpen initialIndex={0} onClose={() => {}} showCaption />);
+    expect(screen.getByText('Obrázek A')).toBeInTheDocument();
+    expect(screen.getByText('1 / 2')).toBeInTheDocument();
+  });
+
+  it('bez showCaption (default) counter nevykreslí', () => {
+    render(<Lightbox images={IMAGES} isOpen initialIndex={0} onClose={() => {}} />);
+    expect(screen.queryByText('1 / 2')).toBeNull();
+  });
 });
 // Pozn.: scroll-lock je delegovaný na react-remove-scroll (testováno upstream); injektuje
 // <style> pravidlo (ne inline document.body.style.overflow) → v jsdom neasertovat na body.style.

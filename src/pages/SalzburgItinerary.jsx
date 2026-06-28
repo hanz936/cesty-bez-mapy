@@ -420,6 +420,7 @@ const SalzburgItinerary = () => {
           isOpen={isModalOpen}
           initialIndex={currentImageIndex}
           onClose={() => setIsModalOpen(false)}
+          showCaption
         />
 
       </main>
