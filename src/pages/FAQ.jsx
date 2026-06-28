@@ -92,10 +92,12 @@ const FAQ_DATA = [
 ];
 
 
-const FAQItem = ({ item, isOpen, onToggle, onSalzburgClick }) => {
+const FAQItem = ({ item, index, isOpen, onToggle, onSalzburgClick }) => {
+  const panelId = `faq-panel-${index}`;
   return (
     <div className="last:border-b-0 group">
       <button
+        id={`faq-btn-${index}`}
         onClick={onToggle}
         className={`w-full px-6 py-6 text-left transition-all duration-300 focus:outline-none relative ${
           isOpen
@@ -103,6 +105,7 @@ const FAQItem = ({ item, isOpen, onToggle, onSalzburgClick }) => {
             : 'hover:bg-gradient-to-r hover:from-green-50/30 hover:to-green-50/20'
         }`}
         aria-expanded={isOpen}
+        aria-controls={panelId}
       >
         <div className="flex justify-between items-center gap-4">
           <div className="flex-1">
@@ -129,7 +132,11 @@ const FAQItem = ({ item, isOpen, onToggle, onSalzburgClick }) => {
         </div>
       </button>
 
-      <div className={`transition-all duration-700 ease-out ${isOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
+      <div
+        id={panelId}
+        hidden={!isOpen}
+        className={`transition-all duration-700 ease-out ${isOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}
+      >
         <div className={`px-6 py-4 transition-all duration-500 ease-out ${
           isOpen ? 'bg-gradient-to-r from-green-50/20 to-transparent' : ''
         }`}>
@@ -188,10 +195,11 @@ const FAQ = () => {
 
         {/* FAQ Items */}
         <div className="bg-gradient-to-br from-white to-gray-50/30 rounded-2xl shadow-lg border border-gray-100 divide-y divide-gray-100 overflow-hidden">
-          {FAQ_DATA.map((item) => (
+          {FAQ_DATA.map((item, index) => (
             <FAQItem
               key={item.id}
               item={item}
+              index={index}
               isOpen={openItem === item.id}
               onToggle={() => toggleItem(item.id)}
               onSalzburgClick={handleSalzburgClick}
