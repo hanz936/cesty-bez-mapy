@@ -36,7 +36,7 @@ class FooterErrorBoundary extends React.Component {
 
 FooterErrorBoundary.displayName = 'FooterErrorBoundary';
 
-const linkClassName = "text-black text-sm transition-colors duration-300 motion-reduce:transition-none leading-relaxed hover:text-green-800 focus-visible:text-green-800 focus:outline-none supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2 rounded";
+const linkClassName = "text-black text-sm transition-colors duration-300 motion-reduce:transition-none leading-relaxed hover:text-green-800 focus-visible:text-green-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 rounded";
 
 const BLUR_CIRCLES = [
   { id: 'blur-1', className: 'absolute top-10 left-10 w-20 h-20 bg-green-800 rounded-full blur-xl' },
@@ -143,7 +143,7 @@ const Footer = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="Sleduj mě na Instagramu @cestybezmapy"
-                    className="rounded focus:outline-none supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2"
+                    className="rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
                   >
                     <ImageWithFallback
                       src={`${BASE_PATH}/images/instagram.svg`}
@@ -192,7 +192,7 @@ const Footer = () => {
             <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-gray-400">
               <a 
                 href="#podminky" 
-                className="hover:text-green-400 transition-colors duration-300 motion-reduce:transition-none relative group focus-visible:text-green-400 focus:outline-none supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-400 rounded"
+                className="hover:text-green-400 transition-colors duration-300 motion-reduce:transition-none relative group focus-visible:text-green-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 rounded"
               >
                 Obchodní podmínky
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-green-400 transition-[width] duration-300 motion-reduce:transition-none group-hover:w-full"></span>
@@ -200,7 +200,7 @@ const Footer = () => {
               <span className="text-gray-600">•</span>
               <Link
                 to={ROUTES.PRIVACY}
-                className="hover:text-green-400 transition-colors duration-300 motion-reduce:transition-none relative group focus-visible:text-green-400 focus:outline-none supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-400 rounded"
+                className="hover:text-green-400 transition-colors duration-300 motion-reduce:transition-none relative group focus-visible:text-green-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 rounded"
               >
                 Ochrana údajů
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-green-400 transition-[width] duration-300 motion-reduce:transition-none group-hover:w-full"></span>

@@ -23,7 +23,7 @@ const NotFound = () => {
             <div className="space-y-4">
               <Link 
                 to={ROUTES.HOME} 
-                className="block bg-green-800 hover:bg-green-900 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2 focus:outline-none"
+                className="block bg-green-800 hover:bg-green-900 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus:outline-none"
               >
                 Zpět na hlavní stránku
               </Link>
@@ -31,21 +31,21 @@ const NotFound = () => {
               <div className="flex flex-col sm:flex-row gap-2 justify-center">
                 <Link 
                   to={ROUTES.INSPIRATION} 
-                  className="text-green-800 hover:text-green-900 font-medium transition-colors duration-200 supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2 focus:outline-none rounded"
+                  className="text-green-800 hover:text-green-900 font-medium transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus:outline-none rounded"
                 >
                   Inspirace na cesty
                 </Link>
                 <span className="hidden sm:inline text-gray-400">•</span>
                 <Link 
                   to={ROUTES.TRAVEL_GUIDES} 
-                  className="text-green-800 hover:text-green-900 font-medium transition-colors duration-200 supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2 focus:outline-none rounded"
+                  className="text-green-800 hover:text-green-900 font-medium transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus:outline-none rounded"
                 >
                   Cestovní průvodci
                 </Link>
                 <span className="hidden sm:inline text-gray-400">•</span>
                 <Link 
                   to={ROUTES.MY_STORY} 
-                  className="text-green-800 hover:text-green-900 font-medium transition-colors duration-200 supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2 focus:outline-none rounded"
+                  className="text-green-800 hover:text-green-900 font-medium transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus:outline-none rounded"
                 >
                   Můj příběh
                 </Link>

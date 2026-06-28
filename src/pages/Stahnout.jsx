@@ -97,7 +97,7 @@ export default function Stahnout() {
                     key={download.product_id ?? idx}
                     type="button"
                     onClick={() => handleDownload(download.download_url)}
-                    className="bg-green-800 hover:bg-green-900 text-white font-bold py-4 px-8 rounded-lg transition-colors duration-200 min-h-12 supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2 focus:outline-none"
+                    className="bg-green-800 hover:bg-green-900 text-white font-bold py-4 px-8 rounded-lg transition-colors duration-200 min-h-12 focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus:outline-none"
                   >
                     Stáhnout: {download.product_title}
                   </button>

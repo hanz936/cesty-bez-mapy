@@ -147,7 +147,7 @@ const NewsletterForm = ({ location = 'footer' }) => {
         <button
           type="submit"
           disabled={status === 'loading' || !token}
-          className="w-full mt-3 px-4 py-2 text-sm font-semibold text-white bg-green-800 rounded-lg hover:bg-green-700 transition-colors duration-300 motion-reduce:transition-none disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2"
+          className="w-full mt-3 px-4 py-2 text-sm font-semibold text-white bg-green-800 rounded-lg hover:bg-green-700 transition-colors duration-300 motion-reduce:transition-none disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
         >
           {status === 'loading' ? (
             <span className="flex items-center justify-center gap-2">

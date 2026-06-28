@@ -7,7 +7,7 @@ const Logo = React.memo(() => {
   return (
     <Link 
       to="/" 
-      className="flex items-center gap-1 sm:gap-2 md:gap-3 lg:gap-4 text-inherit h-full focus:outline-none rounded supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-600 supports-hover:focus-visible:ring-offset-2"
+      className="flex items-center gap-1 sm:gap-2 md:gap-3 lg:gap-4 text-inherit h-full focus:outline-none rounded focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
       aria-label="Cesty bez mapy - domovská stránka"
     >
       <ImageWithFallback 
