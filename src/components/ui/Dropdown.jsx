@@ -1,9 +1,10 @@
 import { forwardRef, useState, useCallback, useRef, useEffect } from 'react';
+import { useListboxKeyboard } from '../../hooks/useListboxKeyboard';
 
-const Dropdown = forwardRef(({ 
-  label, 
-  error, 
-  required = false, 
+const Dropdown = forwardRef(({
+  label,
+  error,
+  required = false,
   size = 'md',
   placeholder = "Vybrat...",
   value,
@@ -16,13 +17,17 @@ const Dropdown = forwardRef(({
   fullWidth = true,
   closeOnSelect = true,
   id,
-  ...props 
+  ...props
 }, ref) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedValue, setSelectedValue] = useState(value || '');
   const dropdownRef = useRef(null);
+  const triggerRef = useRef(null);
   const dropdownId = id || `dropdown-${Math.random().toString(36).substr(2, 9)}`;
-  
+  const labelId = `${dropdownId}-label`;
+  const listboxId = `${dropdownId}-listbox`;
+  const optionId = (index) => `${dropdownId}-opt-${index}`;
+
   // Find selected option
   const selectedOption = options.find(option => (option.value || option) === selectedValue);
   const displayText = selectedOption ? (selectedOption.label || selectedOption) : placeholder;
@@ -31,11 +36,11 @@ const Dropdown = forwardRef(({
   const handleOptionSelect = useCallback((option) => {
     const optionValue = option.value || option;
     setSelectedValue(optionValue);
-    
+
     if (closeOnSelect) {
       setIsOpen(false);
     }
-    
+
     if (onChange) {
       // Create synthetic event to match native select behavior
       const syntheticEvent = {
@@ -46,12 +51,28 @@ const Dropdown = forwardRef(({
     }
   }, [onChange, closeOnSelect]);
 
+  const { activeIndex, setActiveIndex, onKeyDown } = useListboxKeyboard({
+    isOpen,
+    setIsOpen,
+    options,
+    getOptionValue: (o) => o.value ?? o,
+    value: selectedValue,
+    onSelect: handleOptionSelect,
+    triggerRef,
+  });
+
   // Toggle dropdown
   const toggleDropdown = useCallback(() => {
-    if (!disabled) {
-      setIsOpen(prev => !prev);
-    }
-  }, [disabled]);
+    if (disabled) return;
+    setIsOpen(prev => {
+      const next = !prev;
+      if (next) {
+        const selectedIdx = options.findIndex((option) => (option.value ?? option) === selectedValue);
+        setActiveIndex(selectedIdx >= 0 ? selectedIdx : 0);
+      }
+      return next;
+    });
+  }, [disabled, options, selectedValue, setActiveIndex]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -86,32 +107,39 @@ const Dropdown = forwardRef(({
     },
     md: {
       button: "px-4 py-3 text-base",
-      dropdown: "text-sm", 
+      dropdown: "text-sm",
       icon: "h-4 w-4"
     }
   };
 
   // Get current size config
   const sizeConfig = sizes[size] || sizes.md;
-  
+
+  const hasLabel = Boolean(label && showLabel);
+
   return (
     <div className="space-y-2">
-      {label && showLabel && (
-        <label 
-          htmlFor={dropdownId} 
+      {hasLabel && (
+        <label
+          id={labelId}
           className="block text-sm font-medium text-black"
         >
           {label} {required && <span className="text-red-500">*</span>}
         </label>
       )}
-      
+
       <div className="relative" ref={dropdownRef}>
-        <button
-          type="button"
-          ref={ref}
+        <div
+          role="combobox"
+          ref={(node) => {
+            triggerRef.current = node;
+            if (typeof ref === 'function') ref(node);
+            else if (ref) ref.current = node;
+          }}
           id={dropdownId}
+          tabIndex={disabled ? -1 : 0}
           onClick={toggleDropdown}
-          disabled={disabled}
+          onKeyDown={onKeyDown}
           className={`
             flex items-center justify-between border rounded-lg cursor-pointer transition-all duration-200 shadow-sm text-left
             ${baseStyles}
@@ -122,51 +150,61 @@ const Dropdown = forwardRef(({
             ${disabled ? 'opacity-50 cursor-not-allowed hover:bg-white hover:border-gray-300' : ''}
             ${className}
           `.replace(/\s+/g, ' ').trim()}
+          aria-controls={listboxId}
           aria-expanded={isOpen}
           aria-haspopup="listbox"
-          aria-label={label}
+          aria-disabled={disabled || undefined}
+          {...(hasLabel ? { 'aria-labelledby': labelId } : { 'aria-label': label })}
+          aria-activedescendant={isOpen ? optionId(activeIndex) : undefined}
           {...props}
         >
           <span className={selectedValue ? 'text-black' : 'text-gray-500'}>
             {displayText}
           </span>
-          <svg 
-            className={`ml-2 ${sizeConfig.icon} text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''} flex-shrink-0`} 
-            fill="none" 
-            stroke="currentColor" 
+          <svg
+            className={`ml-2 ${sizeConfig.icon} text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''} flex-shrink-0`}
+            fill="none"
+            stroke="currentColor"
             viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
-        </button>
-        
+        </div>
+
         {/* Dropdown Menu */}
         {isOpen && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 overflow-hidden">
+          <div
+            role="listbox"
+            id={listboxId}
+            aria-labelledby={hasLabel ? labelId : undefined}
+            className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 overflow-hidden"
+          >
             {options.length > 0 ? (
               options.map((option, index) => {
                 const optionValue = option.value || option;
                 const optionLabel = option.label || option;
                 const isSelected = optionValue === selectedValue;
-                
+                const isActive = index === activeIndex;
+
                 return (
-                  <button
+                  <div
                     key={index}
-                    type="button"
+                    id={optionId(index)}
                     onClick={() => handleOptionSelect(option)}
                     className={`
-                      w-full text-left px-4 py-3 transition-colors duration-150
+                      w-full text-left px-4 py-3 transition-colors duration-150 cursor-pointer
                       ${sizeConfig.dropdown}
-                      ${isSelected 
-                        ? 'bg-gray-100 text-black font-medium' 
+                      ${isSelected
+                        ? 'bg-gray-100 text-black font-medium'
                         : 'text-gray-700 hover:bg-gray-50'
                       }
+                      ${isActive ? 'ring-2 ring-inset ring-gray-500' : ''}
                     `.replace(/\s+/g, ' ').trim()}
                     role="option"
                     aria-selected={isSelected}
                   >
                     {optionLabel}
-                  </button>
+                  </div>
                 );
               })
             ) : (
@@ -179,8 +217,8 @@ const Dropdown = forwardRef(({
 
         {/* Backdrop for mobile - close on tap outside */}
         {isOpen && (
-          <div 
-            className="fixed inset-0 z-10 md:hidden" 
+          <div
+            className="fixed inset-0 z-10 md:hidden"
             onClick={() => setIsOpen(false)}
             aria-hidden="true"
           />
