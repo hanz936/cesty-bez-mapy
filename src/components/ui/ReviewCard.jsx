@@ -82,7 +82,7 @@ const ReviewCard = memo(({
           </div>
         </div>
         <div className="text-right">
-          <span className="text-xs text-gray-400 font-medium">{date}</span>
+          <span className="text-xs text-gray-600 font-medium">{date}</span>
         </div>
       </div>
     </div>
