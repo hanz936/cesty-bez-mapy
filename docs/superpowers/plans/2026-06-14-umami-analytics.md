@@ -921,7 +921,7 @@ In `src/components/layout/Footer.jsx`, replace the `Ochrana údajů` anchor (the
 ```jsx
               <Link
                 to={ROUTES.PRIVACY}
-                className="hover:text-green-400 transition-colors duration-300 motion-reduce:transition-none relative group focus-visible:text-green-400 focus:outline-none supports-hover:focus-visible:ring-2 supports-hover:focus-visible:ring-green-400 rounded"
+                className="hover:text-green-400 transition-colors duration-300 motion-reduce:transition-none relative group focus-visible:text-green-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 rounded"
               >
                 Ochrana údajů
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-green-400 transition-[width] duration-300 motion-reduce:transition-none group-hover:w-full"></span>
