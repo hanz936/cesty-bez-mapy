@@ -265,10 +265,10 @@ const CustomItineraryForm = React.memo(() => {
           {/* Typ dovolené */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               {/* Left - Question */}
-              <div>
-                <label className="block text-base font-medium text-black mb-10">
+              <fieldset className="border-0 p-0 m-0">
+                <legend className="block text-base font-medium text-black mb-10">
                   Jaký typ dovolené preferuješ?
-                </label>
+                </legend>
                 <div className="grid sm:grid-cols-2 gap-3">
                   {[
                     'Relaxační dovolená',
@@ -300,7 +300,7 @@ const CustomItineraryForm = React.memo(() => {
                     className="focus-ring mt-3"
                   />
                 )}
-              </div>
+              </fieldset>
 
               {/* Right - Image */}
               <div className="block">
@@ -321,10 +321,10 @@ const CustomItineraryForm = React.memo(() => {
             {/* Délka pobytu */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               {/* Left - Question */}
-              <div>
-                <label className="block text-base font-medium text-black mb-10">
+              <fieldset className="border-0 p-0 m-0">
+                <legend className="block text-base font-medium text-black mb-10">
                   Jak dlouho plánuješ cestovat?
-                </label>
+                </legend>
                 <div className="grid sm:grid-cols-2 gap-3">
                   {[
                     'Víkendový výlet (1-3 dny)',
@@ -355,7 +355,7 @@ const CustomItineraryForm = React.memo(() => {
                     className="focus-ring mt-3 w-32"
                   />
                 )}
-              </div>
+              </fieldset>
 
               {/* Right - Image */}
               <div className="block">
@@ -380,10 +380,10 @@ const CustomItineraryForm = React.memo(() => {
           {/* Počet osob */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
-            <div>
-              <label className="block text-base font-medium text-black mb-10">
+            <fieldset className="border-0 p-0 m-0">
+              <legend className="block text-base font-medium text-black mb-10">
                 S kolika lidmi cestuješ?
-              </label>
+              </legend>
               <div className="space-y-3">
                 {[
                   'Cestuji sám/sama',
@@ -421,7 +421,7 @@ const CustomItineraryForm = React.memo(() => {
                   className="focus-ring mt-3"
                 />
               )}
-            </div>
+            </fieldset>
 
             {/* Right - Image */}
             <div className="block">
@@ -445,10 +445,10 @@ const CustomItineraryForm = React.memo(() => {
           {/* Preferovaný termín */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
-            <div>
-              <label className="block text-base font-medium text-black mb-10">
+            <fieldset className="border-0 p-0 m-0">
+              <legend className="block text-base font-medium text-black mb-10">
                 Kdy bys nejraději cestoval/a?
-              </label>
+              </legend>
               <div className="grid sm:grid-cols-2 gap-3">
                 {[
                   'Jarní měsíce (duben - červen)',
@@ -478,7 +478,7 @@ const CustomItineraryForm = React.memo(() => {
                   className="focus-ring mt-3"
                 />
               )}
-            </div>
+            </fieldset>
 
             {/* Right - Image */}
             <div className="block">
@@ -502,10 +502,10 @@ const CustomItineraryForm = React.memo(() => {
           {/* Rozpočet */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
-            <div>
-              <label className="block text-base font-medium text-black mb-10">
+            <fieldset className="border-0 p-0 m-0">
+              <legend className="block text-base font-medium text-black mb-10">
                 Jaký máš rozpočet na cestu?
-              </label>
+              </legend>
               <div className="space-y-3">
                 {[
                   'Nízkorozpočtová dovolená',
@@ -531,7 +531,7 @@ const CustomItineraryForm = React.memo(() => {
                 placeholder="Orientační částka (nepovinné)..."
                 className="focus-ring mt-3"
               />
-            </div>
+            </fieldset>
 
             {/* Right - Image */}
             <div className="block">
@@ -555,10 +555,10 @@ const CustomItineraryForm = React.memo(() => {
           {/* Doprava */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Left - Question */}
-            <div>
-              <label className="block text-base font-medium text-black mb-10">
+            <fieldset className="border-0 p-0 m-0">
+              <legend className="block text-base font-medium text-black mb-10">
                 Jaký způsob dopravy preferuješ?
-              </label>
+              </legend>
               <div className="grid sm:grid-cols-2 gap-3">
                 {[
                   'Vlastní auto',
@@ -587,7 +587,7 @@ const CustomItineraryForm = React.memo(() => {
                   className="focus-ring mt-3"
                 />
               )}
-            </div>
+            </fieldset>
 
             {/* Right - Image */}
             <div className="block">
