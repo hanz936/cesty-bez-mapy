@@ -6,6 +6,7 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { RemoveScroll } from 'react-remove-scroll';
 import { Button } from '../ui';
 import { BASE_PATH, ROUTES } from '../../constants';
 import { useCart } from '../../contexts';
@@ -142,23 +143,10 @@ const Cart = React.memo(({ isOpen, onClose }) => {
     };
   }, [isOpen, handleClose]);
 
-  // Scroll lock
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
-
   if (!isOpen) return null;
 
   return (
-    <>
+    <RemoveScroll allowPinchZoom>
       {/* Overlay */}
       <div
         className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-200 ease-out"
@@ -274,7 +262,7 @@ const Cart = React.memo(({ isOpen, onClose }) => {
         )}
       </div>
 
-    </>
+    </RemoveScroll>
   );
 });
 
