@@ -2,48 +2,10 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui';
+import Lightbox from '../components/ui/Lightbox';
 import SeoTags from '../components/common/SeoTags';
 import { buildPageMeta } from '../utils/pageSeo';
 import { BASE_PATH, ROUTES } from '../constants';
-
-// Custom hook for cross-device scroll lock
-const useScrollLock = (isLocked) => {
-  useEffect(() => {
-    if (!isLocked) return;
-    
-    const scrollY = window.scrollY;
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    
-    // CSS solution for desktop and Android
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = '100%';
-    
-    // iOS Safari fix - prevent touch events
-    const preventTouch = (e) => {
-      e.preventDefault();
-    };
-    
-    if (isIOS) {
-      document.addEventListener('touchmove', preventTouch, { passive: false });
-    }
-    
-    // Cleanup function
-    return () => {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      
-      if (isIOS) {
-        document.removeEventListener('touchmove', preventTouch);
-      }
-      
-      window.scrollTo(0, scrollY);
-    };
-  }, [isLocked]);
-};
 
 const GALLERY_IMAGES = [
   {
@@ -62,17 +24,9 @@ const GALLERY_IMAGES = [
 
 const CustomItineraryDetail = React.memo(() => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [modalCurrentImageIndex, setModalCurrentImageIndex] = useState(0);
   const galleryRef = useRef(null);
-  const modalTouchStartX = useRef(0);
-  const modalTouchEndX = useRef(0);
-  const modalGalleryRef = useRef(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
-  const previousFocusRef = useRef(null);
-
-  // Use custom scroll lock hook
-  useScrollLock(isModalOpen);
 
   const handleImageError = useCallback((e) => {
     // Fallback to a placeholder or hide the broken image
@@ -119,69 +73,8 @@ const CustomItineraryDetail = React.memo(() => {
     navigate(ROUTES.CUSTOM_ITINERARY_FORM);
   }, [navigate]);
 
-  const scrollModalPrev = useCallback(() => {
-    if (!modalGalleryRef.current) return;
-    const container = modalGalleryRef.current;
-    const scrollAmount = container.clientWidth;
-    container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-  }, []);
-
-  const scrollModalNext = useCallback(() => {
-    if (!modalGalleryRef.current) return;
-    const container = modalGalleryRef.current;
-    const scrollAmount = container.clientWidth;
-    container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-  }, []);
-
-  const handleModalTouchStart = useCallback((e) => {
-    modalTouchStartX.current = e.touches[0].clientX;
-  }, []);
-
-  const handleModalTouchEnd = useCallback((e) => {
-    modalTouchEndX.current = e.changedTouches[0].clientX;
-    const diff = modalTouchStartX.current - modalTouchEndX.current;
-    
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) {
-        scrollModalNext();
-      } else {
-        scrollModalPrev();
-      }
-    }
-  }, [scrollModalNext, scrollModalPrev]);
-
-  const handleModalScroll = useCallback(() => {
-    if (!modalGalleryRef.current) return;
-    const container = modalGalleryRef.current;
-    const scrollLeft = container.scrollLeft;
-    const containerWidth = container.clientWidth;
-    const newIndex = Math.round(scrollLeft / containerWidth);
-    setModalCurrentImageIndex(newIndex);
-  }, []);
-
   const openModal = useCallback(() => {
-    previousFocusRef.current = document.activeElement;
     setIsModalOpen(true);
-    setModalCurrentImageIndex(currentImageIndex);
-    
-    setTimeout(() => {
-      if (modalGalleryRef.current) {
-        const scrollAmount = modalGalleryRef.current.clientWidth * currentImageIndex;
-        modalGalleryRef.current.scrollTo({ left: scrollAmount });
-      }
-      
-      const closeButton = document.querySelector('[role="dialog"] button[aria-label*="Zavřít"]');
-      if (closeButton) {
-        closeButton.focus();
-      }
-    }, 100);
-  }, [currentImageIndex]);
-
-  const closeModal = useCallback(() => {
-    setIsModalOpen(false);
-    if (previousFocusRef.current) {
-      previousFocusRef.current.focus();
-    }
   }, []);
 
   useEffect(() => {
@@ -190,58 +83,6 @@ const CustomItineraryDetail = React.memo(() => {
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
   }, [handleScroll]);
-
-  useEffect(() => {
-    if (!modalGalleryRef.current || !isModalOpen) return;
-    const container = modalGalleryRef.current;
-    container.addEventListener('scroll', handleModalScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleModalScroll);
-  }, [handleModalScroll, isModalOpen]);
-
-  // Modal keyboard and cleanup effects
-  useEffect(() => {
-    if (!isModalOpen) return;
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        closeModal();
-      }
-      if (e.key === 'ArrowLeft') {
-        scrollModalPrev();
-      }
-      if (e.key === 'ArrowRight') {
-        scrollModalNext();
-      }
-      // Focus trap - prevent tabbing outside modal
-      if (e.key === 'Tab') {
-        const modal = document.querySelector('[role="dialog"]');
-        if (modal) {
-          const focusableElements = modal.querySelectorAll(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-          );
-          const firstElement = focusableElements[0];
-          const lastElement = focusableElements[focusableElements.length - 1];
-
-          if (e.shiftKey && document.activeElement === firstElement) {
-            e.preventDefault();
-            lastElement.focus();
-          } else if (!e.shiftKey && document.activeElement === lastElement) {
-            e.preventDefault();
-            firstElement.focus();
-          }
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    
-    // Cleanup on unmount
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      // Modern cleanup
-      document.documentElement.classList.remove('modal-open');
-    };
-  }, [isModalOpen, closeModal, scrollModalPrev, scrollModalNext]);
 
   // Automatické posčrollování na vrchol při načtení stránky
   useEffect(() => {
@@ -556,81 +397,12 @@ const CustomItineraryDetail = React.memo(() => {
         </section>
       </main>
 
-      {/* Fullscreen Modal Gallery */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Galerie obrázků">
-          <div className="relative w-full h-full">
-            {/* Close button */}
-            <button
-              onClick={closeModal}
-              className="absolute top-4 right-4 z-50 w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-all duration-200 hover:scale-110"
-              aria-label="Zavřít galerii"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            {/* Modal Gallery */}
-            <div className="flex items-center justify-center h-full p-4">
-              <div className="relative w-full max-w-4xl">
-                <div 
-                  ref={modalGalleryRef}
-                  className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
-                  onTouchStart={handleModalTouchStart}
-                  onTouchEnd={handleModalTouchEnd}
-                >
-                  {GALLERY_IMAGES.map((image, index) => (
-                    <img 
-                      key={index}
-                      src={image.src}
-                      alt={image.alt}
-                      className="w-full h-auto max-h-[80vh] object-contain select-none flex-shrink-0 snap-center"
-                      onError={handleImageError}
-                      loading="lazy"
-                      draggable={false}
-                    />
-                  ))}
-                </div>
-
-                {/* Navigation arrows for modal */}
-                <button
-                  onClick={scrollModalPrev}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-all duration-200 hover:scale-110"
-                  aria-label="Předchozí obrázek v galerii"
-                >
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/>
-                  </svg>
-                </button>
-                <button
-                  onClick={scrollModalNext}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-all duration-200 hover:scale-110"
-                  aria-label="Následující obrázek v galerii"
-                >
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-                  </svg>
-                </button>
-
-                {/* Modal dots indicator */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                  {GALLERY_IMAGES.map((_, index) => (
-                    <div
-                      key={index}
-                      className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                        index === modalCurrentImageIndex 
-                          ? 'bg-white' 
-                          : 'bg-white/50'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <Lightbox
+        images={GALLERY_IMAGES}
+        isOpen={isModalOpen}
+        initialIndex={currentImageIndex}
+        onClose={() => setIsModalOpen(false)}
+      />
     </Layout>
   );
 });

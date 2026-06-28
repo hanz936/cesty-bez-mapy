@@ -2,51 +2,13 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui';
+import Lightbox from '../components/ui/Lightbox';
 import { BASE_PATH, ROUTES, SEASONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import { useCart } from '../contexts';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import SeoTags from '../components/common/SeoTags';
 import { buildProductMeta } from '../utils/productSeo';
-
-// Custom hook for cross-device scroll lock
-const useScrollLock = (isLocked) => {
-  useEffect(() => {
-    if (!isLocked) return;
-
-    const scrollY = window.scrollY;
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-    // CSS solution for desktop and Android
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = '100%';
-
-    // iOS Safari fix - prevent touch events
-    const preventTouch = (e) => {
-      e.preventDefault();
-    };
-
-    if (isIOS) {
-      document.addEventListener('touchmove', preventTouch, { passive: false });
-    }
-
-    // Cleanup function
-    return () => {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-
-      if (isIOS) {
-        document.removeEventListener('touchmove', preventTouch);
-      }
-
-      window.scrollTo(0, scrollY);
-    };
-  }, [isLocked]);
-};
 
 const ProductDetail = () => {
   const { slug } = useParams();
@@ -56,16 +18,9 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [modalCurrentImageIndex, setModalCurrentImageIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const galleryRef = useRef(null);
-  const modalTouchStartX = useRef(0);
-  const modalTouchEndX = useRef(0);
-  const previousFocusRef = useRef(null);
-
-  // Use custom scroll lock hook
-  useScrollLock(isModalOpen);
 
   // Fetch product data from Supabase
   useEffect(() => {
@@ -154,21 +109,6 @@ const ProductDetail = () => {
     container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
   }, []);
 
-  // Simple modal navigation functions
-  const scrollModalPrev = useCallback(() => {
-    const galleryLength = product?.gallery_images?.length || 1;
-    setModalCurrentImageIndex(prev => prev === 0 ? galleryLength - 1 : prev - 1);
-  }, [product]);
-
-  const scrollModalNext = useCallback(() => {
-    const galleryLength = product?.gallery_images?.length || 1;
-    setModalCurrentImageIndex(prev => prev === galleryLength - 1 ? 0 : prev + 1);
-  }, [product]);
-
-  const scrollModalToImage = useCallback((index) => {
-    setModalCurrentImageIndex(index);
-  }, []);
-
   // Track scroll position to update active dot
   useEffect(() => {
     const gallery = galleryRef.current;
@@ -227,73 +167,24 @@ const ProductDetail = () => {
   }, [navigate]);
 
   const openModal = useCallback(() => {
-    previousFocusRef.current = document.activeElement;
-    setModalCurrentImageIndex(currentImageIndex);
     setIsModalOpen(true);
-  }, [currentImageIndex]);
-
-  const closeModal = useCallback(() => {
-    setIsModalOpen(false);
-    // Restore focus
-    if (previousFocusRef.current) {
-      previousFocusRef.current.focus();
-    }
   }, []);
 
-  // Modal keyboard and cleanup effects
+  // Hide background content from screen readers while the lightbox is open (WCAG 2.2 best practice)
   useEffect(() => {
     if (!isModalOpen) return;
 
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        closeModal();
-      }
-      if (e.key === 'ArrowLeft') {
-        scrollModalPrev();
-      }
-      if (e.key === 'ArrowRight') {
-        scrollModalNext();
-      }
-      // Focus trap - prevent tabbing outside modal
-      if (e.key === 'Tab') {
-        const modal = document.querySelector('[role="dialog"]');
-        if (modal) {
-          const focusableElements = modal.querySelectorAll(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-          );
-          const firstElement = focusableElements[0];
-          const lastElement = focusableElements[focusableElements.length - 1];
-
-          if (e.shiftKey && document.activeElement === firstElement) {
-            e.preventDefault();
-            lastElement.focus();
-          } else if (!e.shiftKey && document.activeElement === lastElement) {
-            e.preventDefault();
-            firstElement.focus();
-          }
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-
-    // Hide background content from screen readers (WCAG 2.2 best practice)
     const mainContent = document.querySelector('main');
     if (mainContent) {
       mainContent.setAttribute('aria-hidden', 'true');
     }
 
-    // Cleanup on unmount
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      // Restore background content visibility
       if (mainContent) {
         mainContent.removeAttribute('aria-hidden');
       }
-      // Modern cleanup
-      document.documentElement.classList.remove('modal-open');
     };
-  }, [isModalOpen, closeModal, scrollModalPrev, scrollModalNext]);
+  }, [isModalOpen]);
 
   // Loading state
   if (loading) {
@@ -669,133 +560,12 @@ const ProductDetail = () => {
           </div>
         </section>
 
-        {/* Fullscreen Modal */}
-        {isModalOpen && (
-          <div
-            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="modal-title"
-            onClick={closeModal}
-          >
-            {/* Close button */}
-            <button
-              onClick={closeModal}
-              className="absolute top-4 right-4 w-12 h-12 text-white transition-all duration-300 hover:scale-110 flex items-center justify-center z-50"
-              aria-label="Zavřít galerii"
-              style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
-            >
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            {/* Modal Gallery */}
-            <div
-              className="absolute inset-0 max-w-6xl mx-auto grid grid-rows-[1fr_auto] gap-4 sm:gap-6 p-2 sm:p-4 lg:p-6"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Gallery container - Grid row 1 */}
-              <div className="relative grid place-items-center group min-h-0">
-                {/* Navigation arrows - desktop only and if multiple images */}
-                {galleryImages.length > 1 && (
-                  <div className="hidden lg:block">
-                    <button
-                      onClick={scrollModalPrev}
-                      className="absolute -left-16 xl:-left-20 top-1/2 -translate-y-1/2 w-12 h-12 text-white/80 hover:text-white transition-all duration-300 flex items-center justify-center hover:scale-110 z-10"
-                      aria-label="Předchozí obrázek"
-                      style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
-                    >
-                      <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/>
-                      </svg>
-                    </button>
-                    <button
-                      onClick={scrollModalNext}
-                      className="absolute -right-16 xl:-right-20 top-1/2 -translate-y-1/2 w-12 h-12 text-white/80 hover:text-white transition-all duration-300 flex items-center justify-center hover:scale-110 z-10"
-                      aria-label="Následující obrázek"
-                      style={{filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))'}}
-                    >
-                      <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-                      </svg>
-                    </button>
-                  </div>
-                )}
-
-                <div className="w-full max-w-6xl max-h-[70vh] sm:max-h-[75vh] lg:max-h-[80vh] rounded-xl sm:rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative">
-                  <div
-                    className={`grid grid-cols-[repeat(${galleryImages.length},100%)] h-full transition-transform duration-300 ease-in-out touch-auto`}
-                    style={{ transform: `translateX(-${modalCurrentImageIndex * 100}%)` }}
-                    onTouchStart={(e) => {
-                      modalTouchStartX.current = e.touches[0].clientX;
-                    }}
-                    onTouchMove={(e) => {
-                      modalTouchEndX.current = e.touches[0].clientX;
-                    }}
-                    onTouchEnd={() => {
-                      if (!modalTouchStartX.current || !modalTouchEndX.current) return;
-                      const distance = modalTouchStartX.current - modalTouchEndX.current;
-                      const isLeftSwipe = distance > 50;
-                      const isRightSwipe = distance < -50;
-                      if (isLeftSwipe && galleryImages.length > 1) scrollModalNext();
-                      if (isRightSwipe && galleryImages.length > 1) scrollModalPrev();
-                      modalTouchStartX.current = 0;
-                      modalTouchEndX.current = 0;
-                    }}
-                  >
-                    {galleryImages.map((image, index) => (
-                      <div key={index} className="grid place-items-center p-2">
-                        <img
-                          src={image.src}
-                          alt={image.alt}
-                          className="max-w-full max-h-full object-contain select-none rounded-xl sm:rounded-2xl"
-                          onError={handleImageError}
-                          loading="lazy"
-                          draggable={false}
-                        />
-                      </div>
-                    ))}
-                  </div>
-
-                </div>
-              </div>
-
-              {/* Image description and navigation - Grid row 2 */}
-              <div className="text-center px-2 h-24 sm:h-28 lg:h-32 flex flex-col justify-center">
-                <p id="modal-title" className="text-white text-sm sm:text-base font-medium leading-relaxed max-w-2xl mx-auto">
-                  {galleryImages[modalCurrentImageIndex]?.alt}
-                </p>
-                {galleryImages.length > 1 && (
-                  <>
-                    <div className="text-white/60 text-xs sm:text-sm mt-2">
-                      {modalCurrentImageIndex + 1} / {galleryImages.length}
-                    </div>
-
-                    {/* Interactive dots indicator */}
-                    <div className="flex justify-center gap-2 sm:gap-1.5 mt-3 sm:mt-4">
-                      {galleryImages.map((_, index) => (
-                        <button
-                          key={index}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            scrollModalToImage(index);
-                          }}
-                          className={`w-3 h-3 sm:w-2.5 sm:h-2.5 lg:w-2 lg:h-2 rounded-full transition-all duration-300 cursor-pointer hover:scale-125 active:scale-110 ${
-                            index === modalCurrentImageIndex
-                              ? 'bg-white shadow-md'
-                              : 'bg-white/40 hover:bg-white/70'
-                          }`}
-                          aria-label={`Přejít na obrázek ${index + 1}`}
-                        />
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        <Lightbox
+          images={galleryImages}
+          isOpen={isModalOpen}
+          initialIndex={currentImageIndex}
+          onClose={() => setIsModalOpen(false)}
+        />
 
       </main>
     </Layout>
