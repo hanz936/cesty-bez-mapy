@@ -126,6 +126,8 @@ const NewsletterForm = ({ location = 'footer' }) => {
             placeholder="tvuj@email.cz"
             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent bg-white text-black placeholder-gray-400"
             disabled={status === 'loading'}
+            aria-invalid={(status === 'error' || errorMsg) ? true : undefined}
+            aria-describedby={(status === 'error' || errorMsg) ? 'newsletter-error' : undefined}
           />
         </div>
 
@@ -137,6 +139,7 @@ const NewsletterForm = ({ location = 'footer' }) => {
 
         {(status === 'error' || errorMsg) && (
           <p
+            id="newsletter-error"
             role="alert"
             className="text-red-600 text-xs mt-2 mb-2 leading-relaxed"
           >

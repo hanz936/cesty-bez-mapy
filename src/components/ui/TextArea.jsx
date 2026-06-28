@@ -10,7 +10,8 @@ const TextArea = forwardRef(({
   ...props 
 }, ref) => {
   const textareaId = id || `textarea-${Math.random().toString(36).substr(2, 9)}`;
-  
+  const errorId = `${textareaId}-error`;
+
   return (
     <div className="space-y-2">
       {label && (
@@ -25,13 +26,15 @@ const TextArea = forwardRef(({
         ref={ref}
         id={textareaId}
         rows={rows}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
         className={`input-base bg-white w-full px-3 py-2 sm:px-4 sm:py-3 text-sm sm:text-base focus:ring-gray-500 focus:border-gray-600 transition-colors resize-none min-h-[100px] sm:min-h-[120px] ${
           error ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''
         } ${className}`.trim()}
         {...props}
       />
       {error && (
-        <p className="text-red-600 text-sm">{error}</p>
+        <p id={errorId} role="alert" className="text-red-600 text-sm">{error}</p>
       )}
     </div>
   );
