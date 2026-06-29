@@ -35,14 +35,14 @@ const NotFound = () => {
                 >
                   Inspirace na cesty
                 </Link>
-                <span className="hidden sm:inline text-gray-400">•</span>
+                <span aria-hidden="true" className="hidden sm:inline text-gray-400">•</span>
                 <Link 
                   to={ROUTES.TRAVEL_GUIDES} 
                   className="text-green-800 hover:text-green-900 font-medium transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus:outline-none rounded"
                 >
                   Cestovní průvodci
                 </Link>
-                <span className="hidden sm:inline text-gray-400">•</span>
+                <span aria-hidden="true" className="hidden sm:inline text-gray-400">•</span>
                 <Link 
                   to={ROUTES.MY_STORY} 
                   className="text-green-800 hover:text-green-900 font-medium transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus:outline-none rounded"
