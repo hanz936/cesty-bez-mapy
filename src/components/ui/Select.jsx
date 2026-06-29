@@ -10,7 +10,6 @@ const Select = forwardRef(({
   options = [],
   value,
   onChange,
-  disabled = false,
   placeholder = "Vybrat..."
 }, ref) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -52,7 +51,6 @@ const Select = forwardRef(({
   });
 
   const toggleDropdown = useCallback(() => {
-    if (disabled) return;
     setIsOpen(prev => {
       const next = !prev;
       if (next) {
@@ -61,7 +59,7 @@ const Select = forwardRef(({
       }
       return next;
     });
-  }, [disabled, options, selectedValue, setActiveIndex]);
+  }, [options, selectedValue, setActiveIndex]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -106,7 +104,7 @@ const Select = forwardRef(({
             else if (ref) ref.current = node;
           }}
           id={selectId}
-          tabIndex={disabled ? -1 : 0}
+          tabIndex={0}
           onClick={toggleDropdown}
           onKeyDown={onKeyDown}
           className={`flex items-center justify-between bg-white border rounded-lg px-4 py-3 text-base cursor-pointer transition-all duration-200 shadow-sm w-full text-left ${
@@ -115,11 +113,10 @@ const Select = forwardRef(({
               : 'border-gray-300 hover:bg-gray-50 hover:border-gray-400 focus:ring-gray-500 focus:border-gray-600'
           } ${
             isOpen ? 'ring-2 ring-gray-500 border-gray-600' : ''
-          } ${disabled ? 'opacity-50 cursor-not-allowed hover:bg-white hover:border-gray-300' : ''} ${className}`.trim()}
+          } ${className}`.trim()}
           aria-controls={listboxId}
           aria-expanded={isOpen}
           aria-haspopup="listbox"
-          aria-disabled={disabled || undefined}
           {...(hasLabel ? { 'aria-labelledby': labelId } : { 'aria-label': label })}
           aria-activedescendant={isOpen ? optionId(activeIndex) : undefined}
           aria-invalid={!!error}
