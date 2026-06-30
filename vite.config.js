@@ -76,11 +76,17 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // Chunk splitting for better caching
-        manualChunks: {
-          // React vendor chunk
-          'react-vendor': ['react', 'react-dom'],
-          // Router chunk
-          'router': ['react-router-dom'],
+        manualChunks(id) {
+          // react + react-dom + react-router(-dom) pohromadě (init-order).
+          // Funkční forma — objektová generovala prázdný react-vendor chunk.
+          // Žádný catch-all vendor: eager-loadl by deps lazy app-flow rout (#5189).
+          if (
+            id.includes('/node_modules/react/') ||
+            id.includes('/node_modules/react-dom/') ||
+            id.includes('/node_modules/react-router') // react-router i react-router-dom
+          ) {
+            return 'react-vendor'
+          }
         },
         
         // Asset naming for better caching
