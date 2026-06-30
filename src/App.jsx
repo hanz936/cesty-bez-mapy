@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Button } from './components/ui';
 import { ROUTES } from './constants';
@@ -13,11 +13,11 @@ import BlogPostDetail from './pages/BlogPostDetail';
 import TravelGuides from './pages/TravelGuides';
 import ProductDetail from './pages/ProductDetail';
 import CustomItineraryDetail from './pages/CustomItineraryDetail';
-import CustomItineraryForm from './pages/CustomItineraryForm';
-import CustomItineraryPreview from './pages/CustomItineraryPreview';
-import Checkout from './pages/Checkout';
-import OrderConfirmation from './pages/OrderConfirmation';
-import Stahnout from './pages/Stahnout';
+const CustomItineraryForm = lazy(() => import('./pages/CustomItineraryForm'));
+const CustomItineraryPreview = lazy(() => import('./pages/CustomItineraryPreview'));
+const Checkout = lazy(() => import('./pages/Checkout'));
+const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
+const Stahnout = lazy(() => import('./pages/Stahnout'));
 import FAQ from './pages/FAQ';
 import Reviews from './pages/Reviews';
 import SalzburgItinerary from './pages/SalzburgItinerary';
@@ -88,28 +88,30 @@ function App() {
       <CartProvider>
         <Router>
           <ScrollToTop />
-          <Routes>
-            <Route path={ROUTES.HOME} element={<Home />} />
-            <Route path={ROUTES.MY_STORY} element={<MyStory />} />
-            <Route path={ROUTES.PLAN_YOUR_DREAM_TRIP} element={<PlanYourDreamTrip />} />
-            <Route path={ROUTES.TRAVEL_GUIDES} element={<TravelGuides />} />
-            <Route path="/cestovni-pruvodci/:slug" element={<ProductDetail />} />
-            <Route path={ROUTES.SALZBURG_ITINERARY} element={<SalzburgItinerary />} />
-            <Route path={ROUTES.CUSTOM_ITINERARY_DETAIL} element={<CustomItineraryDetail />} />
-            <Route path={ROUTES.CUSTOM_ITINERARY_FORM} element={<CustomItineraryForm />} />
-            <Route path={ROUTES.CUSTOM_ITINERARY_PREVIEW} element={<CustomItineraryPreview />} />
-            <Route path={ROUTES.CHECKOUT} element={<Checkout />} />
-            <Route path={ROUTES.ORDER_CONFIRMATION} element={<OrderConfirmation />} />
-            <Route path={ROUTES.DOWNLOAD} element={<Stahnout />} />
-            <Route path={ROUTES.INSPIRATION} element={<TravelInspiration />} />
-            <Route path={ROUTES.INSPIRATION_DETAIL} element={<BlogPostDetail />} />
-            <Route path={ROUTES.COLLABORATION} element={<Collaboration />} />
-            <Route path={ROUTES.FAQ} element={<FAQ />} />
-            <Route path={ROUTES.REVIEWS} element={<Reviews />} />
-            <Route path={ROUTES.CONTACT} element={<Contact />} />
-            <Route path={ROUTES.PRIVACY} element={<Privacy />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Suspense fallback={<div className="min-h-screen" />}>
+            <Routes>
+              <Route path={ROUTES.HOME} element={<Home />} />
+              <Route path={ROUTES.MY_STORY} element={<MyStory />} />
+              <Route path={ROUTES.PLAN_YOUR_DREAM_TRIP} element={<PlanYourDreamTrip />} />
+              <Route path={ROUTES.TRAVEL_GUIDES} element={<TravelGuides />} />
+              <Route path="/cestovni-pruvodci/:slug" element={<ProductDetail />} />
+              <Route path={ROUTES.SALZBURG_ITINERARY} element={<SalzburgItinerary />} />
+              <Route path={ROUTES.CUSTOM_ITINERARY_DETAIL} element={<CustomItineraryDetail />} />
+              <Route path={ROUTES.CUSTOM_ITINERARY_FORM} element={<CustomItineraryForm />} />
+              <Route path={ROUTES.CUSTOM_ITINERARY_PREVIEW} element={<CustomItineraryPreview />} />
+              <Route path={ROUTES.CHECKOUT} element={<Checkout />} />
+              <Route path={ROUTES.ORDER_CONFIRMATION} element={<OrderConfirmation />} />
+              <Route path={ROUTES.DOWNLOAD} element={<Stahnout />} />
+              <Route path={ROUTES.INSPIRATION} element={<TravelInspiration />} />
+              <Route path={ROUTES.INSPIRATION_DETAIL} element={<BlogPostDetail />} />
+              <Route path={ROUTES.COLLABORATION} element={<Collaboration />} />
+              <Route path={ROUTES.FAQ} element={<FAQ />} />
+              <Route path={ROUTES.REVIEWS} element={<Reviews />} />
+              <Route path={ROUTES.CONTACT} element={<Contact />} />
+              <Route path={ROUTES.PRIVACY} element={<Privacy />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </Router>
       </CartProvider>
     </AppErrorBoundary>
