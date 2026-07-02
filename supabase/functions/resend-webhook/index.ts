@@ -7,9 +7,9 @@
 // Soft bounces are logged only — Resend retries internally.
 // ================================================
 
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Webhook } from "npm:svix@1";
-import { withSentry } from "../_shared/sentry.ts";
+import { serveEdge } from "../_shared/serveEdge.ts";
 import type { Database, Json } from "../_shared/database.types.ts";
 import { logInfo, logError, maskEmail } from "../_shared/log.ts";
 
@@ -131,7 +131,7 @@ export async function handleWebhook(
   return { status: 200, body: JSON.stringify({ received: true }) };
 }
 
-Deno.serve(withSentry(async (req) => {
+serveEdge({ auth: "none", fnName: "resend-webhook" }, async (req, ctx) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
@@ -142,9 +142,7 @@ Deno.serve(withSentry(async (req) => {
     return new Response("Misconfigured", { status: 500 });
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
+  const supabase: Supabase = ctx.supabaseAdmin;
 
   const rawBody = await req.text();
   const headers: Record<string, string> = {
@@ -160,4 +158,4 @@ Deno.serve(withSentry(async (req) => {
     status: result.status,
     headers: { "Content-Type": "application/json" },
   });
-}, "resend-webhook"));
+});
