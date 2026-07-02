@@ -5,7 +5,7 @@ import { withSentry } from "./sentry.ts";
 export type AuthMode = "user" | "publishable" | "secret" | "none" | Array<"user" | "publishable" | "secret">;
 export interface ServeEdgeOpts { auth: AuthMode; fnName: string; methods?: string; }
 // deno-lint-ignore no-explicit-any
-type Handler = (req: Request, ctx: any) => Response | Promise<Response>;
+type Handler = (req: Request, ctx: any) => Promise<Response>;
 // deno-lint-ignore no-explicit-any
 type WithSupabase = (opts: any, handler: Handler) => (req: Request) => Response | Promise<Response>;
 
