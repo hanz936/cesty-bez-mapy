@@ -8,10 +8,9 @@
 // ================================================
 
 import Stripe from "https://esm.sh/stripe@22.2.0?target=denonext";
-import { createClient, type QueryData } from "https://esm.sh/@supabase/supabase-js@2";
+import { type QueryData, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import type { Database } from "../_shared/database.types.ts";
-import { withSentry } from "../_shared/sentry.ts";
-import { getCorsHeaders } from "../_shared/cors.ts";
+import { serveEdge } from "../_shared/serveEdge.ts";
 import { jsonResponse } from "../_shared/http.ts";
 import { logInfo, logWarn, logError, maskEmail } from "../_shared/log.ts";
 
@@ -23,14 +22,7 @@ interface GetOrderRequest {
   session_id: string;
 }
 
-Deno.serve(withSentry(async (req) => {
-  const cors = getCorsHeaders(req);
-
-  // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: cors });
-  }
-
+serveEdge({ auth: "publishable", fnName: "get-order-by-session" }, async (req, ctx) => {
   try {
     // Parse request body
     const body: GetOrderRequest = await req.json();
@@ -38,7 +30,7 @@ Deno.serve(withSentry(async (req) => {
 
     // Validace
     if (!session_id) {
-      return jsonResponse({ error: "Chybí session_id" }, 400, cors);
+      return jsonResponse({ error: "Chybí session_id" }, 400, {});
     }
 
     logInfo("looking_up_order_for_session", { sessionId: session_id });
@@ -51,7 +43,7 @@ Deno.serve(withSentry(async (req) => {
       logError("failed_to_retrieve_stripe_session", {
         message: stripeError instanceof Error ? stripeError.message : String(stripeError),
       });
-      return jsonResponse({ error: "Neplatná platební session" }, 404, cors);
+      return jsonResponse({ error: "Neplatná platební session" }, 404, {});
     }
 
     // Kontrola, že platba byla úspěšná
@@ -59,17 +51,16 @@ Deno.serve(withSentry(async (req) => {
       return jsonResponse(
         { status: "pending", message: "Platba ještě nebyla dokončena" },
         200,
-        cors,
+        {},
       );
     }
 
     const paymentIntentId = session.payment_intent as string;
     logInfo("payment_intent_resolved", { paymentIntentId });
 
-    // Vytvoření Supabase klienta
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
+    // Supabase klient s privilegovaným (secret) klíčem pro bypass RLS —
+    // dodává ho serveEdge wrapper.
+    const supabase: SupabaseClient<Database> = ctx.supabaseAdmin;
 
     // Hledání objednávky podle stripe_payment_id
     const { data: order, error: orderError } = await supabase
@@ -91,7 +82,7 @@ Deno.serve(withSentry(async (req) => {
       return jsonResponse(
         { status: "processing", message: "Objednávka se právě zpracovává" },
         200,
-        cors,
+        {},
       );
     }
 
@@ -107,7 +98,7 @@ Deno.serve(withSentry(async (req) => {
         sessionEmailDomain: sessionEmail ? maskEmail(sessionEmail) : null,
         orderEmailDomain: order.customer_email ? maskEmail(order.customer_email) : null,
       });
-      return jsonResponse({ error: "Přístup odepřen" }, 403, cors);
+      return jsonResponse({ error: "Přístup odepřen" }, 403, {});
     }
 
     // Načtení download tokenu. Tokeny vytvořené od audit 3.5.4 (F5) mají
@@ -174,12 +165,12 @@ Deno.serve(withSentry(async (req) => {
         download_expires_at: downloadToken?.expires_at ?? null,
       },
       200,
-      cors,
+      {},
     );
   } catch (error) {
     logError("get_order_by_session_error", {
       message: error instanceof Error ? error.message : String(error),
     });
-    return jsonResponse({ error: "Nepodařilo se načíst objednávku" }, 500, cors);
+    return jsonResponse({ error: "Nepodařilo se načíst objednávku" }, 500, {});
   }
-}, "get-order-by-session"));
+});

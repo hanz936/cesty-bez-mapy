@@ -406,3 +406,10 @@ verify_jwt = false
 # jinak by gateway externí webhook odmítl (401) ještě před funkcí. (audit 2026-06-03, F2)
 [functions.resend-webhook]
 verify_jwt = false
+
+# FE volá s publishable klíčem v apikey headeru (bez JWT v Authorization) —
+# gateway JWT check by ji odmítl (401) dřív, než doběhne do funkce. Auth řeší
+# withSupabase 'publishable' mode + session_id capability token + email-ownership
+# check uvnitř handleru.
+[functions.get-order-by-session]
+verify_jwt = false
