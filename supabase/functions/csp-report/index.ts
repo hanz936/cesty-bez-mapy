@@ -8,11 +8,9 @@
 // cause user-visible behavior or back-pressure.
 // ================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import type { Database, Json } from "../_shared/database.types.ts";
-import { withSentry } from "../_shared/sentry.ts";
+import type { Json } from "../_shared/database.types.ts";
+import { serveEdge } from "../_shared/serveEdge.ts";
 import { enforceRateLimit } from "../_shared/rateLimit.ts";
-import { getCorsHeaders } from "../_shared/cors.ts";
 import { logError } from "../_shared/log.ts";
 
 const MAX_BODY_BYTES = 50 * 1024;
@@ -110,59 +108,50 @@ function normalizeReport(
   return null;
 }
 
-Deno.serve(withSentry(async (req) => {
-  const cors = getCorsHeaders(req, { publicAccess: true });
-
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: cors });
-  }
+serveEdge({ auth: "none", fnName: "csp-report" }, async (req, ctx) => {
   if (req.method !== "POST") {
-    return new Response(null, { status: 405, headers: cors });
+    return new Response(null, { status: 405 });
   }
 
   // Defensive size cap — CSP reports are tiny in practice (<2 KB).
   const lenHeader = req.headers.get("content-length");
   if (lenHeader && Number(lenHeader) > MAX_BODY_BYTES) {
-    return new Response(null, { status: 413, headers: cors });
+    return new Response(null, { status: 413 });
   }
 
   let raw: string;
   try {
     raw = await req.text();
   } catch {
-    return new Response(null, { status: 400, headers: cors });
+    return new Response(null, { status: 400 });
   }
   if (raw.length > MAX_BODY_BYTES) {
-    return new Response(null, { status: 413, headers: cors });
+    return new Response(null, { status: 413 });
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return new Response(null, { status: 400, headers: cors });
+    return new Response(null, { status: 400 });
   }
 
   const contentType = req.headers.get("content-type") ?? "";
   const userAgent = req.headers.get("user-agent");
   const rows = normalizeReport(parsed, contentType, userAgent);
   if (!rows) {
-    return new Response(null, { status: 400, headers: cors });
+    return new Response(null, { status: 400 });
   }
   if (rows.length === 0) {
     // Valid shape but nothing CSP-related to record — still success.
-    return new Response(null, { status: 204, headers: cors });
+    return new Response(null, { status: 204 });
   }
 
   // Supabase populates x-forwarded-for; take the first hop.
   const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
     null;
 
-  const supabase = createClient<Database>(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    { auth: { persistSession: false } },
-  );
+  const supabase = ctx.supabaseAdmin;
 
   // SEC-03: cap report volume per IP to keep csp_reports from bloating.
   const allowedCsp = await enforceRateLimit(supabase, {
@@ -172,7 +161,7 @@ Deno.serve(withSentry(async (req) => {
   });
   if (!allowedCsp) {
     // Fire-and-forget endpoint: silently drop over-limit reports.
-    return new Response(null, { status: 204, headers: cors });
+    return new Response(null, { status: 204 });
   }
 
   const { error } = await supabase.from("csp_reports").insert(
@@ -183,5 +172,5 @@ Deno.serve(withSentry(async (req) => {
     logError("csp_reports_insert_error", { message: error.message });
   }
 
-  return new Response(null, { status: 204, headers: cors });
-}, "csp-report"));
+  return new Response(null, { status: 204 });
+});
