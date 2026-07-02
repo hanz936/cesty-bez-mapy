@@ -8,7 +8,7 @@
 // ================================================
 
 import Stripe from "https://esm.sh/stripe@22.2.0?target=denonext";
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendEmail, makeResendClient } from "../_shared/email/sendEmail.ts";
 import {
   decideEmailTypes,
@@ -19,7 +19,7 @@ import {
   computeOrderTotal,
   haleruToCzk,
 } from "./lib.ts";
-import { withSentry } from "../_shared/sentry.ts";
+import { serveEdge } from "../_shared/serveEdge.ts";
 import { makeEcomailClient, getEcomailListId } from "../_shared/ecomail/config.ts";
 import { syncCustomerToEcomail } from "../_shared/ecomail/syncCustomer.ts";
 import { logInfo, logWarn, logError, maskEmail } from "../_shared/log.ts";
@@ -52,7 +52,7 @@ function generateToken(length: number = 32): string {
   return token;
 }
 
-Deno.serve(withSentry(async (req) => {
+serveEdge({ auth: "none", fnName: "stripe-webhook" }, async (req, ctx) => {
   // Stripe posílá POST requesty
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -86,10 +86,10 @@ Deno.serve(withSentry(async (req) => {
 
     logInfo("webhook_event_received", { event_type: event.type, event_id: event.id });
 
-    // Vytvoření Supabase klienta s service_role pro bypass RLS
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
+    // Supabase klient s privilegovaným (secret) klíčem pro bypass RLS —
+    // dodává ho serveEdge wrapper (auth: "none" — reálná brána je Stripe
+    // signature verification výše).
+    const supabase = ctx.supabaseAdmin;
 
     // Zpracování různých typů událostí
     let result: { success: boolean; error?: string; orderId?: string; retryable?: boolean } = { success: true };
@@ -242,7 +242,7 @@ Deno.serve(withSentry(async (req) => {
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
-}, "stripe-webhook"));
+});
 
 // Send PaymentFailed email for a failed PaymentIntent. We look up the
 // Checkout Session by PI to recover the customer's email + name, because
