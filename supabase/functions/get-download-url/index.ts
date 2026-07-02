@@ -9,10 +9,9 @@
 // Audit columns (download_count, last_downloaded_at) updated on each call.
 // ================================================
 
-import { createClient, type QueryData, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { type QueryData, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import type { Database } from "../_shared/database.types.ts";
-import { withSentry } from "../_shared/sentry.ts";
-import { getCorsHeaders } from "../_shared/cors.ts";
+import { serveEdge } from "../_shared/serveEdge.ts";
 import { jsonResponse } from "../_shared/http.ts";
 import { logInfo, logError } from "../_shared/log.ts";
 
@@ -35,27 +34,18 @@ interface GetDownloadResponse {
 
 const SIGNED_URL_TTL_SECONDS = 3600;
 
-Deno.serve(withSentry(async (req) => {
-  const cors = getCorsHeaders(req);
-
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: cors });
-  }
-
+serveEdge({ auth: "publishable", fnName: "get-download-url" }, async (req, ctx) => {
   try {
     const body: GetDownloadRequest = await req.json();
     const { token } = body;
 
     if (!token) {
-      return jsonResponse({ error: "Chybí download token" }, 400, cors);
+      return jsonResponse({ error: "Chybí download token" }, 400, {});
     }
 
     logInfo("verifying_download_token", { tokenPrefix: token.substring(0, 8) });
 
-    const supabase = createClient<Database>(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabase: SupabaseClient<Database> = ctx.supabaseAdmin;
 
     const { data: tokenRow, error: tokenError } = await supabase
       .from("download_tokens")
@@ -65,11 +55,11 @@ Deno.serve(withSentry(async (req) => {
 
     if (tokenError || !tokenRow) {
       logError("download_token_not_found", { message: tokenError?.message });
-      return jsonResponse({ error: "Neplatný download token" }, 404, cors);
+      return jsonResponse({ error: "Neplatný download token" }, 404, {});
     }
 
     if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
-      return jsonResponse({ error: "Platnost odkazu ke stažení vypršela" }, 410, cors);
+      return jsonResponse({ error: "Platnost odkazu ke stažení vypršela" }, 410, {});
     }
 
     let response: GetDownloadResponse;
@@ -79,20 +69,20 @@ Deno.serve(withSentry(async (req) => {
     // these null guards only narrow the column type for TS, they are unreachable in practice.
     if (tokenRow.asset_type === 'product_pdf') {
       if (!tokenRow.order_id) {
-        return jsonResponse({ error: "Unknown asset_type" }, 500, cors);
+        return jsonResponse({ error: "Unknown asset_type" }, 500, {});
       }
       response = await buildProductDownloads(supabase, tokenRow.order_id);
     } else if (tokenRow.asset_type === 'custom_itinerary_pdf') {
       if (!tokenRow.custom_itinerary_request_id) {
-        return jsonResponse({ error: "Unknown asset_type" }, 500, cors);
+        return jsonResponse({ error: "Unknown asset_type" }, 500, {});
       }
       response = await buildCustomItineraryDownload(supabase, tokenRow.custom_itinerary_request_id);
     } else {
-      return jsonResponse({ error: "Unknown asset_type" }, 500, cors);
+      return jsonResponse({ error: "Unknown asset_type" }, 500, {});
     }
 
     if (response.downloads.length === 0) {
-      return jsonResponse({ error: "Žádné PDF soubory nejsou dostupné ke stažení" }, 404, cors);
+      return jsonResponse({ error: "Žádné PDF soubory nejsou dostupné ke stažení" }, 404, {});
     }
 
     await supabase
@@ -102,13 +92,13 @@ Deno.serve(withSentry(async (req) => {
 
     await supabase.rpc('increment_download_count', { token_id: tokenRow.id });
 
-    return jsonResponse(response, 200, cors);
+    return jsonResponse(response, 200, {});
 
   } catch (error) {
     logError("get_download_url_error", { message: error instanceof Error ? error.message : String(error) });
-    return jsonResponse({ error: "Nepodařilo se vygenerovat odkaz ke stažení" }, 500, cors);
+    return jsonResponse({ error: "Nepodařilo se vygenerovat odkaz ke stažení" }, 500, {});
   }
-}, "get-download-url"));
+});
 
 const productDownloadsQuery = (supabase: SupabaseClient<Database>, orderId: string) =>
   supabase

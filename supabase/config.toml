@@ -413,3 +413,10 @@ verify_jwt = false
 # check uvnitř handleru.
 [functions.get-order-by-session]
 verify_jwt = false
+
+# FE volá s publishable klíčem v apikey headeru (bez JWT v Authorization) —
+# gateway JWT check by ji odmítl (401) dřív, než doběhne do funkce. Auth řeší
+# withSupabase 'publishable' mode + download_token capability (lookup +
+# expiry check) uvnitř handleru.
+[functions.get-download-url]
+verify_jwt = false
