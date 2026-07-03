@@ -420,3 +420,10 @@ verify_jwt = false
 # expiry check) uvnitř handleru.
 [functions.get-download-url]
 verify_jwt = false
+
+# FE volá s publishable (anon) klíčem v apikey headeru (bez JWT v Authorization) —
+# gateway JWT check by ji odmítl (401) dřív, než doběhne do funkce. Auth řeší
+# withSupabase 'publishable' mode + per-post preview_token capability (UUID
+# lookup proti blog_posts) uvnitř handleru.
+[functions.get-blog-preview]
+verify_jwt = false

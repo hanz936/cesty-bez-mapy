@@ -6,34 +6,28 @@
 // Cache vypnutá (Cache-Control: no-store).
 // ================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import type { Database } from "../_shared/database.types.ts";
-import { withSentry } from "../_shared/sentry.ts";
-import { getCorsHeaders } from "../_shared/cors.ts";
+import { serveEdge } from "../_shared/serveEdge.ts";
 import { jsonResponse } from "../_shared/http.ts";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-Deno.serve(withSentry(async (req) => {
-  const cors = getCorsHeaders(req);
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+serveEdge({ auth: "publishable", fnName: "get-blog-preview" }, async (req, ctx) => {
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405, cors, { "Cache-Control": "no-store" });
+    return jsonResponse({ error: "Method not allowed" }, 405, {}, { "Cache-Control": "no-store" });
   }
 
   try {
     const { slug, token } = await req.json().catch(() => ({}));
     if (!slug || typeof slug !== "string") {
-      return jsonResponse({ error: "Missing slug" }, 400, cors, { "Cache-Control": "no-store" });
+      return jsonResponse({ error: "Missing slug" }, 400, {}, { "Cache-Control": "no-store" });
     }
     if (!token || typeof token !== "string" || !UUID_RE.test(token)) {
-      return jsonResponse({ error: "Invalid token" }, 400, cors, { "Cache-Control": "no-store" });
+      return jsonResponse({ error: "Invalid token" }, 400, {}, { "Cache-Control": "no-store" });
     }
 
-    const supabase = createClient<Database>(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const supabase: SupabaseClient<Database> = ctx.supabaseAdmin;
 
     const { data, error } = await supabase
       .from("blog_posts")
@@ -45,10 +39,10 @@ Deno.serve(withSentry(async (req) => {
       .maybeSingle();
 
     if (error) throw error;
-    if (!data) return jsonResponse({ error: "Not found" }, 404, cors, { "Cache-Control": "no-store" });
+    if (!data) return jsonResponse({ error: "Not found" }, 404, {}, { "Cache-Control": "no-store" });
 
-    return jsonResponse({ post: data }, 200, cors, { "Cache-Control": "no-store" });
+    return jsonResponse({ post: data }, 200, {}, { "Cache-Control": "no-store" });
   } catch (_e) {
-    return jsonResponse({ error: "Server error" }, 500, cors, { "Cache-Control": "no-store" });
+    return jsonResponse({ error: "Server error" }, 500, {}, { "Cache-Control": "no-store" });
   }
-}, "get-blog-preview"));
+});
