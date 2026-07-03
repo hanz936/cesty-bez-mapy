@@ -6,10 +6,9 @@
 // ================================================
 
 import Stripe from "https://esm.sh/stripe@22.2.0?target=denonext";
-import { withSentry } from "../_shared/sentry.ts";
-import { getCorsHeaders } from "../_shared/cors.ts";
 import { jsonResponse } from "../_shared/http.ts";
-import { requireAdmin } from "../_shared/requireAdmin.ts";
+import { serveEdge } from "../_shared/serveEdge.ts";
+import { assertAdmin } from "../_shared/assertAdmin.ts";
 import { logInfo, logWarn, logError } from "../_shared/log.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
@@ -27,17 +26,11 @@ interface CreateProductRequest {
   force_recreate?: boolean; // audit 3.7.4: skip update path, always create a NEW product + price
 }
 
-Deno.serve(withSentry(async (req) => {
-  const cors = getCorsHeaders(req);
-  // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: cors });
-  }
-
+serveEdge({ auth: "user", fnName: "create-stripe-product" }, async (req, ctx) => {
   try {
     // Auth check - only admins can create/update Stripe products.
-    // SEC-06: tightened from aal1 (user_roles.role==='admin') to is_admin()/aal2 via requireAdmin.
-    const gate = await requireAdmin(req, cors);
+    // SEC-06: tightened from aal1 (user_roles.role==='admin') to is_admin()/aal2 via assertAdmin.
+    const gate = await assertAdmin(ctx, {});
     if (!gate.ok) return gate.response;
 
     // Parse request body
@@ -49,7 +42,7 @@ Deno.serve(withSentry(async (req) => {
       return jsonResponse(
         { error: "Missing required fields: title, price, product_id" },
         400,
-        cors,
+        {},
       );
     }
 
@@ -57,7 +50,7 @@ Deno.serve(withSentry(async (req) => {
       return jsonResponse(
         { error: "Neplatná cena - musí být číslo mezi 0 a 100 000 Kč" },
         400,
-        cors,
+        {},
       );
     }
 
@@ -65,7 +58,7 @@ Deno.serve(withSentry(async (req) => {
       return jsonResponse(
         { error: "Neplatný název produktu (string, max 500 znaků)" },
         400,
-        cors,
+        {},
       );
     }
 
@@ -73,7 +66,7 @@ Deno.serve(withSentry(async (req) => {
       return jsonResponse(
         { error: "Neplatný popis produktu (string, max 2000 znaků)" },
         400,
-        cors,
+        {},
       );
     }
 
@@ -81,7 +74,7 @@ Deno.serve(withSentry(async (req) => {
       return jsonResponse(
         { error: "Neplatná image_url (musí začínat https://)" },
         400,
-        cors,
+        {},
       );
     }
 
@@ -94,7 +87,7 @@ Deno.serve(withSentry(async (req) => {
       return jsonResponse(
         { error: "Neplatné image_urls (pole až 8 https URL)" },
         400,
-        cors,
+        {},
       );
     }
 
@@ -190,7 +183,7 @@ Deno.serve(withSentry(async (req) => {
         currency: stripePrice.currency,
       },
       200,
-      cors,
+      {},
     );
   } catch (error) {
     logError("create_stripe_product_failed", {
@@ -200,7 +193,7 @@ Deno.serve(withSentry(async (req) => {
     return jsonResponse(
       { error: "Nepodařilo se vytvořit produkt ve Stripe" },
       500,
-      cors,
+      {},
     );
   }
-}, "create-stripe-product"));
+});
