@@ -11,13 +11,12 @@
 // notify a customer about a past failed payment, use a separate flow.
 // ================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendEmail, makeResendClient } from "../_shared/email/sendEmail.ts";
 import type { OrderItem } from "../_shared/email/types.ts";
-import { withSentry } from "../_shared/sentry.ts";
-import { getCorsHeaders } from "../_shared/cors.ts";
+import { serveEdge } from "../_shared/serveEdge.ts";
+import { assertAdmin } from "../_shared/assertAdmin.ts";
 import { jsonResponse } from "../_shared/http.ts";
-import { requireAdmin } from "../_shared/requireAdmin.ts";
 import { logInfo, logError } from "../_shared/log.ts";
 import type { Database } from "../_shared/database.types.ts";
 
@@ -43,30 +42,21 @@ const TYPE_TO_RESEND_COUNT_KEY: Record<ResendableEmailType, string> = {
   'refund': 'refund',
 };
 
-Deno.serve(withSentry(async (req) => {
-  const cors = getCorsHeaders(req);
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: cors });
-  }
-
+serveEdge({ auth: "user", fnName: "resend-email" }, async (req, ctx) => {
   try {
-    const gate = await requireAdmin(req, cors);
+    const gate = await assertAdmin(ctx, {});
     if (!gate.ok) return gate.response;
-    const user = gate.user;
 
     const body: RequestBody = await req.json();
     const { order_id, type } = body;
     if (!order_id || !type) {
-      return jsonResponse({ error: "Missing order_id or type" }, 400, cors);
+      return jsonResponse({ error: "Missing order_id or type" }, 400, {});
     }
     if (!(type in TYPE_TO_KEY_PREFIX)) {
-      return jsonResponse({ error: "Invalid type" }, 400, cors);
+      return jsonResponse({ error: "Invalid type" }, 400, {});
     }
 
-    const supabase = createClient<Database>(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const supabase: SupabaseClient<Database> = ctx.supabaseAdmin;
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
@@ -74,7 +64,7 @@ Deno.serve(withSentry(async (req) => {
       .eq('id', order_id)
       .single();
 
-    if (orderError || !order) return jsonResponse({ error: "Order not found" }, 404, cors);
+    if (orderError || !order) return jsonResponse({ error: "Order not found" }, 404, {});
 
     const countKey = TYPE_TO_RESEND_COUNT_KEY[type];
     const { data: newCount } = await supabase.rpc('increment_email_resend_count', {
@@ -170,7 +160,7 @@ Deno.serve(withSentry(async (req) => {
     logInfo("email_manually_resent", {
       email_type: type,
       order_id,
-      admin_user_id: user?.id,
+      admin_user_id: ctx.userClaims?.id,
       retry_n: retryN,
       resend_message_id: result.messageId,
     });
@@ -179,7 +169,7 @@ Deno.serve(withSentry(async (req) => {
       ok: true,
       message_id: result.messageId,
       retry_n: retryN,
-    }, 200, cors);
+    }, 200, {});
 
   } catch (error) {
     logError("resend_email_failed", {
@@ -187,6 +177,6 @@ Deno.serve(withSentry(async (req) => {
     });
     return jsonResponse({
       error: error instanceof Error ? error.message : "Internal error",
-    }, 500, cors);
+    }, 500, {});
   }
-}, "resend-email"));
+});
