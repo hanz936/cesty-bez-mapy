@@ -9,10 +9,9 @@
 // ================================================
 
 import Stripe from "https://esm.sh/stripe@22.2.0?target=denonext";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { withSentry } from "../_shared/sentry.ts";
+import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serveEdge } from "../_shared/serveEdge.ts";
 import { clientIp, enforceRateLimit } from "../_shared/rateLimit.ts";
-import { getCorsHeaders } from "../_shared/cors.ts";
 import { jsonResponse } from "../_shared/http.ts";
 import { logInfo, logError } from "../_shared/log.ts";
 import type { Database } from "../_shared/database.types.ts";
@@ -62,13 +61,7 @@ interface CreateCheckoutRequest {
   privacy_policy_version?: string;
 }
 
-Deno.serve(withSentry(async (req) => {
-  const cors = getCorsHeaders(req);
-  // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: cors });
-  }
-
+serveEdge({ auth: ["user", "publishable"], fnName: "create-checkout-session" }, async (req, ctx) => {
   try {
     // Parse request body
     const body: CreateCheckoutRequest = await req.json();
@@ -84,44 +77,32 @@ Deno.serve(withSentry(async (req) => {
     } = body;
 
     // SEC-02/SEC-03: per-IP rate limit (abuse / Stripe cost protection).
-    const rlClient = createClient<Database>(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } },
-    );
-    const allowed = await enforceRateLimit(rlClient, {
+    const allowed = await enforceRateLimit(ctx.supabaseAdmin, {
       bucket: `checkout:${clientIp(req)}`,
       limit: 10,
       windowSeconds: 60,
     });
     if (!allowed) {
-      return jsonResponse({ error: "Příliš mnoho požadavků, zkus to prosím za chvíli." }, 429, cors);
+      return jsonResponse({ error: "Příliš mnoho požadavků, zkus to prosím za chvíli." }, 429, {});
     }
 
-    // Extract user_id from JWT (not from body - prevents spoofing)
-    let userId: string | null = null;
-    const authHeader = req.headers.get("Authorization");
-    if (authHeader) {
-      const supabaseAuth = createClient<Database>(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-        { global: { headers: { Authorization: authHeader } } }
-      );
-      const { data: { user } } = await supabaseAuth.auth.getUser();
-      userId = user?.id ?? null;
-    }
+    // user_id přihlášeného uživatele (ne z body - zabraňuje spoofingu). Auth
+    // mode 'user' znamená, že volající poslal platný JWT (viz serveEdge auth:
+    // ["user", "publishable"]); anonymní košík matchne 'publishable'.
+    const userId: string | null =
+      ctx.authMode === "user" ? ctx.userClaims?.id ?? null : null;
 
     // Validace
     if (!line_items || !Array.isArray(line_items) || line_items.length === 0) {
-      return jsonResponse({ error: "Chybí položky k objednání (line_items)" }, 400, cors);
+      return jsonResponse({ error: "Chybí položky k objednání (line_items)" }, 400, {});
     }
 
     if (!success_url || !cancel_url) {
-      return jsonResponse({ error: "Chybí success_url nebo cancel_url" }, 400, cors);
+      return jsonResponse({ error: "Chybí success_url nebo cancel_url" }, 400, {});
     }
 
     if (!isAllowedUrl(success_url) || !isAllowedUrl(cancel_url)) {
-      return jsonResponse({ error: "Nepovolená URL adresa" }, 400, cors);
+      return jsonResponse({ error: "Nepovolená URL adresa" }, 400, {});
     }
 
     // Validace fakturačních údajů pro B2B (firma = chce fakturu)
@@ -134,7 +115,7 @@ Deno.serve(withSentry(async (req) => {
         !b.billing_city ||
         !b.billing_zip
       ) {
-        return jsonResponse({ error: "Incomplete billing fields" }, 400, cors);
+        return jsonResponse({ error: "Incomplete billing fields" }, 400, {});
       }
     }
 
@@ -143,10 +124,7 @@ Deno.serve(withSentry(async (req) => {
       user_id: userId ?? "anonymous",
     });
 
-    // Vytvoření Supabase klienta pro načtení produktů
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
+    const supabase: SupabaseClient<Database> = ctx.supabaseAdmin;
 
     // Načtení stripe_price_id pro všechny produkty z databáze
     const productIds = line_items.map((item) => item.product_id);
@@ -160,11 +138,11 @@ Deno.serve(withSentry(async (req) => {
 
     if (productsError) {
       logError("checkout_products_load_failed", { message: productsError.message });
-      return jsonResponse({ error: "Nepodařilo se načíst produkty z databáze" }, 500, cors);
+      return jsonResponse({ error: "Nepodařilo se načíst produkty z databáze" }, 500, {});
     }
 
     if (!products || products.length === 0) {
-      return jsonResponse({ error: "Žádné platné produkty nebyly nalezeny" }, 400, cors);
+      return jsonResponse({ error: "Žádné platné produkty nebyly nalezeny" }, 400, {});
     }
 
     // Kontrola, že všechny produkty mají stripe_price_id
@@ -175,14 +153,14 @@ Deno.serve(withSentry(async (req) => {
       });
       return jsonResponse({
         error: `Některé produkty nemají nastavenou cenu ve Stripe: ${missingStripeProducts.map((p) => p.title).join(", ")}`,
-      }, 400, cors);
+      }, 400, {});
     }
 
     // Validace množství položek - musí být celé číslo 1-10 (pokud je zadáno)
     for (const item of line_items) {
       const q = item.quantity;
       if (q !== undefined && !(Number.isInteger(q) && q >= 1 && q <= 10)) {
-        return jsonResponse({ error: "Neplatné množství položky (povoleno 1–10)" }, 400, cors);
+        return jsonResponse({ error: "Neplatné množství položky (povoleno 1–10)" }, 400, {});
       }
     }
 
@@ -287,12 +265,12 @@ Deno.serve(withSentry(async (req) => {
       success: true,
       session_id: session.id,
       url: session.url,
-    }, 200, cors);
+    }, 200, {});
   } catch (error) {
     logError("checkout_session_creation_failed", {
       error: error instanceof Error ? error.message : String(error),
     });
 
-    return jsonResponse({ error: "Nepodařilo se vytvořit platební session" }, 500, cors);
+    return jsonResponse({ error: "Nepodařilo se vytvořit platební session" }, 500, {});
   }
-}, "create-checkout-session"));
+});

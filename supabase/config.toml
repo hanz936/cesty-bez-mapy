@@ -427,3 +427,11 @@ verify_jwt = false
 # lookup proti blog_posts) uvnitř handleru.
 [functions.get-blog-preview]
 verify_jwt = false
+
+# Podporuje anonymní i přihlášený checkout. Anonymní volání posílá jen
+# publishable klíč v apikey headeru (bez JWT v Authorization) — gateway JWT
+# check by ho odmítl (401) dřív, než doběhne do funkce. Auth řeší withSupabase
+# auth: ["user", "publishable"] mode uvnitř handleru (ctx.authMode rozlišuje
+# přihlášeného uživatele od hosta).
+[functions.create-checkout-session]
+verify_jwt = false
