@@ -1,15 +1,16 @@
 // download-invoice-pdf — admin-only PDF proxy
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { FakturoidClient, type TokenPersister } from "../create-invoice/fakturoid.ts";
-import { withSentry } from "../_shared/sentry.ts";
-import { getCorsHeaders } from "../_shared/cors.ts";
-import { requireAdmin } from "../_shared/requireAdmin.ts";
+import { serveEdge } from "../_shared/serveEdge.ts";
+import { assertAdmin } from "../_shared/assertAdmin.ts";
 import { logError } from "../_shared/log.ts";
 import type { Database } from "../_shared/database.types.ts";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const supabase = createClient<Database>(SUPABASE_URL, SERVICE_ROLE_KEY);
+// Populated from ctx.supabaseAdmin at the top of the serveEdge handler on each
+// invocation (no module-level client construction — see serveEdge migration).
+// Referenced by the persister closure below, only ever invoked during request
+// handling, i.e. after this assignment has run.
+let supabase: SupabaseClient<Database>;
 
 const persister: TokenPersister = {
   async load() {
@@ -31,19 +32,18 @@ const fakturoid = new FakturoidClient({
   userAgent: Deno.env.get("FAKTUROID_USER_AGENT")!,
 }, fetch, { persister });
 
-Deno.serve(withSentry(async (req) => {
-  const cors = getCorsHeaders(req, { methods: "GET, OPTIONS" });
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-
+serveEdge({ auth: "user", fnName: "download-invoice-pdf", methods: "GET, OPTIONS" }, async (req, ctx) => {
   // Admin auth check
-  const gate = await requireAdmin(req, cors);
+  const gate = await assertAdmin(ctx, {});
   if (!gate.ok) return gate.response;
+
+  supabase = ctx.supabaseAdmin;
 
   const url = new URL(req.url);
   const invoiceIdStr = url.searchParams.get("invoice_id");
   const invoiceId = invoiceIdStr ? Number(invoiceIdStr) : NaN;
   if (!invoiceId || Number.isNaN(invoiceId)) {
-    return new Response("Missing invoice_id", { status: 400, headers: cors });
+    return new Response("Missing invoice_id", { status: 400 });
   }
 
   try {
@@ -51,7 +51,6 @@ Deno.serve(withSentry(async (req) => {
     return new Response(pdf.buffer as ArrayBuffer, {
       status: 200,
       headers: {
-        ...cors,
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="faktura-${invoiceId}.pdf"`,
       },
@@ -61,7 +60,7 @@ Deno.serve(withSentry(async (req) => {
       error: e instanceof Error ? e.message : String(e),
     });
     return new Response("Stažení PDF se nezdařilo", {
-      status: 502, headers: cors,
+      status: 502,
     });
   }
-}, "download-invoice-pdf"));
+});
