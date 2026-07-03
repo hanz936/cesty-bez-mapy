@@ -435,3 +435,11 @@ verify_jwt = false
 # přihlášeného uživatele od hosta).
 [functions.create-checkout-session]
 verify_jwt = false
+
+# Dual-caller: admin UI posílá user JWT v Authorization (auth 'user' → assertAdmin
+# role check uvnitř handleru) a stripe-webhook volá přes ctx.supabaseAdmin.functions.invoke()
+# se sb_secret_ apikey (bez JWT v Authorization → auth 'secret', žádný role check).
+# Gateway JWT check by webhook caller odmítl (401) dřív, než doběhne do funkce —
+# auth řeší withSupabase auth: ["user", "secret"] mode uvnitř handleru.
+[functions.create-invoice]
+verify_jwt = false

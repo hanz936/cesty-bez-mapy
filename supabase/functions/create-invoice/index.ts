@@ -12,12 +12,13 @@
 //   storno_invoice      — issue storno faktura (refund, neplátce DPH)
 //   cancel_and_reissue  — storno + new invoice (admin edited billing)
 //
-// Dual-caller: invoked by stripe-webhook (service-role JWT bypass) and by the
-// admin UI via supabase.functions.invoke() (user JWT → is_admin RPC check).
-// CORS configured for admin browser callers; webhook calls (server-to-server) ignore it.
+// Dual-caller: invoked by stripe-webhook (via ctx.supabaseAdmin.functions.invoke(),
+// sb_secret_ apikey → serveEdge 'secret' auth branch, no role check) and by the
+// admin UI via supabase.functions.invoke() (user JWT → 'user' branch, assertAdmin
+// role check). CORS is handled entirely by the serveEdge/withCors wrapper.
 // ================================================
 
-import { createClient, type QueryData } from "https://esm.sh/@supabase/supabase-js@2";
+import { type QueryData, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { FakturoidClient, type TokenPersister } from "./fakturoid.ts";
 import { mapOrderToInvoice, mapOrderToStornoInvoice, mapOrderToSubject, todayIso } from "./mapping.ts";
 import { isValidIco } from "./ares.ts";
@@ -26,17 +27,18 @@ import type {
   CreateInvoiceRequest, OrderRow, OrderItemRow,
 } from "./types.ts";
 import { sendEmail, makeResendClient } from "../_shared/email/sendEmail.ts";
-import { withSentry } from "../_shared/sentry.ts";
-import { getCorsHeaders } from "../_shared/cors.ts";
-import { requireAdmin } from "../_shared/requireAdmin.ts";
+import { serveEdge } from "../_shared/serveEdge.ts";
+import { assertAdmin } from "../_shared/assertAdmin.ts";
 import { logError } from "../_shared/log.ts";
 import type { Database } from "../_shared/database.types.ts";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-const supabase = createClient<Database>(SUPABASE_URL, SERVICE_ROLE_KEY);
 const resend = makeResendClient();
+
+// Populated from ctx.supabaseAdmin at the top of the serveEdge handler on each
+// invocation (no module-level client construction — see serveEdge migration).
+// Referenced by closures below (persister, logIntegration, etc.) that are only
+// ever invoked during request handling, i.e. after this assignment has run.
+let supabase: SupabaseClient<Database>;
 
 const CFG = {
   clientId: Deno.env.get("FAKTUROID_CLIENT_ID")!,
@@ -339,41 +341,35 @@ function jsonOk(body: unknown): Response {
   });
 }
 
-Deno.serve(withSentry(async (req) => {
-  const cors = getCorsHeaders(req);
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-  if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: cors });
+serveEdge({ auth: ["user", "secret"], fnName: "create-invoice" }, async (req, ctx) => {
+  if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
-  // Dual-auth gate: service-role bypass (stripe-webhook) OR admin user (admin UI).
-  const gate = await requireAdmin(req, cors, { allowServiceRole: true });
-  if (!gate.ok) return gate.response;
+  // user větev (admin z UI) → ověřit roli; secret větev (stripe-webhook) → propustit
+  if (ctx.authMode === "user") {
+    const gate = await assertAdmin(ctx, {});
+    if (!gate.ok) return gate.response;
+  }
+  // authMode === "secret" → service caller (webhook), žádný role check
+
+  supabase = ctx.supabaseAdmin;
 
   let body: CreateInvoiceRequest;
-  try { body = await req.json(); } catch { return new Response("Bad JSON", { status: 400, headers: cors }); }
+  try { body = await req.json(); } catch { return new Response("Bad JSON", { status: 400 }); }
   if (!body.order_id || !body.action) {
-    return new Response("Missing order_id or action", { status: 400, headers: cors });
+    return new Response("Missing order_id or action", { status: 400 });
   }
 
-  let resp: Response;
   switch (body.action) {
     case "create":
     case "retry":
-      resp = await actionCreate(body.order_id);
-      break;
+      return await actionCreate(body.order_id);
     case "resend_email":
-      resp = await actionResendEmail(body.order_id);
-      break;
+      return await actionResendEmail(body.order_id);
     case "storno_invoice":
-      resp = await actionStornoInvoice(body.order_id);
-      break;
+      return await actionStornoInvoice(body.order_id);
     case "cancel_and_reissue":
-      resp = await actionCancelAndReissue(body.order_id);
-      break;
+      return await actionCancelAndReissue(body.order_id);
     default:
-      return new Response(`Unknown action: ${body.action}`, { status: 400, headers: cors });
+      return new Response(`Unknown action: ${body.action}`, { status: 400 });
   }
-  for (const [k, v] of Object.entries(cors)) {
-    resp.headers.set(k, v);
-  }
-  return resp;
-}, "create-invoice"));
+});
