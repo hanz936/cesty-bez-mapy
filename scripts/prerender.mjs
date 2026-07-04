@@ -60,11 +60,21 @@ async function run() {
 
   const server = await preview({ appType: 'spa', preview: { port: 4173, strictPort: false, open: false } });
   const base = server.resolvedUrls.local[0].replace(/\/$/, '');
-  const browser = await launchBrowser();
-  const page = await browser.newPage();
+  // Sparticuz chromium na Vercelu běží --single-process → paměť se kumuluje přes
+  // všechny routy v jednom procesu a po ~14 routách se browser zabije
+  // („Target page, context or browser has been closed"). Periodický relaunch
+  // drží spotřebu ploše; lokální plný Playwright tím není dotčen.
+  const RELAUNCH_EVERY = 8;
+  let browser = await launchBrowser();
+  let page = await browser.newPage();
 
   try {
-    for (const route of routes) {
+    for (const [i, route] of routes.entries()) {
+      if (i > 0 && i % RELAUNCH_EVERY === 0) {
+        await browser.close();
+        browser = await launchBrowser();
+        page = await browser.newPage();
+      }
       await page.goto(base + route, { waitUntil: 'load', timeout: 30000 });
       await page.waitForSelector('[data-prerender-ready]', { timeout: 20000 });
       // React 19 hoistuje per-route <meta>/<link> ZA statické defaulty z index.html
