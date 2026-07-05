@@ -19,11 +19,7 @@ import { assertAdmin } from "../_shared/assertAdmin.ts";
 import { jsonResponse } from "../_shared/http.ts";
 import { logInfo, logError } from "../_shared/log.ts";
 import type { Database } from "../_shared/database.types.ts";
-
-type ResendableEmailType =
-  | 'order-confirmation'
-  | 'custom-itinerary-payment-received'
-  | 'refund';
+import { validateResendTypeForItems, type ResendableEmailType } from "./lib.ts";
 
 interface RequestBody {
   order_id: string;
@@ -66,6 +62,17 @@ serveEdge({ auth: "user", fnName: "resend-email" }, async (req, ctx) => {
 
     if (orderError || !order) return jsonResponse({ error: "Order not found" }, 404, {});
 
+    // Jediný items fetch pro validaci typu i pro obsah confirmation mailu.
+    // Validace běží PŘED inkrementem počítadla, ať odmítnuté pokusy
+    // nespotřebovávají retry-N (a tím idempotency klíče).
+    const { data: items } = await supabase
+      .from('order_items')
+      .select('quantity, price_at_purchase, custom_itinerary_request_id, products(title)')
+      .eq('order_id', order_id);
+
+    const typeMismatch = validateResendTypeForItems(type, items ?? []);
+    if (typeMismatch) return jsonResponse({ error: typeMismatch }, 400, {});
+
     const countKey = TYPE_TO_RESEND_COUNT_KEY[type];
     const { data: newCount } = await supabase.rpc('increment_email_resend_count', {
       table_name: 'orders',
@@ -82,10 +89,6 @@ serveEdge({ auth: "user", fnName: "resend-email" }, async (req, ctx) => {
 
     let result;
     if (type === 'order-confirmation') {
-      const { data: items } = await supabase
-        .from('order_items')
-        .select('quantity, price_at_purchase, products(title)')
-        .eq('order_id', order_id);
       const { data: token } = await supabase
         .from('download_tokens')
         .select('token')
