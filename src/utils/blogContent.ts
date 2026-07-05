@@ -1,4 +1,3 @@
-// @ts-check
 import DOMPurify from 'dompurify';
 import logger from './logger';
 
@@ -26,18 +25,18 @@ const ALLOWED_ATTR = ['href', 'target', 'rel', 'src', 'alt', 'title', 'class'];
 let _storagePrefix = STORAGE_PREFIX;
 let _hooked = false;
 let _active = false; // hooky reagují jen během našeho sanitizeBlogHtml (izolace od jiných konzumentů)
-function ensureHook() {
+function ensureHook(): void {
   if (_hooked) return;
   _hooked = true;
   // Odebrání <img> mimo úložiště řešíme v `uponSanitizeElement` — dokumentovaný
   // bod pro odstranění celého uzlu (NE v afterSanitizeAttributes).
   DOMPurify.addHook('uponSanitizeElement', (node) => {
     if (!_active) return;
-    if (node.nodeName && node.nodeName.toLowerCase() === 'img') {
+    if (node.nodeName?.toLowerCase() === 'img') {
       // DOMPurify typuje `uponSanitizeElement` jako `Node`, ale element node
-      // má vždy `getAttribute` — defenzivní `&&` check zůstává pro běhové jistoty.
-      const elNode = /** @type {Element} */ (node);
-      const src = (elNode.getAttribute && elNode.getAttribute('src')) || '';
+      // má vždy `getAttribute` — defenzivní `?.` check zůstává pro běhové jistoty.
+      const elNode = node as Element;
+      const src = elNode.getAttribute?.('src') ?? '';
       if (!_storagePrefix || !src.startsWith(_storagePrefix)) {
         node.parentNode?.removeChild(node);
       }
@@ -51,7 +50,7 @@ function ensureHook() {
       node.setAttribute('decoding', 'async');
     }
     if (node.tagName === 'A' && node.hasAttribute('href')) {
-      const href = node.getAttribute('href') || '';
+      const href = node.getAttribute('href') ?? '';
       if (/^https?:\/\//i.test(href)) {
         node.setAttribute('target', '_blank');
         node.setAttribute('rel', 'noopener noreferrer nofollow');
@@ -62,10 +61,8 @@ function ensureHook() {
 
 /**
  * Sanitizuje HTML těla článku se striktním allowlistem; <img> jen z úložiště.
- * @param {string} html
- * @param {string} [storagePrefix]
  */
-export function sanitizeBlogHtml(html, storagePrefix = STORAGE_PREFIX) {
+export function sanitizeBlogHtml(html: string, storagePrefix: string = STORAGE_PREFIX): string {
   ensureHook();
   _storagePrefix = storagePrefix;
   _active = true;
@@ -85,22 +82,20 @@ export function sanitizeBlogHtml(html, storagePrefix = STORAGE_PREFIX) {
 
 /**
  * Vytáhne 11znakové YouTube ID z URL nebo vrátí vstup, je-li už ID; jinak null.
- * @param {string} input
  */
-export function extractYoutubeId(input) {
+export function extractYoutubeId(input: string): string | null {
   const direct = String(input || '').trim();
   if (/^[\w-]{11}$/.test(direct)) return direct;
-  const m = direct.match(
-    /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/,
+  const m = /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/.exec(
+    direct,
   );
   return m ? m[1] : null;
 }
 
 /**
  * Odhad doby čtení v minutách (~200 slov/min), minimum 1.
- * @param {string} html
  */
-export function readingTimeMinutes(html) {
+export function readingTimeMinutes(html: string): number {
   const text = String(html || '').replace(/<[^>]*>/g, ' ');
   const words = text.split(/\s+/).filter(Boolean).length;
   return Math.max(1, Math.ceil(words / 200));
@@ -108,12 +103,11 @@ export function readingTimeMinutes(html) {
 
 /**
  * Unikátní seznam slugů produktů z atributů data-product-slug.
- * @param {string} html
  */
-export function extractProductSlugs(html) {
-  const slugs = new Set();
+export function extractProductSlugs(html: string): string[] {
+  const slugs = new Set<string>();
   const re = /data-product-slug="([^"]+)"/g;
-  let m;
+  let m: RegExpExecArray | null;
   while ((m = re.exec(String(html || ''))) !== null) slugs.add(m[1]);
   return [...slugs];
 }

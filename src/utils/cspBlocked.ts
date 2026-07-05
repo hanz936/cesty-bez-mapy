@@ -3,10 +3,10 @@
 // with an opaque TypeError on CSP block, so this is the only authoritative
 // signal that a fetch was killed by CSP (not DNS, CORS, mixed-content, etc.).
 
-const cspBlockedUrls = new Set();
+const cspBlockedUrls = new Set<string>();
 let registered = false;
 
-function register() {
+function register(): void {
   if (registered || typeof document === 'undefined') return;
   registered = true;
   document.addEventListener('securitypolicyviolation', (e) => {
@@ -19,7 +19,7 @@ function register() {
 
 register();
 
-export function wasBlockedByCsp(url) {
+export function wasBlockedByCsp(url: string): boolean {
   // CSP reports `blockedURI` as the absolute URL; callers must pass an
   // already-resolved URL string (use new URL(rel, location.href).href).
   return cspBlockedUrls.has(url);
