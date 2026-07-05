@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -76,7 +77,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // Chunk splitting for better caching
-        manualChunks(id) {
+        manualChunks(id: string) {
           // react + react-dom + react-router(-dom) pohromadě (init-order).
           // Funkční forma — objektová generovala prázdný react-vendor chunk.
           // Žádný catch-all vendor: eager-loadl by deps lazy app-flow rout (#5189).
