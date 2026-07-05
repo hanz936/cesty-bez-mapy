@@ -106,6 +106,7 @@ export default defineConfig({
             // `originalFileName(s)`, `source`, `type`) — the property access below has
             // therefore always been `undefined` at the type level; cast preserves the
             // exact pre-existing runtime behavior (including the 'unknown' fallback).
+            // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string/falsy must fall through to fallback (?? would change behavior)
             const fileName = (assetInfo as Rollup.PreRenderedAsset & { fileName?: string }).fileName || 'unknown';
             
             // Pre-compiled regex for better performance
@@ -167,6 +168,7 @@ export default defineConfig({
 
   // Environment variables
   define: {
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string/falsy must fall through to fallback (?? would change behavior)
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '1.0.0'),
     'import.meta.env.VITE_SENTRY_RELEASE': JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA),
     'import.meta.env.VITE_VERCEL_ENV': JSON.stringify(process.env.VERCEL_ENV),
