@@ -4,7 +4,11 @@ import { PUBLIC_PAGES } from '../constants/publicRoutes';
 
 const DEFAULT_OG_IMAGE = '/images/logo.png';
 
-/** Per-route SEO meta pro statickou veřejnou stránku (dle registru PUBLIC_PAGES). */
+/**
+ * Per-route SEO meta pro statickou veřejnou stránku (dle registru PUBLIC_PAGES).
+ * @param {string} path
+ * @param {string} [siteUrl]
+ */
 export function buildPageMeta(path, siteUrl = SITE_URL) {
   const entry = PUBLIC_PAGES.find((p) => p.path === path);
   if (!entry) throw new Error(`buildPageMeta: neznámá routa „${path}" (chybí v PUBLIC_PAGES)`);

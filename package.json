@@ -12,7 +12,7 @@
     "postinstall": "node scripts/postinstall.mjs",
     "email:dev": "email dev --dir supabase/functions/_shared/email/templates --port 3001",
     "lint": "eslint .",
-    "type-check": "tsc -p jsconfig.json",
+    "type-check": "tsc -b --noEmit",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
@@ -40,6 +40,7 @@
     "@tailwindcss/vite": "^4.1.11",
     "@testing-library/jest-dom": "^6.6.4",
     "@testing-library/react": "^16.3.0",
+    "@types/node": "^26.1.0",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
@@ -56,8 +57,12 @@
     "supabase": "^2.98.0",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.62.1",
     "vite": "^7.0.4",
     "vitest": "^3.2.4",
     "vokativ": "^1.0.1"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }

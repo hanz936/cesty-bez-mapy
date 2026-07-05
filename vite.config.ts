@@ -1,5 +1,6 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
+import type { Plugin, Rollup } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'path'
@@ -28,7 +29,11 @@ export default defineConfig({
       sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] },
       disable: !process.env.SENTRY_AUTH_TOKEN, // active only on CI/Vercel, not local
     }),
-    umamiPlugin(),
+    // Type assertion: umami-plugin.js stays plain JS (out of TS migration scope), so its
+    // inferred return type widens `apply: 'build'` to `apply: string`, which doesn't
+    // structurally match Vite's Plugin['apply']. No runtime change — the plugin object
+    // itself is untouched; only the type-checker's view of it is corrected here.
+    umamiPlugin() as Plugin,
   ],
 
   // Development server optimization
@@ -96,7 +101,12 @@ export default defineConfig({
         assetFileNames: (assetInfo) => {
           try {
             // Use modern Rollup API - assetInfo.fileName is the standard way
-            const fileName = assetInfo.fileName || 'unknown';
+            // TS strict note (Task 3 latent finding): Rollup 4's PreRenderedAsset type
+            // does not declare `fileName` (only deprecated `name`/`names`,
+            // `originalFileName(s)`, `source`, `type`) — the property access below has
+            // therefore always been `undefined` at the type level; cast preserves the
+            // exact pre-existing runtime behavior (including the 'unknown' fallback).
+            const fileName = (assetInfo as Rollup.PreRenderedAsset & { fileName?: string }).fileName || 'unknown';
             
             // Pre-compiled regex for better performance
             if (MEDIA_REGEX.test(fileName)) {

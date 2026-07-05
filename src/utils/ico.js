@@ -4,6 +4,9 @@
 // Formula: check digit = (11 - (sum % 11)) % 10. The outer % 10 cleanly
 // handles all boundary cases (remainder 0 → 1; remainder 1 → 0).
 
+/**
+ * @param {unknown} ico
+ */
 export function isValidIco(ico) {
   if (typeof ico !== 'string' || !/^\d{8}$/.test(ico)) return false;
   const weights = [8, 7, 6, 5, 4, 3, 2];

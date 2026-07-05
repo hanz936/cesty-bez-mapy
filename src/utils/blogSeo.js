@@ -2,7 +2,20 @@
 export const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://www.cestybezmapy.cz';
 const AUTHOR_NAME = 'Jana — Cesty bez mapy';
 
-/** Sestaví SEO meta (title/description/canonical/og) + JSON-LD Article pro článek. */
+/**
+ * Sestaví SEO meta (title/description/canonical/og) + JSON-LD Article pro článek.
+ * @param {{
+ *   seo_title: string | null,
+ *   title: string,
+ *   seo_description: string | null,
+ *   excerpt: string | null,
+ *   slug: string,
+ *   image_url: string | null,
+ *   published_at: string | null,
+ *   updated_at: string,
+ * }} post
+ * @param {string} [siteUrl]
+ */
 export function buildBlogMeta(post, siteUrl = SITE_URL) {
   const title = post.seo_title?.trim() || post.title;
   const description = post.seo_description?.trim() || post.excerpt || '';
@@ -31,6 +44,7 @@ export function buildBlogMeta(post, siteUrl = SITE_URL) {
  * uzavření/vložení tagu (`</script>`, `<!--`, `<script`). Obsah se NEspouští jako JS
  * (jen parsuje jako JSON), takže U+2028/U+2029 escapovat netřeba (v JSON jsou platné).
  * Dekódovaná hodnota se nemění — strukturovaná data zůstávají platná.
+ * @param {Record<string, unknown>} jsonLd
  */
 export function serializeJsonLd(jsonLd) {
   return JSON.stringify(jsonLd)

@@ -4,6 +4,15 @@ import { SITE_URL } from './blogSeo';
 /**
  * Per-route SEO meta + JSON-LD Product pro detail produktu.
  * `price` je celé CZK (string), `priceCurrency` "CZK" (audit SEO-03 / Google).
+ * @param {{
+ *   detail_title: string | null,
+ *   title: string,
+ *   hero_subtitle: string | null,
+ *   slug: string,
+ *   image_url: string | null,
+ *   price: number,
+ * }} product
+ * @param {string} [siteUrl]
  */
 export function buildProductMeta(product, siteUrl = SITE_URL) {
   const title = product.detail_title?.trim() || product.title;

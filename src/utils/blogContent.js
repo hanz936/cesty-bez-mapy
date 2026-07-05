@@ -60,7 +60,11 @@ function ensureHook() {
   });
 }
 
-/** Sanitizuje HTML těla článku se striktním allowlistem; <img> jen z úložiště. */
+/**
+ * Sanitizuje HTML těla článku se striktním allowlistem; <img> jen z úložiště.
+ * @param {string} html
+ * @param {string} [storagePrefix]
+ */
 export function sanitizeBlogHtml(html, storagePrefix = STORAGE_PREFIX) {
   ensureHook();
   _storagePrefix = storagePrefix;
@@ -79,7 +83,10 @@ export function sanitizeBlogHtml(html, storagePrefix = STORAGE_PREFIX) {
   }
 }
 
-/** Vytáhne 11znakové YouTube ID z URL nebo vrátí vstup, je-li už ID; jinak null. */
+/**
+ * Vytáhne 11znakové YouTube ID z URL nebo vrátí vstup, je-li už ID; jinak null.
+ * @param {string} input
+ */
 export function extractYoutubeId(input) {
   const direct = String(input || '').trim();
   if (/^[\w-]{11}$/.test(direct)) return direct;
@@ -89,14 +96,20 @@ export function extractYoutubeId(input) {
   return m ? m[1] : null;
 }
 
-/** Odhad doby čtení v minutách (~200 slov/min), minimum 1. */
+/**
+ * Odhad doby čtení v minutách (~200 slov/min), minimum 1.
+ * @param {string} html
+ */
 export function readingTimeMinutes(html) {
   const text = String(html || '').replace(/<[^>]*>/g, ' ');
   const words = text.split(/\s+/).filter(Boolean).length;
   return Math.max(1, Math.ceil(words / 200));
 }
 
-/** Unikátní seznam slugů produktů z atributů data-product-slug. */
+/**
+ * Unikátní seznam slugů produktů z atributů data-product-slug.
+ * @param {string} html
+ */
 export function extractProductSlugs(html) {
   const slugs = new Set();
   const re = /data-product-slug="([^"]+)"/g;
