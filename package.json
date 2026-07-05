@@ -17,7 +17,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:edge": "deno test --allow-all --no-check --node-modules-dir=none supabase/functions/",
-    "gen:types": "supabase gen types typescript --project-id dkblgznhnixubyoghrqe --schema public > supabase/functions/_shared/database.types.ts",
+    "gen:types": "supabase gen types typescript --project-id dkblgznhnixubyoghrqe --schema public > supabase/functions/_shared/database.types.ts && cp supabase/functions/_shared/database.types.ts src/types/database.types.ts",
     "check:edge": "bash scripts/check-edge.sh"
   },
   "dependencies": {
