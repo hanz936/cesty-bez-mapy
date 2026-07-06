@@ -1,10 +1,7 @@
 import { supabase } from './supabase'
 
-/**
- * Test Supabase connection
- * @returns {Promise<boolean>} true if connected successfully
- */
-export async function testSupabaseConnection() {
+/** Test Supabase connection. Returns true if connected successfully. */
+export async function testSupabaseConnection(): Promise<boolean> {
   try {
     console.log('🔄 Testing Supabase connection...')
 
@@ -22,7 +19,9 @@ export async function testSupabaseConnection() {
     console.log('🔐 Auth session:', session ? 'Logged in' : 'Anonymous (OK)')
     return true
   } catch (err) {
-    console.error('❌ Unexpected error:', err.message)
+    // caught value has no runtime shape check (pre-existing) — same pattern as
+    // src/utils/logger.ts sanitizeError (Task 6)
+    console.error('❌ Unexpected error:', (err as { message?: string }).message)
     return false
   }
 }
