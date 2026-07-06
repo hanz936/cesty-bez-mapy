@@ -1,4 +1,5 @@
 import React, { memo } from 'react';
+import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { BASE_PATH, ROUTES } from '../../constants';
 import { SITE_URL, serializeJsonLd } from '../../utils/blogSeo';
@@ -6,18 +7,30 @@ import ImageWithFallback from '../common/ImageWithFallback';
 import logger from '../../utils/logger';
 import NewsletterForm from './NewsletterForm';
 
-class FooterErrorBoundary extends React.Component {
-  constructor(props) {
+interface FooterErrorBoundaryProps {
+  children?: ReactNode;
+}
+
+interface FooterErrorBoundaryState {
+  hasError: boolean;
+}
+
+class FooterErrorBoundary extends React.Component<FooterErrorBoundaryProps, FooterErrorBoundaryState> {
+  // Type-only declaration (erased at compile time) so the original external
+  // `FooterErrorBoundary.displayName = ...` assignment below type-checks unchanged.
+  declare static displayName: string;
+
+  constructor(props: FooterErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(_error) {
+  static getDerivedStateFromError(_error: Error): FooterErrorBoundaryState {
     logger.error('Footer render error:', _error);
     return { hasError: true };
   }
 
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     logger.error('Footer Error:', error, errorInfo);
   }
 
@@ -56,7 +69,19 @@ const planningLinks = [
   { href: ROUTES.COLLABORATION, text: "Spolupráce" }
 ];
 
-const NavigationSection = memo(({ title, links, ariaLabel, className = "" }) => {
+interface NavigationSectionLink {
+  href: string;
+  text: string;
+}
+
+interface NavigationSectionProps {
+  title: string;
+  links: NavigationSectionLink[];
+  ariaLabel: string;
+  className?: string;
+}
+
+const NavigationSection = memo(({ title, links, ariaLabel, className = "" }: NavigationSectionProps) => {
   const location = useLocation();
   
   return (

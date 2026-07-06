@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo, useCallback } from 'react';
+import { useState, useEffect, memo, useCallback } from 'react';
 import ReviewCard from '../ui/ReviewCard';
 
 // Refined recenze data - mix z Google, Instagram a itinerářů
@@ -95,7 +95,12 @@ const REVIEWS_DATA = [
   }
 ];
 
-const ReviewsSection = memo(({ className = '', autoScroll = true }) => {
+interface ReviewsSectionProps {
+  className?: string;
+  autoScroll?: boolean;
+}
+
+const ReviewsSection = memo(({ className = '', autoScroll = true }: ReviewsSectionProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
 

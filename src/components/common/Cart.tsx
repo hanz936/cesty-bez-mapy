@@ -10,21 +10,10 @@ import { RemoveScroll } from 'react-remove-scroll';
 import { Button } from '../ui';
 import { BASE_PATH, ROUTES } from '../../constants';
 import { useCart } from '../../contexts';
-
-interface CartItemData {
-  id: string;
-  title: string;
-  price: number;
-  image: string | null;
-  alt: string;
-  duration: string;
-  slug: string;
-  quantity: number;
-  customItineraryRequestId: string | null;
-}
+import type { CartItem } from '../../contexts';
 
 interface CartItemProps {
-  item: CartItemData;
+  item: CartItem;
   onRemove: (itemId: string) => void;
 }
 
@@ -95,20 +84,8 @@ interface CartProps {
   onClose: () => void;
 }
 
-// Type assertion: CartContext.jsx (out of migration scope) does `createContext(null)` +
-// `useContext(...)` narrowed by `if (!context) throw` inside useCart() — TS infers the
-// post-throw return type as `never` (context: null narrows to never after the truthy check
-// fails), not the real provider value shape. Asserted to the actual shape below (derived from
-// CartContext.jsx's `value` object); no runtime check added, ledgered for CartContext's own migration.
-interface CartContextValue {
-  cartItems: CartItemData[];
-  cartTotal: number;
-  itemCount: number;
-  removeFromCart: (itemId: string) => void;
-}
-
 const Cart = React.memo(({ isOpen, onClose }: CartProps) => {
-  const { cartItems, cartTotal, itemCount, removeFromCart } = useCart() as CartContextValue;
+  const { cartItems, cartTotal, itemCount, removeFromCart } = useCart();
   const cartRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const navigate = useNavigate();
@@ -242,7 +219,7 @@ const Cart = React.memo(({ isOpen, onClose }: CartProps) => {
           ) : (
             // Seznam položek
             <div className="px-6 py-4">
-              {cartItems.map((item: CartItemData) => (
+              {cartItems.map((item: CartItem) => (
                 <CartItem
                   key={item.id}
                   item={item}

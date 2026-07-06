@@ -15,13 +15,8 @@ interface CartButtonProps {
   itemCount?: number;
 }
 
-// Type assertion: see identical CartContext.jsx `never`-inference note in Cart.tsx.
-interface CartContextValue {
-  itemCount: number;
-}
-
 const CartButton = React.memo(({ onClick }: CartButtonProps) => {
-  const { itemCount } = useCart() as CartContextValue;
+  const { itemCount } = useCart();
   const [imageError, setImageError] = useState(false);
 
   const handleImageError = useCallback(() => {

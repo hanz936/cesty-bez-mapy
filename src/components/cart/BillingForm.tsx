@@ -1,11 +1,31 @@
 import { useEffect, useState } from 'react';
+import type { FocusEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ROUTES } from '../../constants';
 import { lookupIco } from '../../utils/ares.js';
 import { isValidIco } from '../../utils/ico.js';
 import { wasBlockedByCsp } from '../../utils/cspBlocked.js';
 
-export function BillingForm({ value, onChange, marketingConsent, setMarketingConsent }) {
+// Tvar odvozený jen z polí, která BillingForm čte/zapisuje (checkout billing
+// blok); jediný volající (Checkout.jsx) je .jsx (checkJs false, nekontrolováno).
+export interface BillingFormValue {
+  is_company?: boolean;
+  company_ico?: string;
+  company_name?: string;
+  company_dic?: string;
+  billing_street?: string;
+  billing_city?: string;
+  billing_zip?: string;
+}
+
+interface BillingFormProps {
+  value: BillingFormValue;
+  onChange: (value: BillingFormValue) => void;
+  marketingConsent?: boolean;
+  setMarketingConsent?: (checked: boolean) => void;
+}
+
+export function BillingForm({ value, onChange, marketingConsent, setMarketingConsent }: BillingFormProps) {
   const [icoError, setIcoError] = useState('');
   const [loading, setLoading] = useState(false);
   const [icoInput, setIcoInput] = useState(value.company_ico ?? '');
@@ -14,11 +34,11 @@ export function BillingForm({ value, onChange, marketingConsent, setMarketingCon
     setIcoInput(value.company_ico ?? '');
   }, [value.company_ico]);
 
-  function update(patch) {
+  function update(patch: Partial<BillingFormValue>) {
     onChange({ ...value, ...patch });
   }
 
-  async function handleIcoBlur(e) {
+  async function handleIcoBlur(e: FocusEvent<HTMLInputElement>) {
     const ico = e.target.value.trim();
     if (!ico) { setIcoError(''); return; }
     if (!isValidIco(ico)) {
@@ -98,6 +118,7 @@ export function BillingForm({ value, onChange, marketingConsent, setMarketingCon
               pattern="\d{8}"
               value={icoInput}
               onChange={(e) => { setIcoInput(e.target.value); update({ company_ico: e.target.value }); }}
+              // eslint-disable-next-line @typescript-eslint/no-misused-promises -- pre-existing JS async handler passed directly to onBlur; fire-and-forget is the original behavior
               onBlur={handleIcoBlur}
               required
               className={inputClass}

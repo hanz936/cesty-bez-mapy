@@ -1,4 +1,5 @@
 import { forwardRef } from 'react';
+import type { RefObject } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { NAV_ITEMS, BASE_PATH } from '../../../constants';
 import ImageWithFallback from '../../common/ImageWithFallback';
@@ -10,7 +11,14 @@ const MOBILE_MENU_CLASSES = {
   closed: 'opacity-0 -translate-y-4 scale-95 pointer-events-none',
 };
 
-const MobileMenu = forwardRef(({ isMenuOpen, onClose, firstMenuItemRef, onCartClick }, ref) => {
+interface MobileMenuProps {
+  isMenuOpen: boolean;
+  onClose: () => void;
+  firstMenuItemRef: RefObject<HTMLAnchorElement | null>;
+  onCartClick?: () => void;
+}
+
+const MobileMenu = forwardRef<HTMLDivElement, MobileMenuProps>(({ isMenuOpen, onClose, firstMenuItemRef, onCartClick }, ref) => {
   const location = useLocation();
 
   return (
@@ -31,6 +39,7 @@ const MobileMenu = forwardRef(({ isMenuOpen, onClose, firstMenuItemRef, onCartCl
                 to={item.href}
                 className="block px-6 py-4 text-black font-semibold text-base md:text-lg hover:bg-gray-50 active:bg-gray-100 hover:text-green-600 transition-colors duration-200 rounded-lg mx-2 focus:outline-none touch-manipulation focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
                 onClick={onClose}
+                // eslint-disable-next-line @typescript-eslint/no-empty-function -- pre-existing no-op touch handler (iOS Safari :active/touch workaround), preserved as-is
                 onTouchStart={() => {}}
                 role="menuitem"
                 aria-current={location.pathname === item.href ? "page" : undefined}
@@ -57,6 +66,7 @@ const MobileMenu = forwardRef(({ isMenuOpen, onClose, firstMenuItemRef, onCartCl
               aria-label="Sleduj mě na Instagramu @cestybezmapy"
               className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors duration-200 rounded-lg mx-2 focus:outline-none touch-manipulation focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
               onClick={onClose}
+              // eslint-disable-next-line @typescript-eslint/no-empty-function -- pre-existing no-op touch handler (iOS Safari :active/touch workaround), preserved as-is
               onTouchStart={() => {}}
               role="menuitem"
             >

@@ -11,15 +11,62 @@
 // ================================================
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
-const CartContext = createContext(null);
+export interface CartItem {
+  id: string;
+  title: string;
+  price: number;
+  image: string | null;
+  alt: string;
+  duration: string;
+  slug: string;
+  quantity: number;
+  customItineraryRequestId: string | null;
+}
+
+// Vstup do addToCart: čte se z produktu (Supabase products řádek nebo custom
+// itinerary request), který je vždy naplněn z .jsx volajících (checkJs false,
+// nekontrolováno) — tvar je proto self-konzistentní odvozený jen z polí, která
+// addToCart skutečně čte, ne z reálného zdrojového typu produktu.
+// `image` je NEPOVINNÉ pole typované `string | null` (ne volitelné/`?`) tak, aby
+// `product.image_url || product.image` (ř. níže) vyšlo přesně `string | null`
+// (bez `undefined`) — viz CartItem.image.
+interface AddToCartInput {
+  id: string;
+  title: string;
+  price: number;
+  image_url?: string | null;
+  image: string | null;
+  alt?: string;
+  duration?: string;
+  slug: string;
+  customItineraryRequestId?: string | null;
+}
+
+export interface CartContextValue {
+  cartItems: CartItem[];
+  cartTotal: number;
+  itemCount: number;
+  isInitialized: boolean;
+  addToCart: (product: AddToCartInput) => boolean;
+  removeFromCart: (productId: string) => void;
+  clearCart: () => void;
+  isInCart: (productId: string) => boolean;
+}
+
+const CartContext = createContext<CartContextValue | null>(null);
 
 // Klíč pro localStorage
 const CART_STORAGE_KEY = 'cbm_cart';
 
+interface CartProviderProps {
+  children: ReactNode;
+}
+
 // Provider komponenta
-export function CartProvider({ children }) {
-  const [cartItems, setCartItems] = useState([]);
+export function CartProvider({ children }: CartProviderProps) {
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Načtení košíku z localStorage při prvním renderování
@@ -27,7 +74,10 @@ export function CartProvider({ children }) {
     try {
       const savedCart = localStorage.getItem(CART_STORAGE_KEY);
       if (savedCart) {
-        const parsed = JSON.parse(savedCart);
+        // JSON.parse vrací `any`; obsah localStorage nemá běhový shape-check
+        // (jen Array.isArray) ani před migrací neměl — assertion odpovídá
+        // vzoru z ares.ts/blog.ts, běhové chování beze změny.
+        const parsed = JSON.parse(savedCart) as CartItem[];
         // Validace dat
         if (Array.isArray(parsed)) {
           setCartItems(parsed);
@@ -52,7 +102,8 @@ export function CartProvider({ children }) {
   }, [cartItems, isInitialized]);
 
   // Přidání produktu do košíku (max 1 ks od každého)
-  const addToCart = useCallback((product) => {
+  const addToCart = useCallback((product: AddToCartInput) => {
+    // eslint-disable-next-line @typescript-eslint/prefer-optional-chain -- pre-existing JS guard clause, byte-identical (behavior unchanged: `product` is call-time defensive, not statically nullable)
     if (!product || !product.id) {
       console.error('Nelze přidat produkt bez ID do košíku');
       return false;
@@ -69,15 +120,19 @@ export function CartProvider({ children }) {
       }
 
       // Přidáme nový produkt
-      const newItem = {
+      const newItem: CartItem = {
         id: product.id,
         title: product.title,
         price: product.price,
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: falls through image_url → image (both may be '' at runtime, not just null/undefined)
         image: product.image_url || product.image,
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string alt must fall through to the generated fallback
         alt: product.alt || `Průvodce: ${product.title}`,
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string duration must fall through to ''
         duration: product.duration || '',
         slug: product.slug,
         quantity: 1, // Vždy 1 ks
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string customItineraryRequestId must fall through to null
         customItineraryRequestId: product.customItineraryRequestId || null,
       };
 
@@ -89,7 +144,7 @@ export function CartProvider({ children }) {
   }, []);
 
   // Odebrání produktu z košíku
-  const removeFromCart = useCallback((productId) => {
+  const removeFromCart = useCallback((productId: string) => {
     setCartItems((prevItems) => {
       const newItems = prevItems.filter((item) => item.id !== productId);
       console.log('Odebírám z košíku, zbývá položek:', newItems.length);
@@ -104,7 +159,7 @@ export function CartProvider({ children }) {
   }, []);
 
   // Kontrola, zda je produkt v košíku
-  const isInCart = useCallback((productId) => {
+  const isInCart = useCallback((productId: string) => {
     return cartItems.some((item) => item.id === productId);
   }, [cartItems]);
 
@@ -139,7 +194,7 @@ export function CartProvider({ children }) {
 
 // Hook pro použití kontextu
 // eslint-disable-next-line react-refresh/only-export-components
-export function useCart() {
+export function useCart(): CartContextValue {
   const context = useContext(CartContext);
 
   if (!context) {

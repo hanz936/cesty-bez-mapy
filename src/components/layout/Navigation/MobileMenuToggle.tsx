@@ -10,7 +10,12 @@ const HAMBURGER_CLASSES = {
   bottomOpen: '-rotate-45 -translate-y-1/2',
 };
 
-const MobileMenuToggle = React.memo(forwardRef(({ isMenuOpen, onToggle }, ref) => {
+interface MobileMenuToggleProps {
+  isMenuOpen: boolean;
+  onToggle: () => void;
+}
+
+const MobileMenuToggle = React.memo(forwardRef<HTMLButtonElement, MobileMenuToggleProps>(({ isMenuOpen, onToggle }, ref) => {
   return (
     <button 
       ref={ref}

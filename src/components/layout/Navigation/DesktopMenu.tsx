@@ -3,7 +3,11 @@ import { NAV_ITEMS, BASE_PATH } from '../../../constants';
 import ImageWithFallback from '../../common/ImageWithFallback';
 import CartButton from '../../common/CartButton';
 
-const DesktopMenu = ({ onCartClick }) => {
+interface DesktopMenuProps {
+  onCartClick: () => void;
+}
+
+const DesktopMenu = ({ onCartClick }: DesktopMenuProps) => {
   const location = useLocation();
 
   return (

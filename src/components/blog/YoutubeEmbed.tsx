@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { extractYoutubeId } from '../../utils/blogContent';
 
+interface YoutubeEmbedProps {
+  videoId: string;
+}
+
 /** YouTube blok: lehký facade náhled, po kliknutí načte privacy-friendly iframe. */
-export default function YoutubeEmbed({ videoId }) {
+export default function YoutubeEmbed({ videoId }: YoutubeEmbedProps) {
   const id = extractYoutubeId(videoId);
   const [open, setOpen] = useState(false);
   if (!id) return null;

@@ -1,20 +1,33 @@
 import React from 'react';
+import type { ReactNode } from 'react';
 import Navigation from './Navigation';
 import Footer from './Footer';
 import { Button } from '../ui';
 import logger from '../../utils/logger';
 
-class LayoutErrorBoundary extends React.Component {
-  constructor(props) {
+interface LayoutErrorBoundaryProps {
+  children?: ReactNode;
+}
+
+interface LayoutErrorBoundaryState {
+  hasError: boolean;
+}
+
+class LayoutErrorBoundary extends React.Component<LayoutErrorBoundaryProps, LayoutErrorBoundaryState> {
+  // Type-only declaration (erased at compile time) so the original external
+  // `LayoutErrorBoundary.displayName = ...` assignment below type-checks unchanged.
+  declare static displayName: string;
+
+  constructor(props: LayoutErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError() {
+  static getDerivedStateFromError(): LayoutErrorBoundaryState {
     return { hasError: true };
   }
 
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     logger.error('Layout Error:', error, errorInfo);
   }
 
@@ -47,7 +60,13 @@ class LayoutErrorBoundary extends React.Component {
 
 LayoutErrorBoundary.displayName = 'LayoutErrorBoundary';
 
-const Layout = ({ children, className = '', ready }) => {
+interface LayoutProps {
+  children?: ReactNode;
+  className?: string;
+  ready?: boolean;
+}
+
+const Layout = ({ children, className = '', ready }: LayoutProps) => {
   return (
     <LayoutErrorBoundary>
       <div

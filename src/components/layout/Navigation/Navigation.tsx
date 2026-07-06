@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigation } from '../../../hooks';
 import logger from '../../../utils/logger';
 import Logo from './Logo';
@@ -7,17 +8,29 @@ import MobileMenu from './MobileMenu';
 import MobileMenuToggle from './MobileMenuToggle';
 import Cart from '../../common/Cart';
 
-class NavigationErrorBoundary extends React.Component {
-  constructor(props) {
+interface NavigationErrorBoundaryProps {
+  children?: ReactNode;
+}
+
+interface NavigationErrorBoundaryState {
+  hasError: boolean;
+}
+
+class NavigationErrorBoundary extends React.Component<NavigationErrorBoundaryProps, NavigationErrorBoundaryState> {
+  // Type-only declaration (erased at compile time) so the original external
+  // `NavigationErrorBoundary.displayName = ...` assignment below type-checks unchanged.
+  declare static displayName: string;
+
+  constructor(props: NavigationErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError() {
+  static getDerivedStateFromError(): NavigationErrorBoundaryState {
     return { hasError: true };
   }
 
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     logger.error('Navigation Error:', error, errorInfo);
   }
 

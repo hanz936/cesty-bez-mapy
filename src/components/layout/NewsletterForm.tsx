@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import type { FormEvent, ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import TurnstileField from '../ui/TurnstileField';
 import logger from '../../utils/logger';
@@ -7,14 +8,18 @@ import { ROUTES } from '../../constants';
 
 const PRIVACY_POLICY_VERSION = '2026-06-01';
 
-const NewsletterForm = ({ location = 'footer' }) => {
+interface NewsletterFormProps {
+  location?: string;
+}
+
+const NewsletterForm = ({ location = 'footer' }: NewsletterFormProps) => {
   const [email, setEmail] = useState('');
-  const [token, setToken] = useState(null);
+  const [token, setToken] = useState<string | null>(null);
   const [status, setStatus] = useState('idle'); // 'idle' | 'loading' | 'done' | 'error'
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleSubmit = useCallback(
-    async (e) => {
+    async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
 
       if (!email) {
@@ -46,7 +51,10 @@ const NewsletterForm = ({ location = 'footer' }) => {
         });
 
         if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
+          // Response.json() is typed `Promise<any>`; the endpoint has no published
+          // TS/OpenAPI types, so the result is asserted to the subset of fields this
+          // module reads (no runtime shape check existed before, none added now).
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
           logger.error('[NewsletterForm] subscribe-newsletter error', null, { status: res.status, data });
 
           if (res.status === 400 && data.error === 'invalid_email') {
@@ -100,6 +108,7 @@ const NewsletterForm = ({ location = 'footer' }) => {
       </div>
 
       <form
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises -- pre-existing JS async handler passed directly to onSubmit; fire-and-forget is the original behavior
         onSubmit={handleSubmit}
         aria-label="Přihlášení k odběru novinek"
         noValidate
@@ -116,7 +125,7 @@ const NewsletterForm = ({ location = 'footer' }) => {
             type="email"
             required
             value={email}
-            onChange={(e) => {
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
               setEmail(e.target.value);
               if (status === 'error') {
                 setStatus('idle');
