@@ -1,4 +1,4 @@
-import { ROUTES } from './routes.js';
+import { ROUTES } from './routes.ts';
 
 /**
  * Veřejné, indexovatelné statické routy (jediný zdroj pravdy pro prerender,

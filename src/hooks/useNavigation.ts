@@ -2,9 +2,9 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 
 export const useNavigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = useRef(null);
-  const buttonRef = useRef(null);
-  const firstMenuItemRef = useRef(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const firstMenuItemRef = useRef<HTMLAnchorElement>(null);
 
   const toggleMenu = useCallback(() => {
     setIsMenuOpen(prev => {
@@ -26,19 +26,19 @@ export const useNavigation = () => {
   }, []);
 
   useEffect(() => {
-    const handleKeyDown = (event) => {
+    const handleKeyDown = (event: KeyboardEvent) => {
       if (!isMenuOpen) return;
-      
+
       if (event.key === 'Escape') {
         closeMenu();
         return;
       }
-      
+
       if (event.key === 'Tab') {
         const menuElement = menuRef.current;
         if (!menuElement) return;
-        
-        const focusableElements = menuElement.querySelectorAll(
+
+        const focusableElements = menuElement.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
         );
         

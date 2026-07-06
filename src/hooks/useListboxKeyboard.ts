@@ -1,20 +1,31 @@
 import { useState, useCallback, useRef } from 'react';
+import type { KeyboardEvent } from 'react';
 
-export function useListboxKeyboard({ isOpen, setIsOpen, options, getOptionValue, value, onSelect, triggerRef }) {
+interface UseListboxKeyboardParams<T, V> {
+  isOpen: boolean;
+  setIsOpen: (isOpen: boolean) => void;
+  options: T[];
+  getOptionValue: (option: T) => V;
+  value: V;
+  onSelect: (option: T) => void;
+  triggerRef?: { current?: { focus?: () => void } | null } | null;
+}
+
+export function useListboxKeyboard<T, V>({ isOpen, setIsOpen, options, getOptionValue, value, onSelect, triggerRef }: UseListboxKeyboardParams<T, V>) {
   const currentIdx = options.findIndex((o) => getOptionValue(o) === value);
   const [activeIndex, setActiveIndex] = useState(currentIdx >= 0 ? currentIdx : 0);
-  const typeahead = useRef({ str: '', timer: null });
+  const typeahead = useRef<{ str: string; timer: ReturnType<typeof setTimeout> | null }>({ str: '', timer: null });
 
   const focusTrigger = useCallback(() => triggerRef?.current?.focus?.(), [triggerRef]);
 
   // commit = nastav hodnotu na options[idx] + zavři. BEZ návratu focusu (řeší volající dle klávesy).
-  const commit = useCallback((idx) => {
+  const commit = useCallback((idx: number) => {
     const opt = options[idx];
     if (opt !== undefined) onSelect(opt);
     setIsOpen(false);
   }, [options, onSelect, setIsOpen]);
 
-  const onKeyDown = useCallback((e) => {
+  const onKeyDown = useCallback((e: KeyboardEvent<HTMLElement>) => {
     const last = options.length - 1;
     const key = e.key;
 

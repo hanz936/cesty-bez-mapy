@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { PUBLIC_PAGES } from '../src/constants/publicRoutes.js';
+import { PUBLIC_PAGES } from '../src/constants/publicRoutes.ts';
 import { fetchBlogSlugs, fetchProductSlugs } from './contentSlugs.mjs';
 
 const SITE_URL = process.env.VITE_SITE_URL || 'https://www.cestybezmapy.cz';

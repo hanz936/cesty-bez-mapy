@@ -4,7 +4,7 @@ import * as Sentry from "@sentry/react";
 // Strip the query string from a URL. Our URLs can carry sensitive tokens
 // (Stripe `session_id` on the order-confirmation page, `preview_token` for blog
 // drafts), which would otherwise land in Sentry via request.url / breadcrumbs.
-function stripQuery(url) {
+function stripQuery(url: string | undefined): string | undefined {
   if (typeof url !== "string") return url;
   const i = url.indexOf("?");
   return i === -1 ? url : url.slice(0, i);
@@ -15,7 +15,7 @@ function stripQuery(url) {
 // breadcrumb URLs. Request headers and cookies are NOT the scrubber's job —
 // `sendDefaultPii: false` (below) already prevents the SDK from attaching them.
 // If code later calls Sentry.setExtra/setContext/setUser with PII, extend this.
-export function scrubPii(event) {
+export function scrubPii(event: Sentry.ErrorEvent): Sentry.ErrorEvent {
   if (event.user) {
     delete event.user.email;
     delete event.user.ip_address;
@@ -26,7 +26,7 @@ export function scrubPii(event) {
   }
   if (Array.isArray(event.breadcrumbs)) {
     for (const b of event.breadcrumbs) {
-      if (!b || !b.data) continue;
+      if (!b?.data) continue;
       if (typeof b.data.url === "string") b.data.url = stripQuery(b.data.url);
       if (typeof b.data.to === "string") b.data.to = stripQuery(b.data.to);
       if (typeof b.data.from === "string") b.data.from = stripQuery(b.data.from);
