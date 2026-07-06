@@ -1,7 +1,35 @@
 import { forwardRef, useState, useCallback, useRef, useEffect } from 'react';
+import type { ComponentProps } from 'react';
 import { useListboxKeyboard } from '../../hooks/useListboxKeyboard';
 
-const Dropdown = forwardRef(({
+// Options accepted as plain strings (TravelGuides.jsx sortOptions, Contact.jsx subjectOptions)
+// or {value,label} objects (Dropdown.test.jsx). The `option.value || option` / `option.label ||
+// option` duck-typing below has no runtime shape check — type assertions preserve the exact
+// existing expressions (ledgered; the object-fallback branch is never actually hit by real data).
+interface DropdownOptionObject {
+  value: string;
+  label?: string;
+}
+type DropdownOption = string | DropdownOptionObject;
+type DropdownSize = 'sm' | 'md';
+
+interface DropdownProps extends Omit<ComponentProps<'div'>, 'onChange'> {
+  label?: string;
+  error?: string;
+  required?: boolean;
+  size?: DropdownSize;
+  placeholder?: string;
+  value?: string;
+  onChange?: (event: { target: { value: string }; currentTarget: { value: string } }) => void;
+  options?: DropdownOption[];
+  disabled?: boolean;
+  showLabel?: boolean;
+  minWidth?: string;
+  fullWidth?: boolean;
+  closeOnSelect?: boolean;
+}
+
+const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(({
   label,
   error,
   required = false,
@@ -20,21 +48,24 @@ const Dropdown = forwardRef(({
   ...props
 }, ref) => {
   const [isOpen, setIsOpen] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: keep pre-existing JS behavior byte-identical
   const [selectedValue, setSelectedValue] = useState(value || '');
-  const dropdownRef = useRef(null);
-  const triggerRef = useRef(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement | null>(null);
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string id must fall through to the generated fallback (?? would keep '')
   const dropdownId = id || `dropdown-${Math.random().toString(36).substr(2, 9)}`;
   const labelId = `${dropdownId}-label`;
   const listboxId = `${dropdownId}-listbox`;
-  const optionId = (index) => `${dropdownId}-opt-${index}`;
+  const optionId = (index: number) => `${dropdownId}-opt-${index}`;
 
   // Find selected option
-  const selectedOption = options.find(option => (option.value || option) === selectedValue);
-  const displayText = selectedOption ? (selectedOption.label || selectedOption) : placeholder;
+  const selectedOption = options.find((option) => (((option as DropdownOptionObject).value || option) as string) === selectedValue);
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string label must fall through to the option value (?? would keep '')
+  const displayText = selectedOption ? (((selectedOption as DropdownOptionObject).label || selectedOption) as string) : placeholder;
 
   // Handle option selection
-  const handleOptionSelect = useCallback((option) => {
-    const optionValue = option.value || option;
+  const handleOptionSelect = useCallback((option: DropdownOption) => {
+    const optionValue = ((option as DropdownOptionObject).value || option) as string;
     setSelectedValue(optionValue);
 
     if (closeOnSelect) {
@@ -55,7 +86,7 @@ const Dropdown = forwardRef(({
     isOpen,
     setIsOpen,
     options,
-    getOptionValue: (o) => o.value ?? o,
+    getOptionValue: (o: DropdownOption) => (o as DropdownOptionObject).value ?? o,
     value: selectedValue,
     onSelect: handleOptionSelect,
     triggerRef,
@@ -67,7 +98,7 @@ const Dropdown = forwardRef(({
     setIsOpen(prev => {
       const next = !prev;
       if (next) {
-        const selectedIdx = options.findIndex((option) => (option.value ?? option) === selectedValue);
+        const selectedIdx = options.findIndex((option) => ((option as DropdownOptionObject).value ?? option) === selectedValue);
         setActiveIndex(selectedIdx >= 0 ? selectedIdx : 0);
       }
       return next;
@@ -76,8 +107,8 @@ const Dropdown = forwardRef(({
 
   // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -181,8 +212,9 @@ const Dropdown = forwardRef(({
           >
             {options.length > 0 ? (
               options.map((option, index) => {
-                const optionValue = option.value || option;
-                const optionLabel = option.label || option;
+                const optionValue = ((option as DropdownOptionObject).value || option) as string;
+                // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string label must fall through to the option value (?? would keep '')
+                const optionLabel = ((option as DropdownOptionObject).label || option) as string;
                 const isSelected = optionValue === selectedValue;
                 const isActive = index === activeIndex;
 

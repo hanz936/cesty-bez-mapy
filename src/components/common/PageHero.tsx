@@ -1,17 +1,30 @@
 import React, { useState, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import logger from '../../utils/logger';
 
-class PageHeroErrorBoundary extends React.Component {
-  constructor(props) {
+interface PageHeroErrorBoundaryProps {
+  children?: ReactNode;
+}
+
+interface PageHeroErrorBoundaryState {
+  hasError: boolean;
+}
+
+class PageHeroErrorBoundary extends React.Component<PageHeroErrorBoundaryProps, PageHeroErrorBoundaryState> {
+  // Type-only declaration (erased at compile time) so the original external
+  // `PageHeroErrorBoundary.displayName = ...` assignment below type-checks unchanged.
+  declare static displayName: string;
+
+  constructor(props: PageHeroErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError() {
+  static getDerivedStateFromError(): PageHeroErrorBoundaryState {
     return { hasError: true };
   }
 
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     logger.error('PageHero Error:', error, errorInfo);
   }
 
@@ -35,6 +48,15 @@ class PageHeroErrorBoundary extends React.Component {
 
 PageHeroErrorBoundary.displayName = 'PageHeroErrorBoundary';
 
+interface PageHeroProps {
+  backgroundImage: string;
+  title: string;
+  subtitle?: string;
+  overlayOpacity?: number;
+  className?: string;
+  ariaLabel?: string;
+}
+
 const PageHero = React.memo(({
   backgroundImage,
   title,
@@ -42,7 +64,7 @@ const PageHero = React.memo(({
   overlayOpacity = 0.5,
   className = '',
   ariaLabel = 'Hero sekce s názvem stránky'
-}) => {
+}: PageHeroProps) => {
   const [imageError, setImageError] = useState(false);
 
   const handleImageError = useCallback(() => {
@@ -93,7 +115,7 @@ const PageHero = React.memo(({
 
 PageHero.displayName = 'PageHero';
 
-const PageHeroWithErrorBoundary = React.memo((props) => (
+const PageHeroWithErrorBoundary = React.memo((props: PageHeroProps) => (
   <PageHeroErrorBoundary>
     <PageHero {...props} />
   </PageHeroErrorBoundary>

@@ -1,14 +1,21 @@
 import { forwardRef } from 'react';
+import type { ComponentProps } from 'react';
 
-const TextArea = forwardRef(({ 
-  label, 
-  error, 
-  required = false, 
-  className = "", 
+interface TextAreaProps extends ComponentProps<'textarea'> {
+  label?: string;
+  error?: string;
+}
+
+const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(({
+  label,
+  error,
+  required = false,
+  className = "",
   id,
   rows = 4,
-  ...props 
+  ...props
 }, ref) => {
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string id must fall through to the generated fallback (?? would keep '')
   const textareaId = id || `textarea-${Math.random().toString(36).substr(2, 9)}`;
   const errorId = `${textareaId}-error`;
 

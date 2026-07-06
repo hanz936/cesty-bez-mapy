@@ -1,8 +1,15 @@
 import { Turnstile } from '@marsidev/react-turnstile';
+import type { TurnstileProps } from '@marsidev/react-turnstile';
 
 const SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
-const TurnstileField = ({ onVerify, onExpire, onError }) => {
+interface TurnstileFieldProps {
+  onVerify: TurnstileProps['onSuccess'];
+  onExpire?: TurnstileProps['onExpire'];
+  onError?: TurnstileProps['onError'];
+}
+
+const TurnstileField = ({ onVerify, onExpire, onError }: TurnstileFieldProps) => {
   if (!SITE_KEY) {
     if (import.meta.env.DEV) {
       console.warn(

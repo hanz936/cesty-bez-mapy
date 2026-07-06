@@ -1,4 +1,9 @@
 import React from 'react';
+import type { ComponentProps } from 'react';
+
+interface CustomRadioProps extends ComponentProps<'input'> {
+  children?: React.ReactNode;
+}
 
 const CustomRadio = React.memo(({
   id,
@@ -10,8 +15,8 @@ const CustomRadio = React.memo(({
   className = '',
   children,
   ...props
-}) => {
-  const handleChange = (e) => {
+}: CustomRadioProps) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (onChange) {
       onChange(e);
     }

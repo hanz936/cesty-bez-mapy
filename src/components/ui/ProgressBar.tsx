@@ -1,6 +1,13 @@
 import React from 'react';
 
-const ProgressBar = React.memo(({ currentStep, totalSteps, onStepClick }) => {
+interface ProgressBarProps {
+  currentStep: number;
+  totalSteps: number;
+  stepLabels?: string[];
+  onStepClick?: (stepNumber: number) => void;
+}
+
+const ProgressBar = React.memo(({ currentStep, totalSteps, onStepClick }: ProgressBarProps) => {
   // Správný výpočet: mezi kroky jsou mezery, takže (aktuální-1) / (celkem-1)
   const progressPercentage = totalSteps > 1 ? ((currentStep - 1) / (totalSteps - 1)) * 100 : 0;
 

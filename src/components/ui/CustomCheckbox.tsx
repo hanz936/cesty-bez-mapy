@@ -1,4 +1,9 @@
 import React from 'react';
+import type { ComponentProps } from 'react';
+
+interface CustomCheckboxProps extends ComponentProps<'input'> {
+  children?: React.ReactNode;
+}
 
 const CustomCheckbox = React.memo(({
   id,
@@ -10,8 +15,8 @@ const CustomCheckbox = React.memo(({
   className = '',
   children,
   ...props
-}) => {
-  const handleChange = (e) => {
+}: CustomCheckboxProps) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (onChange) {
       onChange(e);
     }

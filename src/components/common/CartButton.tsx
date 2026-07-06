@@ -8,15 +8,27 @@ import React, { useState, useCallback } from 'react';
 import { BASE_PATH } from '../../constants';
 import { useCart } from '../../contexts';
 
-const CartButton = React.memo(({ onClick }) => {
-  const { itemCount } = useCart();
+interface CartButtonProps {
+  onClick?: () => void;
+  // Accepted at real call sites (DesktopMenu.jsx, MobileMenu.jsx) but not read here —
+  // itemCount comes from useCart() instead. Pre-existing dead prop, preserved as-is.
+  itemCount?: number;
+}
+
+// Type assertion: see identical CartContext.jsx `never`-inference note in Cart.tsx.
+interface CartContextValue {
+  itemCount: number;
+}
+
+const CartButton = React.memo(({ onClick }: CartButtonProps) => {
+  const { itemCount } = useCart() as CartContextValue;
   const [imageError, setImageError] = useState(false);
 
   const handleImageError = useCallback(() => {
     setImageError(true);
   }, []);
 
-  const handleClick = useCallback((e) => {
+  const handleClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     onClick?.();
   }, [onClick]);

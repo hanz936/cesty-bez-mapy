@@ -11,7 +11,24 @@ import { Button } from '../ui';
 import { BASE_PATH, ROUTES } from '../../constants';
 import { useCart } from '../../contexts';
 
-const CartItem = React.memo(({ item, onRemove }) => {
+interface CartItemData {
+  id: string;
+  title: string;
+  price: number;
+  image: string | null;
+  alt: string;
+  duration: string;
+  slug: string;
+  quantity: number;
+  customItineraryRequestId: string | null;
+}
+
+interface CartItemProps {
+  item: CartItemData;
+  onRemove: (itemId: string) => void;
+}
+
+const CartItem = React.memo(({ item, onRemove }: CartItemProps) => {
   const [imageError, setImageError] = useState(false);
 
   const handleImageError = useCallback(() => {
@@ -73,14 +90,31 @@ const CartItem = React.memo(({ item, onRemove }) => {
 
 CartItem.displayName = 'CartItem';
 
-const Cart = React.memo(({ isOpen, onClose }) => {
-  const { cartItems, cartTotal, itemCount, removeFromCart } = useCart();
-  const cartRef = useRef(null);
-  const previousFocusRef = useRef(null);
+interface CartProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+// Type assertion: CartContext.jsx (out of migration scope) does `createContext(null)` +
+// `useContext(...)` narrowed by `if (!context) throw` inside useCart() — TS infers the
+// post-throw return type as `never` (context: null narrows to never after the truthy check
+// fails), not the real provider value shape. Asserted to the actual shape below (derived from
+// CartContext.jsx's `value` object); no runtime check added, ledgered for CartContext's own migration.
+interface CartContextValue {
+  cartItems: CartItemData[];
+  cartTotal: number;
+  itemCount: number;
+  removeFromCart: (itemId: string) => void;
+}
+
+const Cart = React.memo(({ isOpen, onClose }: CartProps) => {
+  const { cartItems, cartTotal, itemCount, removeFromCart } = useCart() as CartContextValue;
+  const cartRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const navigate = useNavigate();
 
   // Odebrání položky z košíku
-  const handleRemoveItem = useCallback((itemId) => {
+  const handleRemoveItem = useCallback((itemId: string) => {
     removeFromCart(itemId);
   }, [removeFromCart]);
 
@@ -94,6 +128,7 @@ const Cart = React.memo(({ isOpen, onClose }) => {
 
   // Přechod na checkout stránku
   const handleCheckout = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- react-router NavigateFunction returns void | Promise<void>; fire-and-forget navigation is the pre-existing JS behavior
     navigate(ROUTES.CHECKOUT);
     onClose();
   }, [navigate, onClose]);
@@ -102,16 +137,18 @@ const Cart = React.memo(({ isOpen, onClose }) => {
   useEffect(() => {
     if (!isOpen) return;
 
-    previousFocusRef.current = document.activeElement;
+    // Type assertion: document.activeElement is `Element | null`; in practice it's always
+    // an HTMLElement (or null) here — no runtime shape check existed before, none added now.
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
 
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         handleClose();
       }
 
       // Focus trap
       if (e.key === 'Tab') {
-        const focusableElements = cartRef.current?.querySelectorAll(
+        const focusableElements = cartRef.current?.querySelectorAll<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
         );
 
@@ -134,7 +171,7 @@ const Cart = React.memo(({ isOpen, onClose }) => {
 
     // Focus na košík při otevření
     setTimeout(() => {
-      const closeButton = cartRef.current?.querySelector('button[aria-label*="Zavřít"]');
+      const closeButton = cartRef.current?.querySelector<HTMLElement>('button[aria-label*="Zavřít"]');
       closeButton?.focus();
     }, 100);
 
@@ -205,7 +242,7 @@ const Cart = React.memo(({ isOpen, onClose }) => {
           ) : (
             // Seznam položek
             <div className="px-6 py-4">
-              {cartItems.map((item) => (
+              {cartItems.map((item: CartItemData) => (
                 <CartItem
                   key={item.id}
                   item={item}

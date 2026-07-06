@@ -1,13 +1,20 @@
 import { forwardRef } from 'react';
+import type { ComponentProps } from 'react';
 
-const Input = forwardRef(({ 
-  label, 
-  error, 
-  required = false, 
-  className = "", 
+interface InputProps extends ComponentProps<'input'> {
+  label?: string;
+  error?: string;
+}
+
+const Input = forwardRef<HTMLInputElement, InputProps>(({
+  label,
+  error,
+  required = false,
+  className = "",
   id,
-  ...props 
+  ...props
 }, ref) => {
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string id must fall through to the generated fallback (?? would keep '')
   const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
   const errorId = `${inputId}-error`;
 

@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { BASE_PATH } from '../../constants';
 import logger from '../../utils/logger';
 
@@ -6,21 +7,33 @@ const CLASSES = {
   section: "relative h-[calc(100vh-80px)] xl:h-[calc(100vh-96px)] overflow-hidden w-full",
   background: "w-full h-full absolute inset-0 z-0",
   backgroundImg: "w-full h-full object-cover absolute inset-0 z-0",
-  video: "w-full h-full object-cover absolute inset-0 z-10", 
+  video: "w-full h-full object-cover absolute inset-0 z-10",
   content: "absolute inset-0 z-30 flex flex-col justify-end items-start px-6 sm:px-8 md:px-12 lg:px-16 xl:px-20 pb-8 sm:pb-12 md:pb-16 lg:pb-20",
 };
 
-class HeroErrorBoundary extends React.Component {
-  constructor(props) {
+interface HeroErrorBoundaryProps {
+  children?: ReactNode;
+}
+
+interface HeroErrorBoundaryState {
+  hasError: boolean;
+}
+
+class HeroErrorBoundary extends React.Component<HeroErrorBoundaryProps, HeroErrorBoundaryState> {
+  // Type-only declaration (erased at compile time) so the original external
+  // `HeroErrorBoundary.displayName = ...` assignment below type-checks unchanged.
+  declare static displayName: string;
+
+  constructor(props: HeroErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError() {
+  static getDerivedStateFromError(): HeroErrorBoundaryState {
     return { hasError: true };
   }
 
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     logger.error('Hero Error:', error, errorInfo);
   }
 

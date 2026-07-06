@@ -2,13 +2,29 @@ import React, { useState, useCallback } from 'react';
 import { Button } from './index';
 import ProgressBar from './ProgressBar';
 
+// Step shape derived from the only call site (CustomItineraryForm.jsx `steps` array):
+// { title, content } always present, `description` used conditionally below.
+interface MultiStepFormStep {
+  title: string;
+  description?: string;
+  content: React.ReactNode;
+}
+
+interface MultiStepFormProps {
+  steps: MultiStepFormStep[];
+  stepLabels?: string[];
+  onComplete?: () => void;
+  onStepChange?: (step: number) => void;
+  className?: string;
+}
+
 const MultiStepForm = React.memo(({
   steps,
   stepLabels = [],
   onComplete,
   onStepChange,
   className = ''
-}) => {
+}: MultiStepFormProps) => {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = steps.length;
 
@@ -41,7 +57,7 @@ const MultiStepForm = React.memo(({
     onComplete?.();
   }, [onComplete]);
 
-  const handleStepClick = useCallback((targetStep) => {
+  const handleStepClick = useCallback((targetStep: number) => {
     if (targetStep !== currentStep) {
       setCurrentStep(targetStep);
       onStepChange?.(targetStep);

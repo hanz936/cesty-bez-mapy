@@ -1,4 +1,14 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
+
+interface ReviewCardProps {
+  name: string;
+  rating: number;
+  text: string;
+  location: string;
+  source?: string;
+  date: string;
+  className?: string;
+}
 
 const ReviewCard = memo(({
   name,
@@ -7,9 +17,9 @@ const ReviewCard = memo(({
   location,
   date,
   className = ''
-}) => {
+}: ReviewCardProps) => {
   // Generate stars based on rating - more elegant, smaller
-  const renderStars = (rating) => {
+  const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, index) => {
       const starNumber = index + 1;
       const isFull = starNumber <= Math.floor(rating);

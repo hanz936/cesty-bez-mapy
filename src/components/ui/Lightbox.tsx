@@ -1,19 +1,35 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { RemoveScroll } from 'react-remove-scroll';
 
+interface LightboxImage {
+  src: string;
+  alt: string;
+}
+
+interface LightboxProps {
+  images: LightboxImage[];
+  isOpen: boolean;
+  initialIndex?: number;
+  onClose: () => void;
+  showCaption?: boolean;
+}
+
 // Sdílená fullscreen galerie (extrahováno z CustomItineraryDetail.jsx).
 // Vizuálně + behaviorálně identická s kanonickým modalem na všech 4 detail stránkách.
 // showCaption: opt-in pro stránky, jejichž v2 modal měl popisek aktivního obrázku + "X / Y" counter
 // (ProductDetail, ItalyRoadtripDetail, SalzburgItinerary). CustomItineraryDetail (v1) tento prop neposílá.
-const Lightbox = React.memo(({ images, isOpen, initialIndex = 0, onClose, showCaption = false }) => {
+const Lightbox = React.memo(({ images, isOpen, initialIndex = 0, onClose, showCaption = false }: LightboxProps) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const modalGalleryRef = useRef(null);
+  const modalGalleryRef = useRef<HTMLDivElement>(null);
   const modalTouchStartX = useRef(0);
   const modalTouchEndX = useRef(0);
-  const previousFocusRef = useRef(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  const handleImageError = useCallback((e) => {
-    e.target.style.display = 'none';
+  // Type assertion: React types `e.target` as generic `EventTarget` (only `e.currentTarget`
+  // is narrowed to the element type); onError fires directly on the <img>, so target is
+  // always the HTMLImageElement itself — no runtime shape check existed before, none added.
+  const handleImageError: React.ReactEventHandler<HTMLImageElement> = useCallback((e) => {
+    (e.target as HTMLImageElement).style.display = 'none';
   }, []);
 
   const scrollModalPrev = useCallback(() => {
@@ -30,11 +46,11 @@ const Lightbox = React.memo(({ images, isOpen, initialIndex = 0, onClose, showCa
     container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
   }, []);
 
-  const handleModalTouchStart = useCallback((e) => {
+  const handleModalTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     modalTouchStartX.current = e.touches[0].clientX;
   }, []);
 
-  const handleModalTouchEnd = useCallback((e) => {
+  const handleModalTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     modalTouchEndX.current = e.changedTouches[0].clientX;
     const diff = modalTouchStartX.current - modalTouchEndX.current;
 
@@ -68,7 +84,8 @@ const Lightbox = React.memo(({ images, isOpen, initialIndex = 0, onClose, showCa
   useEffect(() => {
     if (!isOpen) return;
 
-    previousFocusRef.current = document.activeElement;
+    // Type assertion: see previousFocusRef declaration above (same document.activeElement pattern).
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
     setCurrentIndex(initialIndex);
 
     setTimeout(() => {
@@ -77,7 +94,7 @@ const Lightbox = React.memo(({ images, isOpen, initialIndex = 0, onClose, showCa
         modalGalleryRef.current.scrollTo({ left: scrollAmount });
       }
 
-      const closeButton = document.querySelector('[role="dialog"] button[aria-label*="Zavřít"]');
+      const closeButton = document.querySelector<HTMLElement>('[role="dialog"] button[aria-label*="Zavřít"]');
       if (closeButton) {
         closeButton.focus();
       }
@@ -95,7 +112,7 @@ const Lightbox = React.memo(({ images, isOpen, initialIndex = 0, onClose, showCa
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         handleClose();
       }
@@ -109,7 +126,7 @@ const Lightbox = React.memo(({ images, isOpen, initialIndex = 0, onClose, showCa
       if (e.key === 'Tab') {
         const modal = document.querySelector('[role="dialog"]');
         if (modal) {
-          const focusableElements = modal.querySelectorAll(
+          const focusableElements = modal.querySelectorAll<HTMLElement>(
             'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
           );
           const firstElement = focusableElements[0];
