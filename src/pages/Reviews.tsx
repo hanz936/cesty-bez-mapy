@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
@@ -11,10 +11,12 @@ const Reviews = memo(() => {
   const navigate = useNavigate();
 
   const handleTravelGuidesClick = () => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- react-router NavigateFunction returns void | Promise<void>; fire-and-forget navigation is the pre-existing JS behavior
     navigate(ROUTES.TRAVEL_GUIDES);
   };
 
   const handleCustomItineraryClick = () => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- react-router NavigateFunction returns void | Promise<void>; fire-and-forget navigation is the pre-existing JS behavior
     navigate(ROUTES.CUSTOM_ITINERARY_DETAIL);
   };
 

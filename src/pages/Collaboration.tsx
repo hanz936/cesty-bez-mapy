@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
@@ -27,19 +28,32 @@ const CLASSES = {
 };
 
 
+interface CollaborationFormData {
+  name: string;
+  email: string;
+  message: string;
+}
+
+interface CollaborationFormErrors {
+  name?: string;
+  email?: string;
+  message?: string;
+  submit?: string;
+}
+
 const Collaboration = () => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CollaborationFormData>({
     name: '',
     email: '',
     message: ''
   });
-  const [formErrors, setFormErrors] = useState({});
+  const [formErrors, setFormErrors] = useState<CollaborationFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
-  const validateForm = useCallback((data) => {
-    const errors = {};
+  const validateForm = useCallback((data: CollaborationFormData): CollaborationFormErrors => {
+    const errors: CollaborationFormErrors = {};
     
     if (!data.name.trim()) {
       errors.name = 'Jméno je povinné';
@@ -60,27 +74,28 @@ const Collaboration = () => {
     return errors;
   }, []);
 
-  const handleInputChange = useCallback((e) => {
+  const handleInputChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name as keyof CollaborationFormData]: value
     }));
-    
+
     setFormErrors(prev => {
-      if (prev[name]) {
-        const { [name]: _, ...rest } = prev;
+      if (prev[name as keyof CollaborationFormErrors]) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- rest-omit pattern: `_` intentionally discarded to exclude that key from rest
+        const { [name as keyof CollaborationFormErrors]: _, ...rest } = prev;
         return rest;
       }
       return prev;
     });
-    
+
     if (submitSuccess) {
       setSubmitSuccess(false);
     }
   }, [submitSuccess]);
 
-  const handleSubmit = useCallback(async (e) => {
+  const handleSubmit = useCallback(async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const errors = validateForm(formData);
@@ -235,6 +250,7 @@ const Collaboration = () => {
               </div>
             )}
             
+            {/* eslint-disable-next-line @typescript-eslint/no-misused-promises -- async submit handler intentionally fire-and-forget from the DOM event, pre-existing JS behavior */}
             <Form onSubmit={handleSubmit} spacing="lg" noValidate>
               <Input
                 label="Jméno"

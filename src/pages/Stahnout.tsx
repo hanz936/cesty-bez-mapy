@@ -3,10 +3,40 @@ import { useSearchParams } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { supabase } from '../lib/supabase';
 
+interface DownloadItem {
+  product_id: string | null;
+  product_title: string;
+  download_url: string;
+}
+
+// get-download-url Edge Function has no published TS types on the client; the invoke()
+// response is asserted to the subset of fields this component reads (no runtime shape
+// change, same pattern as src/utils/ares.ts lookupIco / src/lib/blog.ts fetchPreviewPost).
+// `success`/`asset_type`/`downloads`/`error` are all optional here (rather than mirroring
+// the server's stricter GetDownloadResponse contract) to match the pre-existing defensive
+// `data?.x` accesses below, which already assumed no guaranteed shape.
+interface DownloadInvokeData {
+  success?: boolean;
+  asset_type?: 'product_pdf' | 'custom_itinerary_pdf';
+  downloads?: DownloadItem[];
+  error?: string;
+}
+
+interface DownloadReadyData {
+  success: true;
+  asset_type: 'product_pdf' | 'custom_itinerary_pdf';
+  downloads: DownloadItem[];
+}
+
+type DownloadState =
+  | { status: 'loading'; data: null; error: null }
+  | { status: 'error'; data: null; error: string }
+  | { status: 'ready'; data: DownloadReadyData; error: null };
+
 export default function Stahnout() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
-  const [state, setState] = useState({ status: 'loading', data: null, error: null });
+  const [state, setState] = useState<DownloadState>({ status: 'loading', data: null, error: null });
 
   useEffect(() => {
     if (!token) {
@@ -15,11 +45,12 @@ export default function Stahnout() {
     }
 
     let cancelled = false;
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget async IIFE inside useEffect (useEffect callbacks can't be async)
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('get-download-url', {
+        const { data, error } = (await supabase.functions.invoke('get-download-url', {
           body: { token },
-        });
+        })) as { data: DownloadInvokeData | null; error: { message?: string } | null };
 
         if (cancelled) return;
 
@@ -27,6 +58,7 @@ export default function Stahnout() {
           setState({
             status: 'error',
             data: null,
+            // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string message must fall through to fallback (?? would change behavior)
             error: error.message || 'Nepodařilo se načíst odkaz ke stažení.',
           });
           return;
@@ -36,15 +68,25 @@ export default function Stahnout() {
           setState({
             status: 'error',
             data: null,
+            // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string message must fall through to fallback (?? would change behavior)
             error: data?.error || 'Tento odkaz nelze použít. Pokud potřebuješ pomoc, napiš na cestybezmapy@gmail.com.',
           });
           return;
         }
 
-        setState({ status: 'ready', data, error: null });
+        // By this point `data.success`/`data.downloads.length` have been verified truthy
+        // above; TS control-flow narrowing doesn't propagate through the optional-chained
+        // guard, so the already-validated shape is asserted here (no new runtime check).
+        setState({ status: 'ready', data: data as DownloadReadyData, error: null });
       } catch (err) {
         if (!cancelled) {
-          setState({ status: 'error', data: null, error: err?.message || 'Něco se pokazilo.' });
+          const fnErr = err as { message?: string } | null | undefined;
+          setState({
+            status: 'error',
+            data: null,
+            // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string message must fall through to fallback (?? would change behavior)
+            error: fnErr?.message || 'Něco se pokazilo.',
+          });
         }
       }
     })();
@@ -58,7 +100,7 @@ export default function Stahnout() {
     ? 'Tvůj individuální itinerář'
     : 'Tvé průvodce';
 
-  function handleDownload(url) {
+  function handleDownload(url: string) {
     window.open(url, '_blank');
   }
 

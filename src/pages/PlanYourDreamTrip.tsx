@@ -59,10 +59,12 @@ const PlanYourDreamTrip = () => {
   }, []);
 
   const handleCtaClick = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- react-router NavigateFunction returns void | Promise<void>; fire-and-forget navigation is the pre-existing JS behavior
     navigate(ROUTES.INSPIRATION);
   }, [navigate]);
 
   const handleFreeSampleClick = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- react-router NavigateFunction returns void | Promise<void>; fire-and-forget navigation is the pre-existing JS behavior
     navigate(ROUTES.SALZBURG_ITINERARY);
   }, [navigate]);
 

@@ -7,7 +7,14 @@ import SeoTags from '../components/common/SeoTags';
 import { buildPageMeta } from '../utils/pageSeo';
 import { BASE_PATH, ROUTES } from '../constants';
 
-const FAQ_DATA = [
+interface FAQEntry {
+  id: number;
+  question: string;
+  answer: string;
+  isSalzburgCTA?: boolean;
+}
+
+const FAQ_DATA: FAQEntry[] = [
   {
     id: 1,
     question: 'V jakém formátu dostanu itinerář?',
@@ -92,7 +99,15 @@ const FAQ_DATA = [
 ];
 
 
-const FAQItem = ({ item, index, isOpen, onToggle, onSalzburgClick }) => {
+interface FAQItemProps {
+  item: FAQEntry;
+  index: number;
+  isOpen: boolean;
+  onToggle: () => void;
+  onSalzburgClick: () => void;
+}
+
+const FAQItem = ({ item, index, isOpen, onToggle, onSalzburgClick }: FAQItemProps) => {
   const panelId = `faq-panel-${index}`;
   return (
     <div className="last:border-b-0 group">
@@ -165,14 +180,15 @@ const FAQItem = ({ item, index, isOpen, onToggle, onSalzburgClick }) => {
 };
 
 const FAQ = () => {
-  const [openItem, setOpenItem] = useState(1); // První položka otevřená
+  const [openItem, setOpenItem] = useState<number | null>(1); // První položka otevřená
   const navigate = useNavigate();
 
-  const toggleItem = useCallback((id) => {
+  const toggleItem = useCallback((id: number) => {
     setOpenItem(prev => prev === id ? null : id);
   }, []);
 
   const handleSalzburgClick = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- react-router NavigateFunction returns void | Promise<void>; fire-and-forget navigation is the pre-existing JS behavior
     navigate(ROUTES.SALZBURG_ITINERARY);
   }, [navigate]);
 

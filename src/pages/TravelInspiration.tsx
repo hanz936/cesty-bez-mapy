@@ -7,7 +7,15 @@ import { buildPageMeta } from '../utils/pageSeo';
 import { BASE_PATH, ROUTES } from '../constants';
 import { fetchPublishedPosts, fetchTags, tagNameMap } from '../lib/blog';
 
-const BlogCard = ({ post, tagNames }) => {
+type PublishedPost = Awaited<ReturnType<typeof fetchPublishedPosts>>[number];
+type BlogTag = Awaited<ReturnType<typeof fetchTags>>[number];
+
+interface BlogCardProps {
+  post: PublishedPost;
+  tagNames: (string | undefined)[];
+}
+
+const BlogCard = ({ post, tagNames }: BlogCardProps) => {
   const [imageError, setImageError] = useState(false);
   return (
     <Link
@@ -53,14 +61,15 @@ const BlogCard = ({ post, tagNames }) => {
 BlogCard.displayName = 'BlogCard';
 
 const TravelInspiration = () => {
-  const [posts, setPosts] = useState([]);
-  const [tags, setTags] = useState([]);
-  const [activeTag, setActiveTag] = useState(null); // tag id nebo null
+  const [posts, setPosts] = useState<PublishedPost[]>([]);
+  const [tags, setTags] = useState<BlogTag[]>([]);
+  const [activeTag, setActiveTag] = useState<string | null>(null); // tag id nebo null
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget async IIFE inside useEffect (useEffect callbacks can't be async)
     (async () => {
       try {
         setLoading(true);
@@ -84,17 +93,20 @@ const TravelInspiration = () => {
 
   // Zobrazíme jen tagy, které mají aspoň jeden publikovaný článek.
   const usedTags = useMemo(() => {
-    const used = new Set();
+    const used = new Set<string>();
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' kept unchanged (tag_ids is never falsy other than null; equivalent to ??, not rewritten per convention)
     posts.forEach((p) => (p.tag_ids || []).forEach((id) => used.add(id)));
     return tags.filter((t) => used.has(t.id));
   }, [posts, tags]);
 
   const visiblePosts = useMemo(
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' kept unchanged (tag_ids is never falsy other than null; equivalent to ??, not rewritten per convention)
     () => (activeTag ? posts.filter((p) => (p.tag_ids || []).includes(activeTag)) : posts),
     [posts, activeTag],
   );
 
-  const tagNamesFor = (post) =>
+  const tagNamesFor = (post: PublishedPost) =>
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' kept unchanged (tag_ids is never falsy other than null; equivalent to ??, not rewritten per convention)
     (post.tag_ids || []).map((id) => tagNameById.get(id)).filter(Boolean);
 
   return (

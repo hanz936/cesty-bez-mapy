@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import type { FormEvent } from 'react';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
@@ -7,8 +8,23 @@ import SeoTags from '../components/common/SeoTags';
 import { buildPageMeta } from '../utils/pageSeo';
 import { BASE_PATH, ROUTES } from '../constants';
 
+interface ContactFormData {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}
+
+interface ContactFormErrors {
+  name?: string;
+  email?: string;
+  subject?: string;
+  message?: string;
+  submit?: string;
+}
+
 const Contact = () => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ContactFormData>({
     name: '',
     email: '',
     subject: 'Obecný dotaz',
@@ -16,8 +32,8 @@ const Contact = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [captchaToken, setCaptchaToken] = useState(null);
+  const [errors, setErrors] = useState<ContactFormErrors>({});
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   const subjectOptions = [
     'Obecný dotaz',
@@ -26,8 +42,8 @@ const Contact = () => {
     'Jiné'
   ];
 
-  const validateForm = useCallback(() => {
-    const newErrors = {};
+  const validateForm = useCallback((): ContactFormErrors => {
+    const newErrors: ContactFormErrors = {};
     
     if (!formData.name.trim()) {
       newErrors.name = 'Jméno je povinné';
@@ -48,7 +64,7 @@ const Contact = () => {
     return newErrors;
   }, [formData]);
 
-  const handleSubmit = useCallback(async (e) => {
+  const handleSubmit = useCallback(async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const newErrors = validateForm();
@@ -84,7 +100,10 @@ const Contact = () => {
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        // submit-contact-form Edge Function has no published TS types on the client; the
+        // response is asserted to the subset of fields this handler reads (no runtime shape
+        // change, same pattern as src/utils/ares.ts lookupIco / src/lib/blog.ts fetchPreviewPost).
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
         if (res.status === 403) {
           setErrors({ submit: 'Bezpečnostní ověření selhalo. Obnov stránku a zkus to znovu.' });
         } else if (res.status === 503) {
@@ -106,7 +125,7 @@ const Contact = () => {
     }
   }, [validateForm, formData, captchaToken]);
 
-  const handleInputChange = useCallback((field, value) => {
+  const handleInputChange = useCallback((field: keyof ContactFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
@@ -219,6 +238,7 @@ const Contact = () => {
 
             {/* Pravá strana - Kontaktní formulář */}
             <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6 md:p-8">
+              {/* eslint-disable-next-line @typescript-eslint/no-misused-promises -- async submit handler intentionally fire-and-forget from the DOM event, pre-existing JS behavior */}
               <Form onSubmit={handleSubmit} spacing="md">
 
                 <Input
