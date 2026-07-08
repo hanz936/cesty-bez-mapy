@@ -9,13 +9,19 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button, TurnstileField } from '../components/ui';
 import { BillingForm } from '../components/cart/BillingForm.jsx';
+import type { BillingFormValue } from '../components/cart/BillingForm.jsx';
 import { BASE_PATH, ROUTES } from '../constants';
 import { useCart } from '../contexts';
+import type { CartItem } from '../contexts';
 import { supabase } from '../lib/supabase';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 
+interface CheckoutItemProps {
+  item: CartItem;
+}
+
 // Komponenta pro položku v checkoutu
-const CheckoutItem = React.memo(({ item }) => {
+const CheckoutItem = React.memo(({ item }: CheckoutItemProps) => {
   const [imageError, setImageError] = useState(false);
 
   const handleImageError = useCallback(() => {
@@ -77,9 +83,9 @@ const Checkout = React.memo(() => {
   const navigate = useNavigate();
   const { cartItems, cartTotal, itemCount } = useCart();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState(null);
-  const [captchaToken, setCaptchaToken] = useState(null);
-  const [billing, setBilling] = useState({ is_company: false });
+  const [error, setError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [billing, setBilling] = useState<BillingFormValue>({ is_company: false });
   const [marketingConsent, setMarketingConsent] = useState(false);
 
   // Automatické poescrollování na vrchol při načtení stránky
@@ -90,12 +96,14 @@ const Checkout = React.memo(() => {
   // Redirect na průvodce pokud je košík prázdný
   useEffect(() => {
     if (cartItems.length === 0) {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget navigation (react-router NavigateFunction returns void | Promise<void>)
       navigate(ROUTES.TRAVEL_GUIDES);
     }
   }, [cartItems.length, navigate]);
 
   // Zpět na průvodce
   const handleBackToShop = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget navigation (react-router NavigateFunction returns void | Promise<void>)
     navigate(ROUTES.TRAVEL_GUIDES);
   }, [navigate]);
 
@@ -107,7 +115,7 @@ const Checkout = React.memo(() => {
 
     try {
       // Přihlášení anonymního uživatele pokud není přihlášen
-      let userId = null;
+      let userId: string | null | undefined = null;
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
@@ -133,6 +141,7 @@ const Checkout = React.memo(() => {
       const lineItems = cartItems.map(item => ({
         product_id: item.id,
         quantity: item.quantity || 1,
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string customItineraryRequestId must fall through to null (?? would keep '')
         custom_itinerary_request_id: item.customItineraryRequestId || null,
       }));
 
@@ -142,7 +151,7 @@ const Checkout = React.memo(() => {
       const cancelUrl = `${baseUrl}${ROUTES.CHECKOUT}`;
 
       // Volání Edge Function pro vytvoření Checkout Session
-      const { data, error: fnError } = await supabase.functions.invoke('create-checkout-session', {
+      const { data, error: fnError } = (await supabase.functions.invoke('create-checkout-session', {
         body: {
           line_items: lineItems,
           success_url: successUrl,
@@ -152,9 +161,10 @@ const Checkout = React.memo(() => {
           marketing_consent: marketingConsent,
           privacy_policy_version: PRIVACY_POLICY_VERSION,
         },
-      });
+      })) as { data: { url?: string } | null; error: { message?: string } | null };
 
       if (fnError) {
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string message must fall through to fallback (?? would change behavior)
         throw new Error(fnError.message || 'Nepodařilo se vytvořit platební session');
       }
 
@@ -167,7 +177,8 @@ const Checkout = React.memo(() => {
 
     } catch (err) {
       console.error('Checkout error:', err);
-      setError(err.message || 'Nastala chyba při zpracování platby. Zkus to prosím znovu.');
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string message must fall through to fallback (?? would change behavior)
+      setError((err as { message?: string }).message || 'Nastala chyba při zpracování platby. Zkus to prosím znovu.');
       setIsProcessing(false);
     }
   }, [cartItems, captchaToken, billing, marketingConsent, itemCount, cartTotal]);
@@ -306,6 +317,7 @@ const Checkout = React.memo(() => {
 
               {/* Platební tlačítko */}
               <Button
+                // eslint-disable-next-line @typescript-eslint/no-misused-promises -- pre-existing async handler passed directly to onClick; fire-and-forget is the original behavior
                 onClick={handleCheckout}
                 variant="green"
                 size="lg"

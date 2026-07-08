@@ -1,21 +1,59 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui';
 import { ROUTES } from '../constants';
 import { supabase } from '../lib/supabase';
 import { useCart } from '../contexts';
+import type { Tables } from '../types/database.types';
+
+// `custom_itinerary_requests.form_data` is a `Json` DB column; the real shape written by
+// CustomItineraryForm.jsx's `requestData.form_data` object literal (the only writer) is
+// asserted here (fields derived 1:1 from that literal) rather than typed as `Json` — no
+// runtime shape check existed before, none added.
+interface CustomItineraryFormData {
+  vacation_type?: string[];
+  vacation_type_other?: string | null;
+  duration?: string | null;
+  custom_duration?: number | null;
+  travel_group?: string | null;
+  family_details?: string | null;
+  friends_count?: string | null;
+  preferred_term?: string[];
+  specific_term?: string | null;
+  budget_category?: string | null;
+  budget_amount?: string | null;
+  transportation?: string[];
+  transportation_other?: string | null;
+  specific_destination?: string | null;
+  open_to_suggestions?: string | null;
+  preferred_continents?: string | null;
+  climate_preferences?: string | null;
+  culture_vs_nature?: string | null;
+  specific_factors?: string | null;
+  main_interests?: string | null;
+  specific_activities?: string | null;
+  accommodation_requirements?: string | null;
+  dining_preferences?: string | null;
+  organized_tours?: string | null;
+  health_restrictions?: string | null;
+  travel_with_pet?: string | null;
+  additional_info?: string | null;
+}
+
+type CustomItineraryRequestRow = Tables<'custom_itinerary_requests'>;
+type ItineraryProduct = Pick<Tables<'products'>, 'id' | 'title' | 'price' | 'slug' | 'stripe_price_id' | 'image_url' | 'duration'>;
 
 const CustomItineraryPreview = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart, removeFromCart, isInCart } = useCart();
-  const [request, setRequest] = useState(null);
+  const [request, setRequest] = useState<CustomItineraryRequestRow | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [product, setProduct] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [product, setProduct] = useState<ItineraryProduct | null>(null);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
-  const [cartError, setCartError] = useState(null);
+  const [cartError, setCartError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchRequest = async () => {
@@ -24,7 +62,10 @@ const CustomItineraryPreview = () => {
         const { data, error: fetchError } = await supabase
           .from('custom_itinerary_requests')
           .select('*')
-          .eq('id', id)
+          // `id` from useParams() is `string | undefined`; the `if (id) fetchRequest()` guard
+          // below already ensures this only runs when `id` is a real string — asserted rather
+          // than adding a new guard here, no runtime change.
+          .eq('id', id!)
           .single();
 
         if (fetchError) {
@@ -44,6 +85,7 @@ const CustomItineraryPreview = () => {
     };
 
     if (id) {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget async function call inside useEffect (useEffect callbacks can't be async)
       fetchRequest();
     } else {
       setError('Chybí ID požadavku.');
@@ -63,6 +105,7 @@ const CustomItineraryPreview = () => {
         .single();
       setProduct(data);
     };
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget async function call inside useEffect (useEffect callbacks can't be async)
     fetchProduct();
   }, []);
 
@@ -70,6 +113,7 @@ const CustomItineraryPreview = () => {
     window.print();
   };
 
+  // eslint-disable-next-line @typescript-eslint/require-await -- pre-existing async function with no await inside (byte-identical, not fixed)
   const handleAddToCart = async () => {
     setIsAddingToCart(true);
     setCartError(null);
@@ -94,17 +138,23 @@ const CustomItineraryPreview = () => {
       }
 
       // Přidat do košíku s novým request ID
+      // Type assertion: `product` (DB row Pick) has no `image` field (only `image_url`) —
+      // addToCart's parameter type requires one; the real object spread here never had that
+      // key at runtime (product.image was always `undefined`, addToCart's internal
+      // `image_url || image` fallback already handles that), so it is asserted rather than
+      // adding a new `image` key that doesn't exist on the source data — no runtime change.
       addToCart({
         ...product,
         customItineraryRequestId: request.id
-      });
+      } as unknown as Parameters<typeof addToCart>[0]);
 
       // Přesměrovat na checkout
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget navigation (react-router NavigateFunction returns void | Promise<void>)
       navigate(ROUTES.CHECKOUT);
 
     } catch (err) {
       console.error('Error adding to cart:', err);
-      setCartError(err.message);
+      setCartError((err as { message: string }).message);
     } finally {
       setIsAddingToCart(false);
     }
@@ -136,6 +186,7 @@ const CustomItineraryPreview = () => {
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Něco se pokazilo</h1>
             <p className="text-gray-600 mb-6">{error}</p>
             <Button
+              // eslint-disable-next-line @typescript-eslint/no-misused-promises -- pre-existing inline arrow returning a fire-and-forget navigate() call into a void-typed onClick slot
               onClick={() => navigate(ROUTES.CUSTOM_ITINERARY_DETAIL)}
               variant="green"
               size="md"
@@ -149,7 +200,7 @@ const CustomItineraryPreview = () => {
   }
 
   // Destructure form_data for easier access
-  const formData = request.form_data || {};
+  const formData = (request.form_data as CustomItineraryFormData) || {};
 
   return (
     <Layout>
@@ -158,6 +209,7 @@ const CustomItineraryPreview = () => {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row gap-3 justify-between items-center">
             <button
+              // eslint-disable-next-line @typescript-eslint/no-misused-promises -- pre-existing inline arrow returning a fire-and-forget navigate() call into a void-typed onClick slot
               onClick={() => navigate(ROUTES.CUSTOM_ITINERARY_DETAIL)}
               className="text-sm text-gray-600 hover:text-green-700 transition-colors flex items-center"
             >
@@ -178,6 +230,7 @@ const CustomItineraryPreview = () => {
                 Vytisknout / Uložit PDF
               </Button>
               <Button
+                // eslint-disable-next-line @typescript-eslint/no-misused-promises -- pre-existing async handler passed directly to onClick; fire-and-forget is the original behavior
                 onClick={handleAddToCart}
                 variant="green"
                 size="md"

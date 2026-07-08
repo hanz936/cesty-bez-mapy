@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import type { ReactEventHandler } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui';
@@ -9,18 +10,42 @@ import { useCart } from '../contexts';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import SeoTags from '../components/common/SeoTags';
 import { buildProductMeta } from '../utils/productSeo';
+import type { Tables } from '../types/database.types';
+
+type ProductDetailRow = Pick<
+  Tables<'products'>,
+  | 'id' | 'title' | 'description' | 'price' | 'slug' | 'image_url'
+  | 'detail_title' | 'hero_subtitle'
+  | 'hero_line_1' | 'hero_line_2' | 'hero_line_3' | 'hero_line_4'
+  | 'budget_level'
+  | 'spring_description' | 'summer_description' | 'autumn_description' | 'winter_description'
+  | 'gallery_images'
+>;
+
+// `gallery_images` je DB sloupec typu `Json`; reálná data jsou pole `{src, alt}` objektů (viz
+// fallback objekt níže, který má stejný tvar) — asserted, ne `Json`, žádná runtime kontrola tvaru
+// dřív neexistovala, žádná nepřidána.
+interface GalleryImage {
+  src: string;
+  alt: string;
+}
+
+// `SEASONS` (src/constants/seasons.ts) má `dbField: string` (bez `as const`) — dynamické
+// indexování `product[season.dbField as SeasonDescriptionField]` je zúženo na skutečné 4 sloupce, které `seasons.ts`
+// referencuje, žádná runtime změna.
+type SeasonDescriptionField = 'spring_description' | 'summer_description' | 'autumn_description' | 'winter_description';
 
 const ProductDetail = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { addToCart, isInCart } = useCart();
-  const [product, setProduct] = useState(null);
+  const [product, setProduct] = useState<ProductDetailRow | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
-  const galleryRef = useRef(null);
+  const galleryRef = useRef<HTMLDivElement>(null);
 
   // Fetch product data from Supabase
   useEffect(() => {
@@ -41,7 +66,10 @@ const ProductDetail = () => {
             spring_description, summer_description, autumn_description, winter_description,
             gallery_images
           `)
-          .eq('slug', slug)
+          // `slug` from useParams() is `string | undefined`; the `if (slug) fetchProduct()`
+          // guard below already ensures this only runs when `slug` is a real string —
+          // asserted rather than adding a new guard here, no runtime change.
+          .eq('slug', slug!)
           .eq('is_active', true)
           .eq('is_deleted', false)
           .single();
@@ -62,13 +90,15 @@ const ProductDetail = () => {
       } catch (err) {
         if (!isMounted) return;
         console.error('Error fetching product:', err);
-        setError(err.message || 'Nepodařilo se načíst produkt');
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string message must fall through to fallback (?? would change behavior)
+        setError((err as { message?: string }).message || 'Nepodařilo se načíst produkt');
       } finally {
         if (isMounted) setLoading(false);
       }
     }
 
     if (slug) {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget async function call inside useEffect (useEffect callbacks can't be async)
       fetchProduct();
     }
 
@@ -82,13 +112,15 @@ const ProductDetail = () => {
     window.scrollTo(0, 0);
   }, []);
 
-  const handleImageError = useCallback((e) => {
-    // Fallback to a placeholder or hide the broken image
-    e.target.style.display = 'none';
+  // Type assertion: React types `e.target` as generic `EventTarget` (only `e.currentTarget`
+  // is narrowed to the element type); onError fires directly on the <img>, so target is
+  // always the HTMLImageElement itself — no runtime shape check existed before, none added.
+  const handleImageError: ReactEventHandler<HTMLImageElement> = useCallback((e) => {
+    (e.target as HTMLImageElement).style.display = 'none';
   }, []);
 
   // Scroll to specific image when dot is clicked
-  const scrollToImage = useCallback((index) => {
+  const scrollToImage = useCallback((index: number) => {
     if (!galleryRef.current) return;
     const container = galleryRef.current;
     const scrollAmount = container.clientWidth * index;
@@ -118,7 +150,8 @@ const ProductDetail = () => {
       const scrollLeft = gallery.scrollLeft;
       const itemWidth = gallery.clientWidth;
       const newIndex = Math.round(scrollLeft / itemWidth);
-      const galleryLength = product?.gallery_images?.length || 1;
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: pre-existing fallback, left byte-identical
+      const galleryLength = (product?.gallery_images as GalleryImage[] | null | undefined)?.length || 1;
       const clampedIndex = Math.max(0, Math.min(newIndex, galleryLength - 1));
       setCurrentImageIndex(clampedIndex);
     };
@@ -127,7 +160,8 @@ const ProductDetail = () => {
       const scrollLeft = gallery.scrollLeft;
       const itemWidth = gallery.clientWidth;
       const newIndex = Math.round(scrollLeft / itemWidth);
-      const galleryLength = product?.gallery_images?.length || 1;
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: pre-existing fallback, left byte-identical
+      const galleryLength = (product?.gallery_images as GalleryImage[] | null | undefined)?.length || 1;
       const clampedIndex = Math.max(0, Math.min(newIndex, galleryLength - 1));
       setCurrentImageIndex(clampedIndex);
     };
@@ -143,7 +177,12 @@ const ProductDetail = () => {
   // Přidání produktu do košíku
   const handleAddToCart = useCallback(() => {
     if (product) {
-      const success = addToCart(product);
+      // Type assertion: `product` (DB row Pick) has no `image` field (only `image_url`) —
+      // addToCart's parameter type requires one; the real object here never had that key at
+      // runtime (product.image was always `undefined`, addToCart's internal
+      // `image_url || image` fallback already handles that), so it is asserted rather than
+      // adding a new `image` key that doesn't exist on the source data — no runtime change.
+      const success = addToCart(product as unknown as Parameters<typeof addToCart>[0]);
       if (success) {
         trackEvent(ANALYTICS_EVENTS.ADD_TO_CART, { product: product.slug, price: product.price });
         setAddedToCart(true);
@@ -156,13 +195,15 @@ const ProductDetail = () => {
   // Přechod na checkout (pro přímý nákup)
   const handleBuyNow = useCallback(() => {
     if (product) {
-      addToCart(product);
+      addToCart(product as unknown as Parameters<typeof addToCart>[0]);
       trackEvent(ANALYTICS_EVENTS.ADD_TO_CART, { product: product.slug, price: product.price });
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget navigation (react-router NavigateFunction returns void | Promise<void>)
       navigate(ROUTES.CHECKOUT);
     }
   }, [product, addToCart, navigate]);
 
   const handleBackToGuides = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget navigation (react-router NavigateFunction returns void | Promise<void>)
     navigate(ROUTES.TRAVEL_GUIDES);
   }, [navigate]);
 
@@ -210,6 +251,7 @@ const ProductDetail = () => {
               <span className="text-6xl">😔</span>
             </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-4">
+              {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string error must fall through to fallback (?? would change behavior) */}
               {error || 'Produkt nebyl nalezen'}
             </h1>
             <p className="text-gray-600 mb-6">
@@ -229,9 +271,11 @@ const ProductDetail = () => {
   }
 
   // Prepare gallery images - use gallery_images if available, otherwise fallback to single image_url
-  const galleryImages = product.gallery_images && product.gallery_images.length > 0
-    ? product.gallery_images
+  const galleryImagesFromDb = product.gallery_images as GalleryImage[] | null;
+  const galleryImages: GalleryImage[] = galleryImagesFromDb && galleryImagesFromDb.length > 0
+    ? galleryImagesFromDb
     : [{
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string image_url must fall through to fallback (?? would change behavior)
         src: product.image_url || `${BASE_PATH}/images/placeholder-guide.jpg`,
         alt: `Průvodce: ${product.title}`
       }];
@@ -276,6 +320,7 @@ const ProductDetail = () => {
                   </h2>
 
                   {/* Hero Content with Structured Lines */}
+                  {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: pre-existing truthy-OR condition (any non-empty line shows the block), left byte-identical */}
                   {(product.hero_line_1 || product.hero_line_2 || product.hero_line_3 || product.hero_line_4) && (
                     <div className="mb-10">
                       <ul className="space-y-4">
@@ -439,7 +484,8 @@ const ProductDetail = () => {
                 </div>
 
                 {/* Budget and Season Indicators */}
-                {(product.budget_level || SEASONS.some(season => product[season.dbField])) && (
+                {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: pre-existing truthy-OR condition, left byte-identical */}
+                {(product.budget_level || SEASONS.some(season => product[season.dbField as SeasonDescriptionField])) && (
                   <div className="mt-10 pl-6 border-l border-gray-200 space-y-6">
                     {/* Budget Level */}
                     {product.budget_level && (
@@ -454,15 +500,15 @@ const ProductDetail = () => {
                     )}
 
                     {/* Seasonal Recommendations */}
-                    {SEASONS.some(season => product[season.dbField]) && (
+                    {SEASONS.some(season => product[season.dbField as SeasonDescriptionField]) && (
                       <div>
                         <h3 className="text-sm sm:text-base text-black font-medium mb-3">Nejlepší období pro cestu:</h3>
                         <ul className="space-y-2 sm:space-y-3">
                           {SEASONS.map(season => (
-                            product[season.dbField] && (
+                            product[season.dbField as SeasonDescriptionField] && (
                               <li key={season.key} className="text-sm sm:text-base text-black flex items-start gap-2">
                                 <span className="text-base sm:text-lg leading-none flex-shrink-0 mt-0.5 sm:mt-1">{season.icon}</span>
-                                <span><strong>{season.title}:</strong> {product[season.dbField]}</span>
+                                <span><strong>{season.title}:</strong> {product[season.dbField as SeasonDescriptionField]}</span>
                               </li>
                             )
                           ))}

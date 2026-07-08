@@ -24,17 +24,19 @@ const GALLERY_IMAGES = [
 
 const CustomItineraryDetail = React.memo(() => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const galleryRef = useRef(null);
+  const galleryRef = useRef<HTMLDivElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
 
-  const handleImageError = useCallback((e) => {
-    // Fallback to a placeholder or hide the broken image
-    e.target.style.display = 'none';
+  // Type assertion: React types `e.target` as generic `EventTarget` (only `e.currentTarget`
+  // is narrowed to the element type); onError fires directly on the <img>, so target is
+  // always the HTMLImageElement itself — no runtime shape check existed before, none added.
+  const handleImageError: React.ReactEventHandler<HTMLImageElement> = useCallback((e) => {
+    (e.target as HTMLImageElement).style.display = 'none';
   }, []);
 
   // Scroll to specific image when dot is clicked
-  const scrollToImage = useCallback((index) => {
+  const scrollToImage = useCallback((index: number) => {
     if (!galleryRef.current) return;
     const container = galleryRef.current;
     const scrollAmount = container.clientWidth * index;
@@ -66,10 +68,12 @@ const CustomItineraryDetail = React.memo(() => {
   }, []);
 
   const handleBackToGuides = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget navigation (react-router NavigateFunction returns void | Promise<void>)
     navigate(ROUTES.TRAVEL_GUIDES);
   }, [navigate]);
 
   const handlePurchase = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget navigation (react-router NavigateFunction returns void | Promise<void>)
     navigate(ROUTES.CUSTOM_ITINERARY_FORM);
   }, [navigate]);
 

@@ -16,8 +16,72 @@ import { useCart } from '../contexts';
 import { supabase } from '../lib/supabase';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 
+// Tvar odpovědi edge funkce `get-order-by-session` (supabase/functions/get-order-by-session/index.ts) —
+// položky objednávky jsou sestavené ze `products` joinu (id/title/duration/image_url jsou proto
+// `| undefined`, protože `item.products?.id` apod.), ne přímý `Tables<'order_items'>` řádek.
+interface OrderConfirmationItem {
+  id?: string;
+  title?: string;
+  duration?: string | null;
+  image_url?: string | null;
+  price: number;
+  quantity: number;
+  has_pdf: boolean;
+}
+
+interface OrderConfirmationOrderData {
+  id: string;
+  customer_email: string;
+  customer_name: string | null;
+  total_amount: number;
+  created_at: string;
+  items: OrderConfirmationItem[];
+}
+
+// `data` z `supabase.functions.invoke('get-order-by-session', ...)` — kód dále čte `data.status`/
+// `data.order`/`data.download_token` BEZ optional chaining (žádná runtime kontrola `!data` dřív
+// neexistovala), proto je `data` typováno jako NON-null (viz brief T12 + ledger).
+// Diskriminovaná unie dle `status`: edge funkce vrací `order`/`download_token`/`download_expires_at`
+// POUZE ve větvi 'completed' (pending/processing vracejí jen `{status, message}`). Tato pole se čtou
+// výhradně uvnitř `if (data.status === 'completed' && data.order)`, kde se `data` zúží na completed
+// variantu — zero runtime change, žádná non-null assertion na read site.
+type GetOrderBySessionResponse =
+  | { status: 'pending' | 'processing'; message?: string }
+  | {
+      status: 'completed';
+      message?: string;
+      order?: OrderConfirmationOrderData;
+      download_token: string | null;
+      download_expires_at?: string | null;
+    };
+
+// Tvar odpovědi edge funkce `get-download-url` — komponenta čte jen `downloads` (product_id/download_url),
+// ne celý server-side `GetDownloadResponse` kontrakt (na rozdíl od Stahnout.tsx, který čte i success/asset_type/error).
+interface DownloadUrlItem {
+  product_id: string | null;
+  download_url: string;
+}
+
+interface GetDownloadUrlResponse {
+  downloads?: DownloadUrlItem[];
+}
+
+// supabase-js `FunctionsHttpError`/`FunctionsFetchError`/`FunctionsRelayError` mají `context`/`message`
+// typované `any` v knihovní `.d.ts` bez ohledu na generiku — assertion na skutečně čtená pole
+// (vzor ares.ts/blog.ts/Stahnout.tsx), žádná runtime kontrola nepřidána.
+interface EdgeFunctionError {
+  message?: string;
+  context?: Response;
+}
+
+interface OrderItemProps {
+  item: OrderConfirmationItem;
+  onDownload: ((productId: string | undefined) => void) | null;
+  isDownloading: boolean;
+}
+
 // Komponenta pro položku objednávky
-const OrderItem = React.memo(({ item, onDownload, isDownloading }) => {
+const OrderItem = React.memo(({ item, onDownload, isDownloading }: OrderItemProps) => {
   return (
     <div className="flex gap-4 py-4 border-b border-gray-100 last:border-b-0">
       <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
@@ -63,15 +127,16 @@ OrderItem.displayName = 'OrderItem';
 // FunctionsHttpError nedává JSON tělo (s naším `error` polem) do `.message`,
 // ale do `.context` (Response) — proto je potřeba ho přečíst zvlášť
 // (audit F5: zobrazení 410 "Platnost odkazu ke stažení vypršela").
-async function getFunctionErrorMessage(fnError, fallback) {
+async function getFunctionErrorMessage(fnError: EdgeFunctionError | null | undefined, fallback: string): Promise<string> {
   try {
     if (fnError?.context?.json) {
-      const body = await fnError.context.clone().json();
+      const body = (await fnError.context.clone().json()) as { error?: string };
       if (body?.error) return body.error;
     }
   } catch {
     // tělo není JSON nebo už bylo přečtené — použijeme fallback
   }
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string message must fall through to fallback (?? would change behavior)
   return fnError?.message || fallback;
 }
 
@@ -88,8 +153,13 @@ const LoadingState = () => (
   </Layout>
 );
 
+interface ErrorStateProps {
+  message: string | null;
+  onRetry: () => void;
+}
+
 // Error komponenta
-const ErrorState = ({ message, onRetry }) => (
+const ErrorState = ({ message, onRetry }: ErrorStateProps) => (
   <Layout>
     <main className="min-h-screen bg-white flex items-center justify-center">
       <div className="text-center px-4 max-w-md">
@@ -113,14 +183,14 @@ const OrderConfirmation = React.memo(() => {
   const [searchParams] = useSearchParams();
   const { clearCart } = useCart();
 
-  const [order, setOrder] = useState(null);
-  const [downloadToken, setDownloadToken] = useState(null);
+  const [order, setOrder] = useState<OrderConfirmationOrderData | null>(null);
+  const [downloadToken, setDownloadToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [downloadError, setDownloadError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  const pollingRef = useRef(null);
+  const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cartClearedRef = useRef(false);
   const purchaseTrackedRef = useRef(false);
 
@@ -135,11 +205,12 @@ const OrderConfirmation = React.memo(() => {
     }
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('get-order-by-session', {
+      const { data, error: fnError } = (await supabase.functions.invoke('get-order-by-session', {
         body: { session_id: sessionId },
-      });
+      })) as { data: GetOrderBySessionResponse; error: { message?: string } | null };
 
       if (fnError) {
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string message must fall through to fallback (?? would change behavior)
         throw new Error(fnError.message || 'Nepodařilo se načíst objednávku');
       }
 
@@ -197,7 +268,8 @@ const OrderConfirmation = React.memo(() => {
       throw new Error('Neočekávaná odpověď od serveru');
     } catch (err) {
       console.error('Error fetching order:', err);
-      setError(err.message || 'Nepodařilo se načíst objednávku');
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string message must fall through to fallback (?? would change behavior)
+      setError((err as { message?: string }).message || 'Nepodařilo se načíst objednávku');
       setLoading(false);
       return true;
     }
@@ -219,6 +291,7 @@ const OrderConfirmation = React.memo(() => {
       attempts++;
 
       if (!done && attempts < maxAttempts) {
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises -- pre-existing async `poll` passed to setTimeout; return value is ignored by design (fire-and-forget)
         pollingRef.current = setTimeout(poll, 1000);
       } else if (attempts >= maxAttempts && !order) {
         setError('Zpracování objednávky trvá déle než obvykle. Kontaktujte nás prosím.');
@@ -226,6 +299,7 @@ const OrderConfirmation = React.memo(() => {
       }
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget async function call inside useEffect (useEffect callbacks can't be async)
     poll();
 
     return () => {
@@ -242,7 +316,7 @@ const OrderConfirmation = React.memo(() => {
   }, []);
 
   // Stažení PDF
-  const handleDownload = useCallback(async (productId) => {
+  const handleDownload = useCallback(async (productId: string | undefined) => {
     if (!downloadToken) {
       setDownloadError('Download token není dostupný');
       return;
@@ -252,9 +326,9 @@ const OrderConfirmation = React.memo(() => {
     setDownloadError(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('get-download-url', {
+      const { data, error: fnError } = (await supabase.functions.invoke('get-download-url', {
         body: { token: downloadToken },
-      });
+      })) as { data: GetDownloadUrlResponse; error: EdgeFunctionError | null };
 
       if (fnError) {
         throw new Error(await getFunctionErrorMessage(fnError, 'Nepodařilo se získat odkaz ke stažení'));
@@ -268,7 +342,8 @@ const OrderConfirmation = React.memo(() => {
       }
     } catch (err) {
       console.error('Download error:', err);
-      setDownloadError(err.message || 'Nepodařilo se stáhnout soubor');
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string message must fall through to fallback (?? would change behavior)
+      setDownloadError((err as { message?: string }).message || 'Nepodařilo se stáhnout soubor');
     } finally {
       setIsDownloading(false);
     }
@@ -285,9 +360,9 @@ const OrderConfirmation = React.memo(() => {
     setDownloadError(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('get-download-url', {
+      const { data, error: fnError } = (await supabase.functions.invoke('get-download-url', {
         body: { token: downloadToken },
-      });
+      })) as { data: GetDownloadUrlResponse; error: EdgeFunctionError | null };
 
       if (fnError) {
         throw new Error(await getFunctionErrorMessage(fnError, 'Nepodařilo se získat odkazy ke stažení'));
@@ -301,19 +376,22 @@ const OrderConfirmation = React.memo(() => {
       }
     } catch (err) {
       console.error('Download error:', err);
-      setDownloadError(err.message || 'Nepodařilo se stáhnout soubory');
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string message must fall through to fallback (?? would change behavior)
+      setDownloadError((err as { message?: string }).message || 'Nepodařilo se stáhnout soubory');
     } finally {
       setIsDownloading(false);
     }
   }, [downloadToken]);
 
   const handleContinueShopping = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget navigation (react-router NavigateFunction returns void | Promise<void>)
     navigate(ROUTES.TRAVEL_GUIDES);
   }, [navigate]);
 
   const handleRetry = useCallback(() => {
     setError(null);
     setLoading(true);
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget async function call (handleRetry itself isn't async)
     fetchOrder();
   }, [fetchOrder]);
 
@@ -341,6 +419,7 @@ const OrderConfirmation = React.memo(() => {
       });
 
   // Počet PDF ke stažení
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: pre-existing fallback, left byte-identical
   const pdfCount = order?.items?.filter(item => item.has_pdf).length || 0;
 
   return (
@@ -363,6 +442,7 @@ const OrderConfirmation = React.memo(() => {
             </h1>
 
             <p className="text-lg sm:text-xl text-gray-700 mb-2">
+              {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string first name must fall through to fallback (?? would change behavior) */}
               Ahoj {order?.customer_name?.split(' ')[0] || 'cestovateli'}! Tvá objednávka byla úspěšně zpracována.
             </p>
 
@@ -380,6 +460,7 @@ const OrderConfirmation = React.memo(() => {
             {pdfCount > 0 && downloadToken && (
               <div className="mt-4">
                 <Button
+                  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- pre-existing async handler passed directly to onClick; fire-and-forget is the original behavior
                   onClick={handleDownloadAll}
                   variant="green"
                   size="lg"
@@ -449,6 +530,7 @@ const OrderConfirmation = React.memo(() => {
                             <span className="text-sm font-medium text-black">{item.title}</span>
                           </div>
                           <button
+                            // eslint-disable-next-line @typescript-eslint/no-misused-promises -- pre-existing inline arrow returning a fire-and-forget async handleDownload() call into a void-typed onClick slot
                             onClick={() => handleDownload(item.id)}
                             disabled={isDownloading}
                             className="text-green-700 hover:text-green-800 disabled:opacity-50"
@@ -506,6 +588,7 @@ const OrderConfirmation = React.memo(() => {
                     <OrderItem
                       key={item.id}
                       item={item}
+                      // eslint-disable-next-line @typescript-eslint/no-misused-promises -- pre-existing async handleDownload passed into a void-typed onDownload slot; fire-and-forget is the original behavior
                       onDownload={item.has_pdf ? handleDownload : null}
                       isDownloading={isDownloading}
                     />

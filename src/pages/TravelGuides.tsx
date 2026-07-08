@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useDeferredValue, memo } from 'react';
+import type { ChangeEvent, KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
@@ -7,8 +8,14 @@ import SeoTags from '../components/common/SeoTags';
 import { buildPageMeta } from '../utils/pageSeo';
 import { BASE_PATH, ROUTES } from '../constants';
 import { supabase } from '../lib/supabase';
+import type { Tables } from '../types/database.types';
 
-const GuideCard = ({ guide, onCardClick }) => {
+interface GuideCardProps {
+  guide: ReturnType<typeof mapProductToGuide>;
+  onCardClick: (guide: ReturnType<typeof mapProductToGuide>) => void;
+}
+
+const GuideCard = ({ guide, onCardClick }: GuideCardProps) => {
   const [imageError, setImageError] = useState(false);
 
   const handleImageError = useCallback(() => {
@@ -19,7 +26,7 @@ const GuideCard = ({ guide, onCardClick }) => {
     onCardClick(guide);
   }, [guide, onCardClick]);
 
-  const handleKeyDown = useCallback((e) => {
+  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       handleCardClick();
@@ -135,8 +142,9 @@ MemoizedGuideCard.displayName = 'GuideCard';
  * Helper: Parsuje duration string na počet dní
  * "2 dny" → 2, "7 dní" → 7, "20 dní" → 20, "Neuvedeno" → 0
  */
-const parseDurationToDays = (duration) => {
+const parseDurationToDays = (duration: string): number => {
   if (!duration || duration === 'Neuvedeno') return 0;
+  // eslint-disable-next-line @typescript-eslint/prefer-regexp-exec -- pre-existing `.match()` call, left byte-identical (RegExp#exec() would be an equivalent but unrequested rewrite)
   const match = duration.match(/(\d+)/);
   return match ? parseInt(match[1], 10) : 0;
 };
@@ -146,7 +154,7 @@ const parseDurationToDays = (duration) => {
  * Best practice 2026: Prevence zbytečných NFD normalizací
  * Zdroj: ClarityDev, Listiak.dev, MDN
  */
-const diacriticsCache = new Map();
+const diacriticsCache = new Map<string, string>();
 
 /**
  * Helper: Odstraní diakritiku (háčky, čárky) z textu pro diacritics-insensitive search
@@ -162,12 +170,14 @@ const diacriticsCache = new Map();
  * removeDiacritics("průvodce") → "pruvodce"
  * removeDiacritics("Salcburk") → "Salcburk" (již bez diakritiky)
  */
-const removeDiacritics = (str) => {
+const removeDiacritics = (str: string): string => {
   if (!str) return '';
 
   // ✅ Check cache first (performance optimization)
   if (diacriticsCache.has(str)) {
-    return diacriticsCache.get(str);
+    // Non-null assertion: `.has(str)` just confirmed presence; `Map.get()`'s return type is
+    // `string | undefined` regardless (TS doesn't narrow through the separate `.has()` call).
+    return diacriticsCache.get(str)!;
   }
 
   // ✅ NFD normalization + regex (best practice 2026)
@@ -184,22 +194,31 @@ const removeDiacritics = (str) => {
 /**
  * Mapuje produkt z databáze na formát pro GuideCard
  */
-const mapProductToGuide = (product) => {
+const mapProductToGuide = (product: Tables<'products'>) => {
   return {
     id: product.id,
     title: product.title,
     description: product.description,
     price: product.price === 0 ? 'Zdarma' : `${product.price} Kč`,
     priceNumeric: product.price || 0, // Pro sorting
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string duration must fall through to fallback (?? would change behavior)
     duration: product.duration || 'Neuvedeno',
+    // `average_rating` je v generovaných typech numeric (`number | null`), ale PostgREST může
+    // vrátit i string; navíc `||` bere i `0` jako falsy → to je ZÁMĚRNĚ zachovaný latentní stav
+    // (viz ledger — Fáze 3 launch seznamu, ne tato migrace).
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- pre-existing truthy fallback (rating 0 → 5.0); behavior preserved, viz ledger
     rating: product.average_rating || 5.0,
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string image_url must fall through to fallback (?? would change behavior)
     image: product.image_url || `${BASE_PATH}/images/placeholder-guide.jpg`,
     alt: `Průvodce: ${product.title}`,
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string badge must fall through to fallback (?? would change behavior)
     badge: product.badge || 'Průvodce',
     category: 'Kategorie',
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: pre-existing fallback, left byte-identical
     category_ids: product.category_ids || [], // UUID array kategorií
     isFree: product.price === 0,
     slug: product.slug,
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: pre-existing fallback, left byte-identical
     reviewCount: product.review_count || 0,
     total_sales: product.total_sales || 0, // Pro sorting podle prodejnosti
     created_at: product.created_at // Pro sorting podle nejnovějších
@@ -230,18 +249,18 @@ const ratingRanges = [
 
 const TravelGuides = () => {
   // State pro produkty a UI
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState<ReturnType<typeof mapProductToGuide>[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // State pro filtry a sorting
   const [activeSortOption, setActiveSortOption] = useState('Nejprodávanější');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [categories, setCategories] = useState([]);
-  const [selectedCategories, setSelectedCategories] = useState([]);
-  const [selectedPriceRanges, setSelectedPriceRanges] = useState([]);
-  const [selectedDurationRanges, setSelectedDurationRanges] = useState([]);
-  const [selectedRatingRanges, setSelectedRatingRanges] = useState([]);
+  const [categories, setCategories] = useState<Pick<Tables<'categories'>, 'id' | 'name' | 'slug'>[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedPriceRanges, setSelectedPriceRanges] = useState<string[]>([]);
+  const [selectedDurationRanges, setSelectedDurationRanges] = useState<string[]>([]);
+  const [selectedRatingRanges, setSelectedRatingRanges] = useState<string[]>([]);
 
   // ✅ React 19: Search state s useDeferredValue (best practice 2026)
   const [searchQuery, setSearchQuery] = useState('');
@@ -272,12 +291,14 @@ const TravelGuides = () => {
         setProducts(mappedProducts);
       } catch (err) {
         console.error('Error fetching products:', err);
-        setError(err.message || 'Nepodařilo se načíst produkty');
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string message must fall through to fallback (?? would change behavior)
+        setError((err as { message?: string }).message || 'Nepodařilo se načíst produkty');
       } finally {
         setLoading(false);
       }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget async function call inside useEffect (useEffect callbacks can't be async)
     fetchProducts();
   }, []);
 
@@ -300,6 +321,7 @@ const TravelGuides = () => {
       }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget async function call inside useEffect (useEffect callbacks can't be async)
     fetchCategories();
   }, []);
 
@@ -311,13 +333,14 @@ const TravelGuides = () => {
     'Nejnovější'
   ];
 
-  const handleSortChange = useCallback((e) => {
+  const handleSortChange = useCallback((e: { target: { value: string } }) => {
     setActiveSortOption(e.target.value);
   }, []);
 
-  const handleCardClick = useCallback((guide) => {
+  const handleCardClick = useCallback((guide: ReturnType<typeof mapProductToGuide>) => {
     // Dynamická navigace na detail produktu podle slug
     if (guide.slug) {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget navigation (react-router NavigateFunction returns void | Promise<void>)
       navigate(`/cestovni-pruvodci/${guide.slug}`);
       window.scrollTo(0, 0);
     }
@@ -327,6 +350,7 @@ const TravelGuides = () => {
   const categoriesWithCount = useMemo(() => {
     return categories.map(category => {
       const count = products.filter(product =>
+        // eslint-disable-next-line @typescript-eslint/prefer-optional-chain -- pre-existing JS guard clause, byte-identical (behavior unchanged: `category_ids` is a plain array, not statically nullable here)
         product.category_ids && product.category_ids.includes(category.id)
       ).length;
 
@@ -340,7 +364,7 @@ const TravelGuides = () => {
   }, [categories, products]);
 
   // Handler pro zaškrtnutí/odškrtnutí kategorie
-  const handleCategoryToggle = useCallback((categoryId) => {
+  const handleCategoryToggle = useCallback((categoryId: string) => {
     setSelectedCategories(prev => {
       if (prev.includes(categoryId)) {
         // Odškrtni - odstraň z pole
@@ -368,7 +392,7 @@ const TravelGuides = () => {
   }, [products]);
 
   // Handler pro zaškrtnutí/odškrtnutí price range
-  const handlePriceRangeToggle = useCallback((rangeId) => {
+  const handlePriceRangeToggle = useCallback((rangeId: string) => {
     setSelectedPriceRanges(prev => {
       if (prev.includes(rangeId)) {
         return prev.filter(id => id !== rangeId);
@@ -394,7 +418,7 @@ const TravelGuides = () => {
   }, [products]);
 
   // Handler pro zaškrtnutí/odškrtnutí duration range
-  const handleDurationRangeToggle = useCallback((rangeId) => {
+  const handleDurationRangeToggle = useCallback((rangeId: string) => {
     setSelectedDurationRanges(prev => {
       if (prev.includes(rangeId)) {
         return prev.filter(id => id !== rangeId);
@@ -424,7 +448,7 @@ const TravelGuides = () => {
   }, [products]);
 
   // Handler pro zaškrtnutí/odškrtnutí rating range
-  const handleRatingRangeToggle = useCallback((rangeId) => {
+  const handleRatingRangeToggle = useCallback((rangeId: string) => {
     setSelectedRatingRanges(prev => {
       if (prev.includes(rangeId)) {
         return prev.filter(id => id !== rangeId);
@@ -435,7 +459,7 @@ const TravelGuides = () => {
   }, []);
 
   // ✅ React 19: Handler pro search input (best practice 2026)
-  const handleSearchChange = useCallback((e) => {
+  const handleSearchChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
   }, []);
 
@@ -478,6 +502,7 @@ const TravelGuides = () => {
         // Prohledávej kategorie (bez diakritiky - user friendly feature)
         const matchesCategory = product.category_ids?.some(catId => {
           const category = categories.find(c => c.id === catId);
+          // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string category name must fall through to fallback (?? would change behavior)
           return removeDiacritics(category?.name?.toLowerCase() || '').includes(query);
         });
 
@@ -488,6 +513,7 @@ const TravelGuides = () => {
     // 1. Filtrování podle kategorií
     if (selectedCategories.length > 0) {
       filtered = filtered.filter(product =>
+        // eslint-disable-next-line @typescript-eslint/prefer-optional-chain -- pre-existing JS guard clause, byte-identical (behavior unchanged: `category_ids` is a plain array, not statically nullable here)
         product.category_ids &&
         product.category_ids.some(catId => selectedCategories.includes(catId))
       );
