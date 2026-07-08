@@ -28,17 +28,24 @@ import logger from './utils/logger';
 import { testSupabaseConnection } from './lib/testConnection';
 
 // Error boundary for the entire application
-class AppErrorBoundary extends React.Component {
-  constructor(props) {
+interface AppErrorBoundaryProps {
+  children: React.ReactNode;
+}
+interface AppErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+class AppErrorBoundary extends React.Component<AppErrorBoundaryProps, AppErrorBoundaryState> {
+  constructor(props: AppErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError(error: Error): AppErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Log error for monitoring in production
     logger.error('App Error:', error, errorInfo);
   }
@@ -79,6 +86,7 @@ function App() {
   // Test Supabase connection on app mount (only in development)
   useEffect(() => {
     if (import.meta.env.DEV) {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- fire-and-forget dev-only connection probe
       testSupabaseConnection();
     }
   }, []);
