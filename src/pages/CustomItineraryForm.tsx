@@ -7,11 +7,50 @@ import { BASE_PATH } from '../constants/app';
 import { supabase } from '../lib/supabase';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 
+// camelCase form STATE shape (derived from the useState initializer below, 29 fields).
+// NOTE: distinct from `CustomItineraryFormData` in CustomItineraryPreview.tsx, which is
+// the snake_case JSONB `form_data` payload. These are two different shapes; nothing is
+// shared between them.
+interface CustomItineraryFormState {
+  name: string;
+  email: string;
+  vacationType: string[];
+  vacationTypeOther: string;
+  duration: string;
+  customDuration: string;
+  travelGroup: string;
+  familyDetails: string;
+  friendsCount: string;
+  preferredTerm: string[];
+  specificTerm: string;
+  budgetCategory: string;
+  budgetAmount: string;
+  transportation: string[];
+  transportationOther: string;
+  specificDestination: string;
+  openToSuggestions: string;
+  preferredContinents: string;
+  climatePreferences: string;
+  cultureVsNature: string;
+  specificFactors: string;
+  mainInterests: string;
+  specificActivities: string;
+  accommodationRequirements: string;
+  diningPreferences: string;
+  organizedTours: string;
+  healthRestrictions: string;
+  travelWithPet: string;
+  additionalInfo: string;
+}
+
+// The three array-valued fields, the only ones handleCheckboxChange operates on.
+type ArrayField = 'vacationType' | 'preferredTerm' | 'transportation';
+
 const CustomItineraryForm = React.memo(() => {
   const navigate = useNavigate();
 
   // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CustomItineraryFormState>({
     // Základní informace
     name: '',
     email: '',
@@ -54,11 +93,11 @@ const CustomItineraryForm = React.memo(() => {
     additionalInfo: ''
   });
 
-  const handleInputChange = useCallback((field, value) => {
+  const handleInputChange = useCallback((field: Exclude<keyof CustomItineraryFormState, ArrayField>, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  const handleCheckboxChange = useCallback((field, value) => {
+  const handleCheckboxChange = useCallback((field: ArrayField, value: string) => {
     setFormData(prev => {
       const currentValues = prev[field] || [];
       const newValues = currentValues.includes(value)
@@ -69,20 +108,22 @@ const CustomItineraryForm = React.memo(() => {
   }, []);
 
   const handleBackToItinerary = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget navigation (react-router NavigateFunction returns void | Promise<void>)
     navigate(ROUTES.CUSTOM_ITINERARY_DETAIL);
   }, [navigate]);
 
   // State for submission loading
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- pre-existing state: only the setter is used, the value is intentionally unread (kept byte-identical, not removed)
   const [_isSubmitting, setIsSubmitting] = useState(false);
 
   // Cloudflare Turnstile captcha token (set when user completes widget on last step)
-  const [captchaToken, setCaptchaToken] = useState(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   // Toast notification state
   const [notification, setNotification] = useState({ show: false, message: '', type: 'info' });
 
   // Show notification function
-  const showNotification = useCallback((message, type = 'info') => {
+  const showNotification = useCallback((message: string, type = 'info') => {
     setNotification({ show: true, message, type });
     setTimeout(() => {
       setNotification({ show: false, message: '', type: 'info' });
@@ -108,7 +149,7 @@ const CustomItineraryForm = React.memo(() => {
       // STEP 1: Get or create anonymous user session
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
-      let userId;
+      let userId: string;
 
       if (sessionError || !sessionData.session) {
         // No session exists - create anonymous user
@@ -128,7 +169,7 @@ const CustomItineraryForm = React.memo(() => {
           return;
         }
 
-        userId = authData.user.id;
+        userId = authData.user!.id;
       } else {
         // Use existing session
         userId = sessionData.session.user.id;
@@ -201,6 +242,7 @@ const CustomItineraryForm = React.memo(() => {
       // STEP 4: Navigate to preview page with request ID
       showNotification('Požadavek byl úspěšně uložen!', 'success');
       trackEvent(ANALYTICS_EVENTS.ITINERARY_SUBMIT);
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget navigation (react-router NavigateFunction returns void | Promise<void>)
       navigate(`/cestovni-pruvodci/itinerar-na-miru/nahled/${insertedRequest.id}`);
 
     } catch (error) {
@@ -432,7 +474,7 @@ const CustomItineraryForm = React.memo(() => {
                     alt="Inspirační obrázek pro počet osob"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.target.style.display = 'none';
+                      (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 </div>
@@ -489,7 +531,7 @@ const CustomItineraryForm = React.memo(() => {
                     alt="Inspirační obrázek pro preferovaný termín"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.target.style.display = 'none';
+                      (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 </div>
@@ -542,7 +584,7 @@ const CustomItineraryForm = React.memo(() => {
                     alt="Inspirační obrázek pro rozpočet"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.target.style.display = 'none';
+                      (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 </div>
@@ -598,7 +640,7 @@ const CustomItineraryForm = React.memo(() => {
                     alt="Inspirační obrázek pro dopravu"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.target.style.display = 'none';
+                      (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 </div>
@@ -636,7 +678,7 @@ const CustomItineraryForm = React.memo(() => {
                     alt="Inspirační obrázek pro konkrétní destinaci"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.target.style.display = 'none';
+                      (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 </div>
@@ -670,7 +712,7 @@ const CustomItineraryForm = React.memo(() => {
                     alt="Inspirační obrázek pro návrhy destinací"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.target.style.display = 'none';
+                      (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 </div>
@@ -704,7 +746,7 @@ const CustomItineraryForm = React.memo(() => {
                     alt="Inspirační obrázek pro kontinenty"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.target.style.display = 'none';
+                      (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 </div>
@@ -738,7 +780,7 @@ const CustomItineraryForm = React.memo(() => {
                     alt="Inspirační obrázek pro klimatické podmínky"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.target.style.display = 'none';
+                      (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 </div>
@@ -772,7 +814,7 @@ const CustomItineraryForm = React.memo(() => {
                     alt="Inspirační obrázek pro kulturu vs přírodu"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.target.style.display = 'none';
+                      (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 </div>
@@ -806,7 +848,7 @@ const CustomItineraryForm = React.memo(() => {
                     alt="Inspirační obrázek pro specifické faktory"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.target.style.display = 'none';
+                      (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 </div>
@@ -844,7 +886,7 @@ const CustomItineraryForm = React.memo(() => {
                     alt="Inspirační obrázek pro hlavní zájmy"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.target.style.display = 'none';
+                      (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 </div>
@@ -1146,6 +1188,7 @@ const CustomItineraryForm = React.memo(() => {
             <MultiStepForm
               steps={steps}
               stepLabels={stepLabels}
+              // eslint-disable-next-line @typescript-eslint/no-misused-promises -- pre-existing async handler passed directly to onComplete (void-typed slot); fire-and-forget is the original behavior
               onComplete={handleComplete}
             />
           </div>
