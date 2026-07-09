@@ -8,14 +8,16 @@ import MobileMenu from './MobileMenu';
 // <CartProvider> (jinak hází "useCart musí být použit uvnitř CartProvider").
 // useLocation() uvnitř MobileMenu vyžaduje router → <MemoryRouter>.
 // Vzor převzat z ověřeného src/pages/ProductDetail.seo.test.jsx (tier D).
-function renderMenu(isMenuOpen) {
+function renderMenu(isMenuOpen: boolean) {
   return render(
     <CartProvider>
       <MemoryRouter>
         <MobileMenu
           isMenuOpen={isMenuOpen}
+          // eslint-disable-next-line @typescript-eslint/no-empty-function -- intentional no-op callback; test does not exercise onClose here; byte-identical
           onClose={() => {}}
           firstMenuItemRef={{ current: null }}
+          // eslint-disable-next-line @typescript-eslint/no-empty-function -- intentional no-op callback; test does not exercise onCartClick here; byte-identical
           onCartClick={() => {}}
         />
       </MemoryRouter>

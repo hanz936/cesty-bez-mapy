@@ -178,7 +178,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: './src/test/setup.js',
+    setupFiles: './src/test/setup.ts',
     css: true,
     // Edge Function tests use https:// imports and run under `deno test`, not Vitest.
     exclude: ['**/node_modules/**', '**/dist/**', 'supabase/functions/**'],
@@ -188,9 +188,9 @@ export default defineConfig({
       exclude: [
         'node_modules/',
         'src/test/',
-        '**/*.test.{js,jsx}',
-        '**/*.spec.{js,jsx}',
-        'vite.config.js',
+        '**/*.test.{js,jsx,ts,tsx}',
+        '**/*.spec.{js,jsx,ts,tsx}',
+        'vite.config.ts',
         'eslint.config.js',
       ],
     },

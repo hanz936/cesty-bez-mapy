@@ -22,8 +22,8 @@ describe('FAQ accordion a11y', () => {
     const buttons = within(main).getAllByRole('button', { expanded: false });
     const first = buttons.find((b) => b.hasAttribute('aria-controls'));
     expect(first).toBeTruthy();
-    const panelId = first.getAttribute('aria-controls');
-    const panel = document.getElementById(panelId);
+    const panelId = first!.getAttribute('aria-controls');
+    const panel = document.getElementById(panelId!);
     expect(panel).toBeTruthy();
     expect(panel).toHaveAttribute('hidden');
   });

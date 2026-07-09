@@ -41,6 +41,6 @@ describe('serializeJsonLd', () => {
     const out = serializeJsonLd({ headline: '</script><img src=x onerror=alert(1)>' });
     expect(out).not.toContain('</script>');
     expect(out).toContain('\\u003c');
-    expect(JSON.parse(out).headline).toBe('</script><img src=x onerror=alert(1)>');
+    expect((JSON.parse(out) as { headline: string }).headline).toBe('</script><img src=x onerror=alert(1)>');
   });
 });

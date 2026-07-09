@@ -10,12 +10,14 @@ const IMAGES = [
 describe('Lightbox', () => {
   it('nevykreslí nic když isOpen=false', () => {
     const { container } = render(
+      // eslint-disable-next-line @typescript-eslint/no-empty-function -- intentional no-op callback; test does not exercise onClose here; byte-identical
       <Lightbox images={IMAGES} isOpen={false} initialIndex={0} onClose={() => {}} />
     );
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 
   it('vykreslí dialog s aria-modal a obrázky když isOpen=true', () => {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function -- intentional no-op callback; test does not exercise onClose here; byte-identical
     render(<Lightbox images={IMAGES} isOpen initialIndex={0} onClose={() => {}} />);
     const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveAttribute('aria-modal', 'true');
@@ -30,12 +32,14 @@ describe('Lightbox', () => {
   });
 
   it('showCaption vykreslí popisek aktivního obrázku a "1 / 2" counter', () => {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function -- intentional no-op callback; test does not exercise onClose here; byte-identical
     render(<Lightbox images={IMAGES} isOpen initialIndex={0} onClose={() => {}} showCaption />);
     expect(screen.getByText('Obrázek A')).toBeInTheDocument();
     expect(screen.getByText('1 / 2')).toBeInTheDocument();
   });
 
   it('bez showCaption (default) counter nevykreslí', () => {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function -- intentional no-op callback; test does not exercise onClose here; byte-identical
     render(<Lightbox images={IMAGES} isOpen initialIndex={0} onClose={() => {}} />);
     expect(screen.queryByText('1 / 2')).toBeNull();
   });

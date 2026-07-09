@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { CartProvider } from '../contexts';
 import Privacy from './Privacy';
@@ -13,7 +14,7 @@ vi.mock('../lib/blog', () => ({
   tagNameMap: vi.fn().mockReturnValue(new Map()),
 }));
 
-const renderWithProviders = (children) =>
+const renderWithProviders = (children: ReactNode) =>
   render(
     <CartProvider>
       <MemoryRouter>{children}</MemoryRouter>

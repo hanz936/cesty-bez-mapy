@@ -12,7 +12,7 @@ describe('Footer Organization JSON-LD (SEO-08)', () => {
     );
     const script = container.querySelector('script[type="application/ld+json"]');
     expect(script).not.toBeNull();
-    const data = JSON.parse(script.textContent);
+    const data = JSON.parse(script!.textContent) as { '@type': string; url: string; logo: string };
     expect(data['@type']).toBe('Organization');
     expect(data.url).toMatch(/^https:\/\//);
     expect(data.url).not.toContain('localhost');

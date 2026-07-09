@@ -1,23 +1,30 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
 // Chainovatelný mock query builderu: každá metoda vrací `this`,
 // terminál je await (thenable) → vrátí { data, error } z _result.
-function makeBuilder() {
-  const calls = [];
+interface MockBuilder {
+  _result: { data: unknown; error: unknown };
+  then(resolve: (value: unknown) => unknown): Promise<unknown>;
+  maybeSingle: Mock;
+  _calls: unknown[][];
+  [method: string]: unknown;
+}
+function makeBuilder(): MockBuilder {
+  const calls: unknown[][] = [];
   const builder = {
     _result: { data: [], error: null },
-    then(resolve) { return Promise.resolve(this._result).then(resolve); },
-  };
+    then(this: MockBuilder, resolve: (value: unknown) => unknown) { return Promise.resolve(this._result).then(resolve); },
+  } as unknown as MockBuilder;
   ['select', 'eq', 'neq', 'not', 'lte', 'in', 'overlaps', 'order', 'limit'].forEach((m) => {
-    builder[m] = vi.fn((...args) => { calls.push([m, ...args]); return builder; });
+    builder[m] = vi.fn((...args: unknown[]) => { calls.push([m, ...args]); return builder; });
   });
   builder.maybeSingle = vi.fn(() => Promise.resolve(builder._result));
   builder._calls = calls;
   return builder;
 }
 
-const fromMock = vi.fn();
-vi.mock('./supabase', () => ({ supabase: { from: (...a) => fromMock(...a) } }));
+const fromMock = vi.fn<(...args: unknown[]) => unknown>();
+vi.mock('./supabase', () => ({ supabase: { from: (...a: unknown[]) => fromMock(...a) } }));
 
 import { fetchPublishedPosts, fetchPostBySlug, fetchRelatedPosts, fetchExistingProductSlugs } from './blog';
 

@@ -1,5 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
+import type { KeyboardEvent } from 'react';
 import { useListboxKeyboard } from './useListboxKeyboard';
 
 const options = ['Praha', 'Brno', 'Ostrava'];
@@ -10,12 +11,12 @@ const setup = (over = {}) => {
   const hook = renderHook(() =>
     useListboxKeyboard({
       isOpen: true, setIsOpen, options,
-      getOptionValue: (o) => o, value: 'Praha', onSelect, triggerRef, ...over,
+      getOptionValue: (o: string) => o, value: 'Praha', onSelect, triggerRef, ...over,
     })
   );
   return { hook, onSelect, setIsOpen, triggerRef };
 };
-const ev = (key, extra = {}) => ({ key, preventDefault: vi.fn(), shiftKey: false, ...extra });
+const ev = (key: string, extra = {}) => ({ key, preventDefault: vi.fn(), shiftKey: false, ...extra }) as unknown as KeyboardEvent<HTMLElement>;
 
 describe('useListboxKeyboard', () => {
   it('ArrowDown posune activeIndex dál', () => {

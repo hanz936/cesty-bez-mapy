@@ -6,7 +6,7 @@ import { CartProvider } from '../contexts';
 // vi.mock je hoistovaný Vitestem nad importy, takže pořadí zápisu v souboru nevadí.
 // Chainovatelný mock query builderu mirroruje řetězec použitý v ProductDetail:
 // supabase.from('products').select(...).eq('slug', slug).eq('is_active', true).eq('is_deleted', false).single()
-function makeBuilder(result) {
+function makeBuilder(result: { data: unknown; error: unknown }) {
   const builder = {
     select: vi.fn(() => builder),
     eq: vi.fn(() => builder),
@@ -15,8 +15,8 @@ function makeBuilder(result) {
   return builder;
 }
 
-const fromMock = vi.fn();
-vi.mock('../lib/supabase', () => ({ supabase: { from: (...a) => fromMock(...a) } }));
+const fromMock = vi.fn<(...args: unknown[]) => unknown>();
+vi.mock('../lib/supabase', () => ({ supabase: { from: (...a: unknown[]) => fromMock(...a) } }));
 
 import ProductDetail from './ProductDetail';
 
@@ -77,7 +77,7 @@ describe('ProductDetail per-route SEO + Product JSON-LD + marker (SEO-03)', () =
       expect(container.querySelector('script[type="application/ld+json"]')).not.toBeNull();
     });
     const script = container.querySelector('script[type="application/ld+json"]');
-    const jsonLd = JSON.parse(script.textContent);
+    const jsonLd = JSON.parse(script!.textContent) as { '@type': string; offers: { priceCurrency: string; price: string } };
     expect(jsonLd['@type']).toBe('Product');
     expect(jsonLd.offers.priceCurrency).toBe('CZK');
     expect(jsonLd.offers.price).toBe('490');
@@ -99,7 +99,7 @@ describe('ProductDetail per-route SEO + Product JSON-LD + marker (SEO-03)', () =
     // Footer vykresluje vlastní Organization JSON-LD vždy (SEO-08) — ověřujeme jen,
     // že žádný script neobsahuje Product JSON-LD (to renderuje SeoTags jen pro načtený produkt).
     const scripts = [...container.querySelectorAll('script[type="application/ld+json"]')];
-    const hasProductJsonLd = scripts.some((s) => JSON.parse(s.textContent)['@type'] === 'Product');
+    const hasProductJsonLd = scripts.some((s) => (JSON.parse(s.textContent) as { '@type': string })['@type'] === 'Product');
     expect(hasProductJsonLd).toBe(false);
   });
 });

@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import BlogContentRenderer from './BlogContentRenderer';
 
-const renderWith = (html, validProductSlugs) =>
+const renderWith = (html: string, validProductSlugs?: Set<string>) =>
   render(
     <MemoryRouter>
       <BlogContentRenderer html={html} validProductSlugs={validProductSlugs} />
@@ -39,6 +39,6 @@ describe('BlogContentRenderer', () => {
   it('zahodí <script> (sanitizace)', () => {
     const { container } = renderWith('<p>ok</p><script>window.__x=1</script>');
     expect(container.querySelector('script')).toBeNull();
-    expect(window.__x).toBeUndefined();
+    expect((window as unknown as { __x?: unknown }).__x).toBeUndefined();
   });
 });

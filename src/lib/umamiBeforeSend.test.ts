@@ -6,17 +6,17 @@ describe('sanitizeUmamiPayload', () => {
     const out = sanitizeUmamiPayload('event', {
       url: '/cestovni-pruvodci/objednavka/potvrzeni?session_id=cs_test_123',
     });
-    expect(out.url).toBe('/cestovni-pruvodci/objednavka/potvrzeni');
+    expect(out!.url).toBe('/cestovni-pruvodci/objednavka/potvrzeni');
   });
 
   it('strips token but keeps utm params', () => {
     const out = sanitizeUmamiPayload('event', { url: '/x?utm_source=instagram&token=abc' });
-    expect(out.url).toBe('/x?utm_source=instagram');
+    expect(out!.url).toBe('/x?utm_source=instagram');
   });
 
   it('leaves a url without query untouched', () => {
     const out = sanitizeUmamiPayload('event', { url: '/cestovni-pruvodci' });
-    expect(out.url).toBe('/cestovni-pruvodci');
+    expect(out!.url).toBe('/cestovni-pruvodci');
   });
 
   it('returns the payload even when there is no url', () => {

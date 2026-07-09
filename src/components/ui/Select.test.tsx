@@ -6,6 +6,7 @@ const options = [{ value: 'a', label: 'Áčko' }, { value: 'b', label: 'Béčko'
 
 describe('Select (APG combobox + error)', () => {
   it('trigger má role=combobox', () => {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function -- intentional no-op callback; test does not exercise onChange here; byte-identical
     render(<Select label="Test" options={options} value="" onChange={() => {}} />);
     expect(screen.getByRole('combobox')).toHaveAttribute('aria-haspopup', 'listbox');
   });
@@ -16,10 +17,11 @@ describe('Select (APG combobox + error)', () => {
     const combo = screen.getByRole('combobox');
     fireEvent.keyDown(combo, { key: 'ArrowDown' });
     fireEvent.keyDown(combo, { key: 'Enter' });
-    expect(onChange.mock.calls[0][0].target.value).toBe('a');
+    expect((onChange.mock.calls[0][0] as { target: { value: string } }).target.value).toBe('a');
   });
 
   it('error nastaví aria-invalid a aria-describedby', () => {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function -- intentional no-op callback; test does not exercise onChange here; byte-identical
     render(<Select label="Test" options={options} value="" onChange={() => {}} error="Povinné" />);
     const combo = screen.getByRole('combobox');
     expect(combo).toHaveAttribute('aria-invalid', 'true');
