@@ -11,8 +11,6 @@
     "types": ["vite/client", "vitest/globals"],
     "noEmit": true,
     "skipLibCheck": true,
-    "allowJs": true,
-    "checkJs": false,
     "strict": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
