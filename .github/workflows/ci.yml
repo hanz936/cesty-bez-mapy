@@ -1,10 +1,19 @@
 name: ci
 on:
   pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   web:
     runs-on: ubuntu-latest
+    # CI nemá .env.local; App.test.tsx renderuje celou App → src/lib/supabase.ts
+    # vyhodí výjimku bez těchto proměnných. Dummy hodnoty jen splní guard (žádný
+    # reálný request; testy neasertují na Supabase data).
+    env:
+      VITE_SUPABASE_URL: https://dummy.supabase.co
+      VITE_SUPABASE_ANON_KEY: dummy-anon-key-for-ci
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
