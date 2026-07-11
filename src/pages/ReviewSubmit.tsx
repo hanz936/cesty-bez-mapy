@@ -196,6 +196,7 @@ const ReviewSubmit = () => {
                           value={form.text}
                           maxLength={MAX_TEXT}
                           rows={5}
+                          aria-label={`Text recenze: ${product.title}`}
                           placeholder="Jak se ti s průvodcem cestovalo? Co ti nejvíc pomohlo?"
                           onChange={(e) => updateForm(product.product_id, { text: e.target.value, error: null })}
                           className="mt-4 block w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-green-800 focus:outline-none"
