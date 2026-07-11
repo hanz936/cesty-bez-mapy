@@ -1,0 +1,123 @@
+BEGIN;
+SELECT plan(25);
+
+-- ── Struktura ────────────────────────────────────────────────
+SELECT has_table('public'::name, 'reviews'::name);
+SELECT has_table('public'::name, 'review_requests'::name);
+SELECT has_function('public'::name, 'refresh_product_rating'::name);
+SELECT has_trigger('public'::name, 'reviews'::name, 'trg_reviews_refresh_product_rating'::name);
+
+-- ── Fixtures (jako postgres, RLS bypass) ─────────────────────
+INSERT INTO public.products (id, title, description, price, slug)
+VALUES ('00000000-0000-0000-0000-00000000000a', 'Test Guide', 'Test description', 100, 'test-guide-reviews');
+
+INSERT INTO public.orders (id, customer_email, total_amount, status)
+VALUES ('00000000-0000-0000-0000-00000000000b', 'reviews-test@example.com', 100, 'completed'),
+       ('00000000-0000-0000-0000-00000000000c', 'reviews-test2@example.com', 100, 'completed'),
+       ('00000000-0000-0000-0000-00000000000d', 'reviews-test3@example.com', 100, 'completed');
+
+-- ── Trigger: pending nemění agregáty ─────────────────────────
+INSERT INTO public.reviews (id, product_id, order_id, reviewer_name, rating, review_text)
+VALUES ('00000000-0000-0000-0000-000000000001',
+        '00000000-0000-0000-0000-00000000000a',
+        '00000000-0000-0000-0000-00000000000b',
+        'Tester', 4, 'Deset znaku minimalne, super pruvodce.');
+
+SELECT is( (SELECT review_count FROM public.products WHERE id = '00000000-0000-0000-0000-00000000000a'),
+           0, 'pending recenze nezvysuje review_count' );
+
+-- ── Trigger: approve prepocita ───────────────────────────────
+UPDATE public.reviews SET status = 'approved', approved_at = now()
+WHERE id = '00000000-0000-0000-0000-000000000001';
+
+SELECT is( (SELECT review_count FROM public.products WHERE id = '00000000-0000-0000-0000-00000000000a'),
+           1, 'approve zvysi review_count na 1' );
+SELECT is( (SELECT average_rating FROM public.products WHERE id = '00000000-0000-0000-0000-00000000000a'),
+           4.00::numeric(3,2), 'average_rating = 4.00' );
+
+INSERT INTO public.reviews (id, product_id, order_id, reviewer_name, rating, review_text, status, approved_at)
+VALUES ('00000000-0000-0000-0000-000000000002',
+        '00000000-0000-0000-0000-00000000000a',
+        '00000000-0000-0000-0000-00000000000c',
+        'Tester 2', 5, 'Dalsi recenze, taky velmi spokojen.', 'approved', now());
+
+SELECT is( (SELECT average_rating FROM public.products WHERE id = '00000000-0000-0000-0000-00000000000a'),
+           4.50::numeric(3,2), 'prumer 4 a 5 = 4.50' );
+
+-- ── Trigger: reject/delete prepocita zpet ────────────────────
+UPDATE public.reviews SET status = 'rejected' WHERE id = '00000000-0000-0000-0000-000000000002';
+SELECT is( (SELECT review_count FROM public.products WHERE id = '00000000-0000-0000-0000-00000000000a'),
+           1, 'reject snizi review_count' );
+
+DELETE FROM public.reviews WHERE id = '00000000-0000-0000-0000-000000000001';
+SELECT is( (SELECT review_count FROM public.products WHERE id = '00000000-0000-0000-0000-00000000000a'),
+           0, 'delete vrati review_count na 0' );
+SELECT is( (SELECT average_rating FROM public.products WHERE id = '00000000-0000-0000-0000-00000000000a'),
+           0.00::numeric(3,2), 'average_rating bez recenzi = 0.00' );
+
+-- ── Constrainty ──────────────────────────────────────────────
+SELECT throws_ok(
+  $$ INSERT INTO public.reviews (product_id, order_id, reviewer_name, rating, review_text)
+     VALUES ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b', 'X', 6, 'Deset znaku minimalne tady.') $$,
+  '23514', NULL, 'rating > 5 odmitnut' );
+SELECT throws_ok(
+  $$ INSERT INTO public.reviews (product_id, order_id, reviewer_name, rating, review_text)
+     VALUES ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b', 'X', 4, 'kratke') $$,
+  '23514', NULL, 'text < 10 znaku odmitnut' );
+
+INSERT INTO public.reviews (product_id, order_id, reviewer_name, rating, review_text)
+VALUES ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b', 'X', 4, 'Prvni platna recenze na unikat.');
+SELECT throws_ok(
+  $$ INSERT INTO public.reviews (product_id, order_id, reviewer_name, rating, review_text)
+     VALUES ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b', 'Y', 5, 'Druha recenze stejne kombinace.') $$,
+  '23505', NULL, 'UNIQUE (order_id, product_id) vynucen' );
+
+-- ── RLS: anon ────────────────────────────────────────────────
+UPDATE public.reviews SET status = 'approved', approved_at = now()
+WHERE order_id = '00000000-0000-0000-0000-00000000000b';
+-- pending recenze na order d (order c ma uz rejected radek -> UNIQUE by kolidoval)
+INSERT INTO public.reviews (product_id, order_id, reviewer_name, rating, review_text)
+VALUES ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000d', 'Pending guy', 3, 'Tahle ceka na schvaleni, neverejna.');
+
+SET LOCAL ROLE anon;
+SELECT is( (SELECT count(*) FROM (SELECT id, product_id, reviewer_name, rating, review_text, created_at FROM public.reviews) s)::int,
+           1, 'anon vidi jen approved' );
+SELECT throws_ok( $$ SELECT * FROM public.reviews $$, '42501', NULL,
+           'anon select=* selze (column granty)' );
+SELECT throws_ok( $$ SELECT status FROM public.reviews $$, '42501', NULL,
+           'anon nema grant na status' );
+SELECT throws_ok(
+  $$ INSERT INTO public.reviews (product_id, order_id, reviewer_name, rating, review_text)
+     VALUES ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000c', 'H', 5, 'Pokus o primy insert anonem.') $$,
+  '42501', NULL, 'anon INSERT zamitnut' );
+SELECT throws_ok( $$ SELECT token FROM public.review_requests $$, '42501', NULL,
+           'anon nevidi review_requests' );
+RESET ROLE;
+
+-- ── RLS: authenticated ne-admin (anonymni session z checkoutu) ─
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"is_admin": false, "is_anonymous": true, "aal": "aal1"}';
+SELECT is( (SELECT count(*) FROM public.reviews)::int, 1,
+           'authenticated ne-admin vidi jen approved (plny select grant, RLS filtruje)' );
+-- Pozn.: data-modifying CTE nejde do scalar subquery -> UPDATE spustime samostatne
+-- (RLS USING is_admin() nespaaruje zadny radek) a overime, ze approved radek prezil.
+UPDATE public.reviews SET status = 'rejected' WHERE status = 'approved';
+SELECT is( (SELECT count(*) FROM public.reviews WHERE status = 'approved')::int,
+           1, 'ne-admin UPDATE nezasahl zadny radek (USING is_admin)' );
+
+-- ── RLS: admin aal2 ──────────────────────────────────────────
+SET LOCAL request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal2"}';
+SELECT is( (SELECT count(*) FROM public.reviews)::int, 3, 'admin vidi vse vc. pending a rejected' );
+SELECT lives_ok(
+  $$ UPDATE public.reviews SET status = 'approved', approved_at = now(), admin_notes = 'ok'
+     WHERE status = 'pending' $$,
+  'admin muze UPDATE status/admin_notes/approved_at' );
+SELECT throws_ok(
+  $$ UPDATE public.reviews SET review_text = 'prepsany text recenze zlym adminem' WHERE status = 'approved' $$,
+  '42501', NULL, 'admin NEMUZE menit review_text (column grant)' );
+SELECT is( (SELECT count(*) FROM public.review_requests)::int, 0,
+           'admin review_requests SELECT projde (0 radku ve fixture)' );
+RESET ROLE;
+
+SELECT * FROM finish();
+ROLLBACK;

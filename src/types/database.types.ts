@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       blog_posts: {
@@ -829,6 +824,95 @@ export type Database = {
         }
         Relationships: []
       }
+      review_requests: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          invitation_email_id: string | null
+          order_id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          invitation_email_id?: string | null
+          order_id: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          invitation_email_id?: string | null
+          order_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reviews: {
+        Row: {
+          admin_notes: string | null
+          approved_at: string | null
+          created_at: string
+          id: string
+          order_id: string
+          product_id: string
+          rating: number
+          review_text: string
+          reviewer_name: string
+          status: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          approved_at?: string | null
+          created_at?: string
+          id?: string
+          order_id: string
+          product_id: string
+          rating: number
+          review_text: string
+          reviewer_name: string
+          status?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          approved_at?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string
+          product_id?: string
+          rating?: number
+          review_text?: string
+          reviewer_name?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1007,3 +1091,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
