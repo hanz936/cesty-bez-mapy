@@ -18,6 +18,7 @@ const CustomItineraryPreview = lazy(() => import('./pages/CustomItineraryPreview
 const Checkout = lazy(() => import('./pages/Checkout'));
 const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
 const Stahnout = lazy(() => import('./pages/Stahnout'));
+const ReviewSubmit = lazy(() => import('./pages/ReviewSubmit'));
 import FAQ from './pages/FAQ';
 import Reviews from './pages/Reviews';
 import SalzburgItinerary from './pages/SalzburgItinerary';
@@ -115,6 +116,7 @@ function App() {
               <Route path={ROUTES.COLLABORATION} element={<Collaboration />} />
               <Route path={ROUTES.FAQ} element={<FAQ />} />
               <Route path={ROUTES.REVIEWS} element={<Reviews />} />
+              <Route path={ROUTES.REVIEW_SUBMIT} element={<ReviewSubmit />} />
               <Route path={ROUTES.CONTACT} element={<Contact />} />
               <Route path={ROUTES.PRIVACY} element={<Privacy />} />
               <Route path="*" element={<NotFound />} />

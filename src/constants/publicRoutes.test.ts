@@ -18,5 +18,6 @@ describe('PUBLIC_PAGES', () => {
     expect(paths).not.toContain(ROUTES.ORDER_CONFIRMATION);
     expect(paths).not.toContain(ROUTES.DOWNLOAD);
     expect(paths).not.toContain(ROUTES.CUSTOM_ITINERARY_FORM);
+    expect(paths).not.toContain(ROUTES.REVIEW_SUBMIT);
   });
 });

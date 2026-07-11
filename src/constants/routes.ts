@@ -15,6 +15,7 @@ export const ROUTES = {
   COLLABORATION: '/spoluprace',
   FAQ: '/caste-dotazy',
   REVIEWS: '/recenze',
+  REVIEW_SUBMIT: '/recenze/pridat',
   CONTACT: '/kontakt',
   PRIVACY: '/ochrana-osobnich-udaju'
 };
