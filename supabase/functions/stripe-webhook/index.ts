@@ -9,7 +9,8 @@
 
 import Stripe from "https://esm.sh/stripe@22.2.0?target=denonext";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendEmail, makeResendClient } from "../_shared/email/sendEmail.ts";
+import { sendEmail, makeResendClient, cancelScheduledEmail } from "../_shared/email/sendEmail.ts";
+import { EmailSuppressedError } from "../_shared/email/types.ts";
 import {
   decideEmailTypes,
   buildOrderConfirmationItems,
@@ -18,6 +19,8 @@ import {
   buildAdminOrderUrl,
   computeOrderTotal,
   haleruToCzk,
+  reviewInvitationScheduledAt,
+  reviewTokenExpiresAt,
 } from "./lib.ts";
 import { serveEdge } from "../_shared/serveEdge.ts";
 import { makeEcomailClient, getEcomailListId } from "../_shared/ecomail/config.ts";
@@ -154,6 +157,21 @@ serveEdge({ auth: "none", fnName: "stripe-webhook" }, async (req, ctx) => {
         }
 
         logInfo("order_refunded", { payment_intent_id: paymentIntentId });
+
+        // Best-effort: cancel the scheduled review invitation (token is already dead
+        // via orders.status check, this just avoids sending a pointless email).
+        try {
+          const { data: reviewRequest } = await supabase
+            .from("review_requests")
+            .select("invitation_email_id")
+            .eq("order_id", order.id)
+            .maybeSingle();
+          if (reviewRequest?.invitation_email_id) {
+            await cancelScheduledEmail(makeResendClient(), reviewRequest.invitation_email_id);
+          }
+        } catch (cancelError) {
+          logWarn("review_invitation_cancel_failed", { order_id: order.id, error: String(cancelError) });
+        }
 
         if (order.refund_email_sent_at) {
           logInfo("refund_email_already_sent", { order_id: order.id });
@@ -642,6 +660,12 @@ async function runFollowUps(ctx: FollowUpContext): Promise<void> {
     }
 
     try {
+      await scheduleReviewInvitation(ctx);
+    } catch (reviewInvitationError) {
+      logError("review_invitation_failed", { order_id: ctx.orderId, error: String(reviewInvitationError) });
+    }
+
+    try {
       await syncOrderToEcomail(ctx.supabase, {
         orderId: ctx.orderId,
         customerId: ctx.customerId,
@@ -662,6 +686,68 @@ async function runFollowUps(ctx: FollowUpContext): Promise<void> {
     // unhandled rejection uvnitř EdgeRuntime.waitUntil. Kroky výše mají vlastní
     // catch — tohle se spustí, jen pokud ten kontrakt poruší budoucí změna.
     logError("run_follow_ups_unexpected_error", { order_id: ctx.orderId, error: String(e) });
+  }
+}
+
+// Review invitation (spec: ADM docs/superpowers/specs/2026-07-11-reviews-system-design.md §4.1).
+// Primary dedup guard = INSERT with ignoreDuplicates on review_requests.order_id UNIQUE:
+// the email is scheduled ONLY when this call actually inserted the row. Resend
+// idempotencyKey (24h window) is just a second layer for short-term retries.
+async function scheduleReviewInvitation(ctx: FollowUpContext): Promise<void> {
+  if (!ctx.customerEmail) {
+    logWarn("review_invitation_no_customer_email", { order_id: ctx.orderId });
+    return;
+  }
+
+  const { data: request, error: insertError } = await ctx.supabase
+    .from("review_requests")
+    .upsert(
+      { order_id: ctx.orderId, expires_at: reviewTokenExpiresAt(new Date()) },
+      { onConflict: "order_id", ignoreDuplicates: true },
+    )
+    .select("id, token")
+    .maybeSingle();
+
+  if (insertError) {
+    logError("review_request_insert_failed", { order_id: ctx.orderId, error: insertError.message });
+    return;
+  }
+  if (!request) {
+    // Conflict -> row already existed (webhook replay). Email was already scheduled.
+    logInfo("review_request_already_exists", { order_id: ctx.orderId });
+    return;
+  }
+
+  const reviewUrl = `${SITE_URL}/recenze/pridat?token=${request.token}`;
+  let messageId: string;
+  try {
+    const result = await sendEmail(makeResendClient(), {
+      type: "review-invitation",
+      to: ctx.customerEmail,
+      idempotencyKey: `review-invitation/${ctx.orderId}`,
+      scheduledAt: reviewInvitationScheduledAt(new Date()),
+      templateProps: {
+        customerName: ctx.customerName,
+        reviewUrl,
+        productTitles: ctx.products.map((p) => p.title),
+      },
+    }, { supabase: ctx.supabase });
+    messageId = result.messageId;
+  } catch (err) {
+    if (err instanceof EmailSuppressedError) {
+      logInfo("review_invitation_suppressed", { order_id: ctx.orderId });
+      return;
+    }
+    throw err;
+  }
+
+  const { error: updateError } = await ctx.supabase
+    .from("review_requests")
+    .update({ invitation_email_id: messageId })
+    .eq("id", request.id);
+  if (updateError) {
+    // Non-fatal: only breaks best-effort cancel-on-refund for this order.
+    logWarn("review_request_email_id_update_failed", { order_id: ctx.orderId, error: updateError.message });
   }
 }
 

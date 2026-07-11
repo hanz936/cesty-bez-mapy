@@ -11,6 +11,8 @@ import {
   parseAdminRecipients,
   buildAdminNotificationItems,
   buildAdminOrderUrl,
+  reviewInvitationScheduledAt,
+  reviewTokenExpiresAt,
 } from "./lib.ts";
 
 Deno.test("decideEmailTypes: all standard products → OrderConfirmation only", () => {
@@ -194,4 +196,16 @@ Deno.test("computeOrderTotal: amount_total null → fallback součet cen produkt
 
 Deno.test("computeOrderTotal: amount_total 0 → fallback (0 je falsy, zachováno z originálu)", () => {
   assertEquals(computeOrderTotal({ amount_total: 0 }, [{ price: 1490 }]), 1490);
+});
+
+Deno.test("reviewInvitationScheduledAt = now + 21 days ISO", () => {
+  const now = new Date("2026-07-11T10:00:00.000Z");
+  const result = reviewInvitationScheduledAt(now);
+  if (result !== "2026-08-01T10:00:00.000Z") throw new Error(`got ${result}`);
+});
+
+Deno.test("reviewTokenExpiresAt = now + 365 days ISO", () => {
+  const now = new Date("2026-07-11T10:00:00.000Z");
+  const result = reviewTokenExpiresAt(now);
+  if (result !== "2027-07-11T10:00:00.000Z") throw new Error(`got ${result}`);
 });

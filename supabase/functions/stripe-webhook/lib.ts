@@ -122,3 +122,18 @@ export function computeOrderTotal(
   }
   return products.reduce((sum, p) => sum + p.price, 0);
 }
+
+export const REVIEW_INVITATION_DELAY_DAYS = 21;
+export const REVIEW_TOKEN_TTL_DAYS = 365;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** ISO timestamp for the Resend scheduled_at of the review invitation (+21 days; Resend max is 30). */
+export function reviewInvitationScheduledAt(now: Date): string {
+  return new Date(now.getTime() + REVIEW_INVITATION_DELAY_DAYS * DAY_MS).toISOString();
+}
+
+/** ISO timestamp for review_requests.expires_at (+12 months — guides are bought well before the trip). */
+export function reviewTokenExpiresAt(now: Date): string {
+  return new Date(now.getTime() + REVIEW_TOKEN_TTL_DAYS * DAY_MS).toISOString();
+}
