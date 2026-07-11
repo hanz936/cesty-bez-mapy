@@ -5,7 +5,7 @@
 // ================================================
 
 import { assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { sendEmail, type ResendClient } from "./sendEmail.ts";
+import { sendEmail, cancelScheduledEmail, type ResendClient } from "./sendEmail.ts";
 import { EmailSuppressedError } from "./types.ts";
 
 // Mock Supabase client for suppression lookup.
@@ -58,6 +58,7 @@ function mockResendClient(behaviors: Array<
           },
         };
       },
+      cancel: () => Promise.resolve({ data: null, error: null }),
     },
   };
 }
@@ -77,6 +78,7 @@ function mockResendClientCapturing(messageId: string): {
         lastOptions = (options ?? null) as Record<string, unknown> | null;
         return { data: { id: messageId }, error: null };
       },
+      cancel: () => Promise.resolve({ data: null, error: null }),
     },
   };
   return { client, getLastCall: () => lastCall, getLastOptions: () => lastOptions };
@@ -336,6 +338,7 @@ Deno.test("sendEmail throws EmailSuppressedError when recipient is suppressed (R
         resendCalled = true;
         return { data: { id: 'should_not_send' }, error: null };
       },
+      cancel: () => Promise.resolve({ data: null, error: null }),
     },
   };
   const supabase = mockSupabase({ "bounced@example.com": "hard_bounce" });
@@ -362,6 +365,7 @@ Deno.test("sendEmail lowercases recipient before suppression lookup", async () =
         resendCalled = true;
         return { data: { id: 'should_not_send' }, error: null };
       },
+      cancel: () => Promise.resolve({ data: null, error: null }),
     },
   };
   // Suppression entry stored lowercase, recipient sent mixed-case → still blocked.
@@ -443,6 +447,66 @@ Deno.test("admin-order-notification: subject pro itinerář na míru (vyhrává 
     call.subject,
     "🗺️ ZAPLACENÝ ITINERÁŘ NA MÍRU — objednávka #b2c3d4e5 (2 698 Kč)"
   );
+});
+
+Deno.test("sendEmail passes scheduledAt to Resend when provided", async () => {
+  let captured: Record<string, unknown> | null = null;
+  const client: ResendClient = {
+    emails: {
+      send: (params: unknown) => {
+        captured = params as Record<string, unknown>;
+        return Promise.resolve({ data: { id: "em_sched_1" }, error: null });
+      },
+      cancel: () => Promise.resolve({ data: null, error: null }),
+    },
+  };
+  await sendEmail(client, {
+    type: "review-invitation",
+    to: "test@example.com",
+    idempotencyKey: "review-invitation/order-1",
+    scheduledAt: "2026-08-01T10:00:00.000Z",
+    templateProps: { customerName: "Jana", reviewUrl: "https://example.com/r?token=x", productTitles: ["Salzburg"] },
+  });
+  if (captured!.scheduledAt !== "2026-08-01T10:00:00.000Z") {
+    throw new Error(`scheduledAt not passed: ${JSON.stringify(captured)}`);
+  }
+});
+
+Deno.test("sendEmail omits scheduledAt when not provided", async () => {
+  let captured: Record<string, unknown> | null = null;
+  const client: ResendClient = {
+    emails: {
+      send: (params: unknown) => {
+        captured = params as Record<string, unknown>;
+        return Promise.resolve({ data: { id: "em_now_1" }, error: null });
+      },
+      cancel: () => Promise.resolve({ data: null, error: null }),
+    },
+  };
+  await sendEmail(client, {
+    type: "review-invitation",
+    to: "test@example.com",
+    idempotencyKey: "review-invitation/order-2",
+    templateProps: { customerName: "Jana", reviewUrl: "https://example.com/r?token=x", productTitles: ["Salzburg"] },
+  });
+  if ("scheduledAt" in captured!) throw new Error("scheduledAt must be omitted");
+});
+
+Deno.test("cancelScheduledEmail returns true on success, false on error", async () => {
+  const ok: ResendClient = {
+    emails: {
+      send: () => Promise.resolve({ data: { id: "x" }, error: null }),
+      cancel: () => Promise.resolve({ data: { id: "em_1" }, error: null }),
+    },
+  };
+  const fail: ResendClient = {
+    emails: {
+      send: () => Promise.resolve({ data: { id: "x" }, error: null }),
+      cancel: () => Promise.resolve({ data: null, error: { statusCode: 404, message: "not found", name: "not_found" } }),
+    },
+  };
+  if (!(await cancelScheduledEmail(ok, "em_1"))) throw new Error("expected true");
+  if (await cancelScheduledEmail(fail, "em_1")) throw new Error("expected false");
 });
 
 Deno.test("admin-order-notification: render funguje bez adminOrderUrl (volitelné tlačítko)", async () => {

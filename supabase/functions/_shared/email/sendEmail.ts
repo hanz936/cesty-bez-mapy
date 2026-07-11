@@ -20,12 +20,17 @@ import { StornoInvoice } from "./templates/StornoInvoice.tsx";
 import { InvoiceCorrected } from "./templates/InvoiceCorrected.tsx";
 import { InvoiceAlert } from "./templates/InvoiceAlert.tsx";
 import { AdminOrderNotification } from "./templates/AdminOrderNotification.tsx";
+import { ReviewInvitation } from "./templates/ReviewInvitation.tsx";
 import { EmailSuppressedError, type EmailType, type PropsForType, type SendEmailParams, type SendEmailResult } from "./types.ts";
 
 // Allow mocking in tests via parametric client
 export interface ResendClient {
   emails: {
     send(params: unknown, options?: unknown): Promise<{
+      data: { id: string } | null;
+      error: { statusCode: number; message: string; name: string } | null;
+    }>;
+    cancel(id: string): Promise<{
       data: { id: string } | null;
       error: { statusCode: number; message: string; name: string } | null;
     }>;
@@ -68,6 +73,8 @@ const SUBJECT_BUILDERS: Record<EmailType, (props: any) => string> = {
     p.hasCustomItinerary
       ? `🗺️ ZAPLACENÝ ITINERÁŘ NA MÍRU — objednávka #${p.orderId.slice(0, 8)} (${formatCzkSubject(p.totalAmount)})`
       : `🛒 Nová objednávka #${p.orderId.slice(0, 8)} — ${formatCzkSubject(p.totalAmount)}`,
+  'review-invitation': (_p) =>
+    `Jak se ti s průvodcem cestovalo? Napiš recenzi`,
 };
 
 // deno-lint-ignore no-explicit-any
@@ -93,6 +100,8 @@ function renderTemplate<T extends EmailType>(type: T, props: PropsForType<T>): a
       return InvoiceAlert(props as any);
     case 'admin-order-notification':
       return AdminOrderNotification(props as any);
+    case 'review-invitation':
+      return ReviewInvitation(props as any);
   }
 }
 
@@ -177,6 +186,7 @@ export async function sendEmail<T extends EmailType>(
       subject,
       react: reactElement,
       ...(params.attachments ? { attachments: params.attachments } : {}),
+      ...(params.scheduledAt ? { scheduledAt: params.scheduledAt } : {}),
     }, {
       idempotencyKey: params.idempotencyKey,
     });
@@ -224,4 +234,24 @@ export function makeResendClient(): ResendClient {
     throw new Error("RESEND_API_KEY environment variable is not set");
   }
   return new Resend(apiKey) as unknown as ResendClient;
+}
+
+// Best-effort cancel of a scheduled email (review invitation on refund).
+// Returns false instead of throwing - callers treat failure as acceptable residuum.
+export async function cancelScheduledEmail(
+  client: ResendClient,
+  emailId: string,
+): Promise<boolean> {
+  try {
+    const { error } = await client.emails.cancel(emailId);
+    if (error) {
+      logWarn("scheduled_email_cancel_failed", { email_id: emailId, error: error.message });
+      return false;
+    }
+    logInfo("scheduled_email_cancelled", { email_id: emailId });
+    return true;
+  } catch (err) {
+    logWarn("scheduled_email_cancel_failed", { email_id: emailId, error: String(err) });
+    return false;
+  }
 }

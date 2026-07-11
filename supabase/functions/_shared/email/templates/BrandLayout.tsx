@@ -24,8 +24,13 @@ interface BrandLayoutProps {
   heroHeading: string;
   heroIntro: string;
   footerSignoff: string;
+  /** Legal disclaimer line at the very bottom of the footer. Defaults to the
+   * transactional-message wording used by all order-related templates. */
+  footerDisclaimer?: string;
   children: React.ReactNode;
 }
+
+const DEFAULT_FOOTER_DISCLAIMER = "Tento email je transakční zpráva související s tvou objednávkou.";
 
 const bodyStyle: React.CSSProperties = {
   backgroundColor: "#ffffff",
@@ -98,7 +103,7 @@ const footerLinkStyle: React.CSSProperties = {
   textDecoration: "underline",
 };
 
-export function BrandLayout({ preview, heroHeading, heroIntro, footerSignoff, children }: BrandLayoutProps): React.ReactElement {
+export function BrandLayout({ preview, heroHeading, heroIntro, footerSignoff, footerDisclaimer, children }: BrandLayoutProps): React.ReactElement {
   return (
     <Html lang="cs">
       <Head />
@@ -128,7 +133,7 @@ export function BrandLayout({ preview, heroHeading, heroIntro, footerSignoff, ch
               <Link href={websiteUrl} style={footerLinkStyle}>cestybezmapy.cz</Link>
             </Text>
             <Text style={{ marginTop: spacing.md, fontSize: "12px", marginBottom: 0 }}>
-              Tento email je transakční zpráva související s tvou objednávkou.
+              {footerDisclaimer ?? DEFAULT_FOOTER_DISCLAIMER}
             </Text>
           </Section>
         </Container>

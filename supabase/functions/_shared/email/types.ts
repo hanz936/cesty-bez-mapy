@@ -14,7 +14,8 @@ export type EmailType =
   | 'storno-invoice'
   | 'invoice-corrected'
   | 'invoice-alert'
-  | 'admin-order-notification';
+  | 'admin-order-notification'
+  | 'review-invitation';
 
 export interface OrderItem {
   productTitle: string;
@@ -98,6 +99,12 @@ export interface AdminOrderNotificationProps {
   adminOrderUrl?: string;
 }
 
+export interface ReviewInvitationProps {
+  customerName: string;
+  reviewUrl: string;
+  productTitles: string[];
+}
+
 export interface EmailAttachment {
   filename: string;
   content: string; // base64-encoded
@@ -115,6 +122,7 @@ export type PropsForType<T extends EmailType> =
   : T extends 'invoice-corrected' ? InvoiceCorrectedProps
   : T extends 'invoice-alert' ? InvoiceAlertProps
   : T extends 'admin-order-notification' ? AdminOrderNotificationProps
+  : T extends 'review-invitation' ? ReviewInvitationProps
   : never;
 
 export interface SendEmailParams<T extends EmailType> {
@@ -123,6 +131,8 @@ export interface SendEmailParams<T extends EmailType> {
   idempotencyKey: string; // format: <event-type>/<entity-id>[/retry-N]
   templateProps: PropsForType<T>;
   attachments?: EmailAttachment[];
+  /** ISO 8601. Resend supports max +30 days. Used for review invitations (+21 days). */
+  scheduledAt?: string;
 }
 
 export interface SendEmailResult {
