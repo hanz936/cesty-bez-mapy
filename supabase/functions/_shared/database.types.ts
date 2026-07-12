@@ -824,6 +824,32 @@ export type Database = {
         }
         Relationships: []
       }
+      review_admin_notes: {
+        Row: {
+          notes: string
+          review_id: string
+          updated_at: string
+        }
+        Insert: {
+          notes: string
+          review_id: string
+          updated_at?: string
+        }
+        Update: {
+          notes?: string
+          review_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_admin_notes_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: true
+            referencedRelation: "reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       review_requests: {
         Row: {
           created_at: string
@@ -861,7 +887,6 @@ export type Database = {
       }
       reviews: {
         Row: {
-          admin_notes: string | null
           approved_at: string | null
           created_at: string
           id: string
@@ -873,7 +898,6 @@ export type Database = {
           status: string
         }
         Insert: {
-          admin_notes?: string | null
           approved_at?: string | null
           created_at?: string
           id?: string
@@ -885,7 +909,6 @@ export type Database = {
           status?: string
         }
         Update: {
-          admin_notes?: string | null
           approved_at?: string | null
           created_at?: string
           id?: string

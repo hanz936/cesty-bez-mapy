@@ -1,6 +1,7 @@
 -- Reviews system: verified-purchase product reviews.
 -- Spec: ADM repo docs/superpowers/specs/2026-07-11-reviews-system-design.md
--- reviews: one review per (order, product), pre-moderated (pending -> approved/rejected).
+-- reviews: one non-rejected review per (order, product), pre-moderated (pending -> approved/rejected).
+-- review_admin_notes: internal moderation notes, admin-only (kept off reviews so public grants can never expose them).
 -- review_requests: one token per order, emailed +21 days after payment, valid 12 months.
 -- Trigger keeps products.average_rating / review_count in sync (approved only) —
 -- fulfils the promise in the baseline column comments.
@@ -13,7 +14,6 @@ CREATE TABLE "public"."reviews" (
     "rating" smallint NOT NULL,
     "review_text" text NOT NULL,
     "status" text DEFAULT 'pending' NOT NULL,
-    "admin_notes" text,
     "created_at" timestamptz DEFAULT now() NOT NULL,
     "approved_at" timestamptz,
     CONSTRAINT "reviews_pkey" PRIMARY KEY ("id"),
@@ -27,7 +27,7 @@ CREATE TABLE "public"."reviews" (
 
 ALTER TABLE "public"."reviews" OWNER TO "postgres";
 
-COMMENT ON TABLE "public"."reviews" IS 'Verified-purchase product reviews. One per (order, product). Pre-moderated: pending -> approved/rejected; only approved rows are public and feed products.average_rating.';
+COMMENT ON TABLE "public"."reviews" IS 'Verified-purchase product reviews. One non-rejected review per (order, product) - enforced by idx_reviews_order_id_product_id_unique; a rejected row stays as an audit record and frees the slot for a resubmission. Pre-moderated: pending -> approved/rejected; only approved rows are public and feed products.average_rating.';
 COMMENT ON COLUMN "public"."reviews"."status" IS 'Allowed values: pending, approved, rejected. Moderation may reject only spam/vulgarity/PII, never by rating value (par. 5 ZOS).';
 COMMENT ON COLUMN "public"."reviews"."reviewer_name" IS 'Customer-chosen display name, published with the review.';
 COMMENT ON COLUMN "public"."reviews"."review_text" IS 'Plain text 10-2000 chars. Admin must never edit content (legal requirement) - no UPDATE grant on this column.';
@@ -38,7 +38,7 @@ CREATE INDEX "idx_reviews_created_at" ON "public"."reviews" USING btree ("create
 
 -- One active review per (order, product): partial unique index instead of a plain UNIQUE
 -- constraint. A rejected review must not permanently lock the slot — the customer can submit
--- a fresh one after a rejection. The rejected row stays as the audit record (see admin_notes).
+-- a fresh one after a rejection. The rejected row stays as the audit record (rejection reason lives in review_admin_notes).
 CREATE UNIQUE INDEX "idx_reviews_order_id_product_id_unique" ON "public"."reviews" ("order_id", "product_id") WHERE ("status" <> 'rejected');
 
 CREATE TABLE "public"."review_requests" (
@@ -58,6 +58,19 @@ ALTER TABLE "public"."review_requests" OWNER TO "postgres";
 
 COMMENT ON TABLE "public"."review_requests" IS 'One review-invitation token per paid order (UUID v4, ~122 bits). Emailed +21 days after payment via Resend scheduled_at; valid 12 months. Token validation additionally requires orders.status = completed (refund kills the token).';
 COMMENT ON COLUMN "public"."review_requests"."invitation_email_id" IS 'Resend email id of the scheduled invitation - used for best-effort cancel on refund.';
+
+CREATE TABLE "public"."review_admin_notes" (
+    "review_id" uuid NOT NULL,
+    "notes" text NOT NULL,
+    "updated_at" timestamptz DEFAULT now() NOT NULL,
+    CONSTRAINT "review_admin_notes_pkey" PRIMARY KEY ("review_id"),
+    CONSTRAINT "review_admin_notes_review_id_fkey" FOREIGN KEY ("review_id") REFERENCES "public"."reviews"("id") ON DELETE CASCADE,
+    CONSTRAINT "review_admin_notes_notes_check" CHECK (char_length("notes") BETWEEN 1 AND 2000)
+);
+
+ALTER TABLE "public"."review_admin_notes" OWNER TO "postgres";
+
+COMMENT ON TABLE "public"."review_admin_notes" IS 'Internal moderation notes, stored apart from reviews so the public reviews grants can never expose them (admin shares the authenticated role - Supabase CLS guide recommends a dedicated protected table). Upserted from the admin UI; a rejected review keeps its rejection reason here (par. 5 ZOS).';
 
 -- Aggregate trigger: recompute products.average_rating + review_count from approved reviews.
 CREATE OR REPLACE FUNCTION "public"."refresh_product_rating"()
@@ -94,12 +107,13 @@ FOR EACH ROW EXECUTE FUNCTION "public"."refresh_product_rating"();
 -- role authenticated. Grants are per-role; row visibility is cut by RLS policies.
 ALTER TABLE "public"."reviews" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."review_requests" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."review_admin_notes" ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE "public"."reviews" FROM "anon", "authenticated";
 GRANT SELECT ("id", "product_id", "reviewer_name", "rating", "review_text", "created_at")
   ON "public"."reviews" TO "anon";
 GRANT SELECT ON TABLE "public"."reviews" TO "authenticated";
-GRANT UPDATE ("status", "admin_notes", "approved_at") ON "public"."reviews" TO "authenticated";
+GRANT UPDATE ("status", "approved_at") ON "public"."reviews" TO "authenticated";
 GRANT DELETE ON TABLE "public"."reviews" TO "authenticated";
 GRANT ALL ON TABLE "public"."reviews" TO "service_role";
 
@@ -118,3 +132,16 @@ GRANT ALL ON TABLE "public"."review_requests" TO "service_role";
 
 CREATE POLICY "review_requests_admin_select" ON "public"."review_requests"
   FOR SELECT TO "authenticated" USING ((SELECT "public"."is_admin"()));
+
+REVOKE ALL ON TABLE "public"."review_admin_notes" FROM "anon", "authenticated";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."review_admin_notes" TO "authenticated";
+GRANT ALL ON TABLE "public"."review_admin_notes" TO "service_role";
+
+CREATE POLICY "review_admin_notes_admin_select" ON "public"."review_admin_notes"
+  FOR SELECT TO "authenticated" USING ((SELECT "public"."is_admin"()));
+CREATE POLICY "review_admin_notes_admin_insert" ON "public"."review_admin_notes"
+  FOR INSERT TO "authenticated" WITH CHECK ((SELECT "public"."is_admin"()));
+CREATE POLICY "review_admin_notes_admin_update" ON "public"."review_admin_notes"
+  FOR UPDATE TO "authenticated" USING ((SELECT "public"."is_admin"())) WITH CHECK ((SELECT "public"."is_admin"()));
+CREATE POLICY "review_admin_notes_admin_delete" ON "public"."review_admin_notes"
+  FOR DELETE TO "authenticated" USING ((SELECT "public"."is_admin"()));

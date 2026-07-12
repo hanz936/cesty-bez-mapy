@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(28);
+SELECT plan(34);
 
 -- ── Struktura ────────────────────────────────────────────────
 SELECT has_table('public'::name, 'reviews'::name);
@@ -85,7 +85,7 @@ VALUES ('00000000-0000-0000-0000-000000000003',
         '00000000-0000-0000-0000-00000000000a',
         '00000000-0000-0000-0000-00000000000e',
         'Reject Me', 2, 'Tahle recenze bude zamitnuta administratorem.');
-UPDATE public.reviews SET status = 'rejected', admin_notes = 'spam'
+UPDATE public.reviews SET status = 'rejected'
 WHERE id = '00000000-0000-0000-0000-000000000003';
 
 SELECT lives_ok(
@@ -140,14 +140,47 @@ SELECT is( (SELECT count(*) FROM public.reviews WHERE status = 'approved')::int,
 SET LOCAL request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal2"}';
 SELECT is( (SELECT count(*) FROM public.reviews)::int, 5, 'admin vidi vse vc. pending a rejected' );
 SELECT lives_ok(
-  $$ UPDATE public.reviews SET status = 'approved', approved_at = now(), admin_notes = 'ok'
+  $$ UPDATE public.reviews SET status = 'approved', approved_at = now()
      WHERE status = 'pending' $$,
-  'admin muze UPDATE status/admin_notes/approved_at' );
+  'admin muze UPDATE status/approved_at' );
 SELECT throws_ok(
   $$ UPDATE public.reviews SET review_text = 'prepsany text recenze zlym adminem' WHERE status = 'approved' $$,
   '42501', NULL, 'admin NEMUZE menit review_text (column grant)' );
 SELECT is( (SELECT count(*) FROM public.review_requests)::int, 0,
            'admin review_requests SELECT projde (0 radku ve fixture)' );
+RESET ROLE;
+
+-- ── RLS: review_admin_notes ──────────────────────────────────
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal2"}';
+SELECT lives_ok(
+  $$ INSERT INTO public.review_admin_notes (review_id, notes)
+     VALUES ('00000000-0000-0000-0000-000000000003', 'Zamitnuto pro spam obsah.') $$,
+  'admin muze INSERT poznamku k recenzi' );
+SELECT is( (SELECT count(*) FROM public.review_admin_notes
+             WHERE review_id = '00000000-0000-0000-0000-000000000003')::int,
+           1, 'admin vidi svou poznamku' );
+
+SET LOCAL request.jwt.claims = '{"is_admin": false, "is_anonymous": true, "aal": "aal1"}';
+SELECT is( (SELECT count(*) FROM public.review_admin_notes)::int, 0,
+           'ne-admin SELECT review_admin_notes vraci 0 radku (RLS skryje, bez chyby)' );
+SELECT throws_ok(
+  $$ INSERT INTO public.review_admin_notes (review_id, notes)
+     VALUES ('00000000-0000-0000-0000-000000000002', 'pokus ne-admina') $$,
+  '42501', NULL, 'ne-admin INSERT do review_admin_notes selze (RLS)' );
+RESET ROLE;
+
+SET LOCAL ROLE anon;
+SELECT throws_ok( $$ SELECT * FROM public.review_admin_notes $$, '42501', NULL,
+           'anon nema vubec grant na review_admin_notes' );
+RESET ROLE;
+
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal2"}';
+DELETE FROM public.reviews WHERE id = '00000000-0000-0000-0000-000000000003';
+SELECT is( (SELECT count(*) FROM public.review_admin_notes
+             WHERE review_id = '00000000-0000-0000-0000-000000000003')::int,
+           0, 'review_admin_notes kaskadove smazana s review (ON DELETE CASCADE)' );
 RESET ROLE;
 
 SELECT * FROM finish();
