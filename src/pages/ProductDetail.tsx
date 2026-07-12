@@ -68,6 +68,10 @@ const ProductDetail = () => {
         setLoading(true);
         setError(null);
         setReviewsFetchFailed(false);
+        // SPA nav mezi produkty: bez resetu by JSON-LD (a `preloaded` pro ProductReviews)
+        // nesly recenze predchoziho produktu, kdyz novy fetch selze nebo produkt recenze nema.
+        setReviewsRaw([]);
+        setSeoReviews([]);
 
         const { data, error: fetchError } = await supabase
           .from('products')
