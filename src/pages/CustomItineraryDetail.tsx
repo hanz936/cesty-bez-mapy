@@ -5,6 +5,7 @@ import { Button } from '../components/ui';
 import Lightbox from '../components/ui/Lightbox';
 import SeoTags from '../components/common/SeoTags';
 import { buildPageMeta } from '../utils/pageSeo';
+import ProductReviews from '../components/reviews/ProductReviews';
 import { BASE_PATH, ROUTES } from '../constants';
 
 const GALLERY_IMAGES = [
@@ -399,6 +400,8 @@ const CustomItineraryDetail = React.memo(() => {
             </div>
           </div>
         </section>
+
+        <ProductReviews productSlug="itinerar-na-miru" />
       </main>
 
       <Lightbox

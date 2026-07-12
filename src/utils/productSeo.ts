@@ -17,6 +17,28 @@ interface ProductOfferJsonLd {
   url: string;
 }
 
+// bestRating/worstRating vědomě vynecháno: Google je defaultuje na 5/1 (přesně naše
+// škála) a docs je typují jako Number — stringy by byly doslovně mimo spec.
+// ratingValue je dle docs „Number or Text" → String() je OK.
+interface AggregateRatingJsonLd {
+  '@type': 'AggregateRating';
+  ratingValue: string;
+  reviewCount: number;
+}
+
+interface ReviewJsonLd {
+  '@type': 'Review';
+  author: { '@type': 'Person'; name: string };
+  reviewRating: { '@type': 'Rating'; ratingValue: string };
+  reviewBody: string;
+  datePublished: string;
+}
+
+export interface ProductMetaReviewOptions {
+  rating?: { average: number; count: number };
+  reviews?: { author: string; rating: number; text: string; datePublished: string }[];
+}
+
 interface ProductJsonLd {
   '@context': string;
   '@type': string;
@@ -24,6 +46,8 @@ interface ProductJsonLd {
   description: string;
   image: string[];
   offers: ProductOfferJsonLd;
+  aggregateRating?: AggregateRatingJsonLd;
+  review?: ReviewJsonLd[];
 }
 
 export interface ProductMeta {
@@ -38,7 +62,11 @@ export interface ProductMeta {
  * Per-route SEO meta + JSON-LD Product pro detail produktu.
  * `price` je celé CZK (string), `priceCurrency` "CZK" (audit SEO-03 / Google).
  */
-export function buildProductMeta(product: ProductMetaProduct, siteUrl: string = SITE_URL): ProductMeta {
+export function buildProductMeta(
+  product: ProductMetaProduct,
+  options?: ProductMetaReviewOptions,
+  siteUrl: string = SITE_URL,
+): ProductMeta {
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string title must fall through to fallback (?? would change behavior)
   const title = product.detail_title?.trim() || product.title;
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string description must fall through to fallback (?? would change behavior)
@@ -61,6 +89,23 @@ export function buildProductMeta(product: ProductMetaProduct, siteUrl: string = 
       url: canonical,
     },
   };
+
+  if (options?.rating && options.rating.count > 0) {
+    jsonLd.aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: String(options.rating.average),
+      reviewCount: options.rating.count,
+    };
+    if (options.reviews && options.reviews.length > 0) {
+      jsonLd.review = options.reviews.map((r) => ({
+        '@type': 'Review',
+        author: { '@type': 'Person', name: r.author },
+        reviewRating: { '@type': 'Rating', ratingValue: String(r.rating) },
+        reviewBody: r.text,
+        datePublished: r.datePublished,
+      }));
+    }
+  }
 
   return { title, description, canonical, ogImage: image, jsonLd };
 }

@@ -39,6 +39,8 @@ const fixtureProduct = {
   autumn_description: null,
   winter_description: null,
   gallery_images: null,
+  average_rating: 0,
+  review_count: 0,
 };
 
 const renderProductDetail = (slug = 'toskansko') =>

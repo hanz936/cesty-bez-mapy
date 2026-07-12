@@ -10,6 +10,8 @@ import { useCart } from '../contexts';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import SeoTags from '../components/common/SeoTags';
 import { buildProductMeta } from '../utils/productSeo';
+import { fetchApprovedReviews } from '../lib/reviews';
+import ProductReviews from '../components/reviews/ProductReviews';
 import type { Tables } from '../types/database.types';
 
 type ProductDetailRow = Pick<
@@ -20,6 +22,7 @@ type ProductDetailRow = Pick<
   | 'budget_level'
   | 'spring_description' | 'summer_description' | 'autumn_description' | 'winter_description'
   | 'gallery_images'
+  | 'average_rating' | 'review_count'
 >;
 
 // `gallery_images` je DB sloupec typu `Json`; reálná data jsou pole `{src, alt}` objektů (viz
@@ -45,6 +48,7 @@ const ProductDetail = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [seoReviews, setSeoReviews] = useState<{ author: string; rating: number; text: string; datePublished: string }[]>([]);
   const galleryRef = useRef<HTMLDivElement>(null);
 
   // Fetch product data from Supabase
@@ -64,7 +68,8 @@ const ProductDetail = () => {
             hero_line_1, hero_line_2, hero_line_3, hero_line_4,
             budget_level,
             spring_description, summer_description, autumn_description, winter_description,
-            gallery_images
+            gallery_images,
+            average_rating, review_count
           `)
           // `slug` from useParams() is `string | undefined`; the `if (slug) fetchProduct()`
           // guard below already ensures this only runs when `slug` is a real string —
@@ -87,6 +92,18 @@ const ProductDetail = () => {
         }
 
         setProduct(data);
+
+        if ((data.review_count ?? 0) > 0) {
+          const page = await fetchApprovedReviews({ productId: data.id, limit: 6, offset: 0 });
+          if (isMounted) {
+            setSeoReviews(page.reviews.map((r) => ({
+              author: r.reviewer_name,
+              rating: r.rating,
+              text: r.review_text,
+              datePublished: r.created_at.slice(0, 10),
+            })));
+          }
+        }
       } catch (err) {
         if (!isMounted) return;
         console.error('Error fetching product:', err);
@@ -286,7 +303,16 @@ const ProductDetail = () => {
 
   return (
     <Layout ready={!loading && !!product}>
-      {product && <SeoTags meta={buildProductMeta(product)} />}
+      {product && (
+        <SeoTags
+          meta={buildProductMeta(
+            product,
+            (product.review_count ?? 0) > 0
+              ? { rating: { average: product.average_rating ?? 0, count: product.review_count ?? 0 }, reviews: seoReviews }
+              : undefined,
+          )}
+        />
+      )}
       <main className="min-h-screen bg-white">
         {/* Hero Section with Breadcrumb */}
         <section className="relative pt-6 pb-20 bg-white">
@@ -605,6 +631,8 @@ const ProductDetail = () => {
             </div>
           </div>
         </section>
+
+        {product && <ProductReviews productSlug={product.slug} />}
 
         <Lightbox
           images={galleryImages}
