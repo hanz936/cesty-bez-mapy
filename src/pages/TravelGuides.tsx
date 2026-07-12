@@ -74,30 +74,32 @@ const GuideCard = ({ guide, onCardClick }: GuideCardProps) => {
           <span className="flex items-center">
             📅 {guide.duration}
           </span>
-          <div className="flex items-center gap-2">
-            <div className="flex">
-              {[1,2,3,4,5].map(star => {
-                const isFull = star <= Math.floor(guide.rating);
-                const isHalf = star === Math.ceil(guide.rating) && guide.rating % 1 !== 0;
-                
-                return (
-                  <div key={star} className="relative">
-                    {/* Background (empty) star */}
-                    <svg className="w-4 h-4 text-gray-200" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                    </svg>
-                    {/* Foreground (filled) star */}
-                    {(isFull || isHalf) && (
-                      <svg className="w-4 h-4 text-yellow-400 absolute top-0 left-0" fill="currentColor" viewBox="0 0 24 24" style={{ clipPath: isHalf ? 'inset(0 50% 0 0)' : 'none' }}>
+          {guide.reviewCount > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="flex">
+                {[1,2,3,4,5].map(star => {
+                  const isFull = star <= Math.floor(guide.rating);
+                  const isHalf = star === Math.ceil(guide.rating) && guide.rating % 1 !== 0;
+
+                  return (
+                    <div key={star} className="relative">
+                      {/* Background (empty) star */}
+                      <svg className="w-4 h-4 text-gray-200" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                       </svg>
-                    )}
-                  </div>
-                );
-              })}
+                      {/* Foreground (filled) star */}
+                      {(isFull || isHalf) && (
+                        <svg className="w-4 h-4 text-yellow-400 absolute top-0 left-0" fill="currentColor" viewBox="0 0 24 24" style={{ clipPath: isHalf ? 'inset(0 50% 0 0)' : 'none' }}>
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <span className="text-sm text-gray-600 font-medium">{guide.rating} ({guide.reviewCount})</span>
             </div>
-            <span className="text-sm text-gray-600 font-medium">{guide.rating}</span>
-          </div>
+          )}
         </div>
         
         {/* Separator */}
@@ -203,11 +205,7 @@ const mapProductToGuide = (product: Tables<'products'>) => {
     priceNumeric: product.price || 0, // Pro sorting
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string duration must fall through to fallback (?? would change behavior)
     duration: product.duration || 'Neuvedeno',
-    // `average_rating` je v generovaných typech numeric (`number | null`), ale PostgREST může
-    // vrátit i string; navíc `||` bere i `0` jako falsy → to je ZÁMĚRNĚ zachovaný latentní stav
-    // (viz ledger — Fáze 3 launch seznamu, ne tato migrace).
-    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- pre-existing truthy fallback (rating 0 → 5.0); behavior preserved, viz ledger
-    rating: product.average_rating || 5.0,
+    rating: product.average_rating ?? 0,
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string image_url must fall through to fallback (?? would change behavior)
     image: product.image_url || `${BASE_PATH}/images/placeholder-guide.jpg`,
     alt: `Průvodce: ${product.title}`,
@@ -218,8 +216,7 @@ const mapProductToGuide = (product: Tables<'products'>) => {
     category_ids: product.category_ids || [], // UUID array kategorií
     isFree: product.price === 0,
     slug: product.slug,
-    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: pre-existing fallback, left byte-identical
-    reviewCount: product.review_count || 0,
+    reviewCount: product.review_count ?? 0,
     total_sales: product.total_sales || 0, // Pro sorting podle prodejnosti
     created_at: product.created_at // Pro sorting podle nejnovějších
   };
@@ -246,6 +243,11 @@ const ratingRanges = [
   { id: '4+', label: '4+ hvězdiček', minRating: 4.0 },
   { id: '3.5+', label: '3.5+ hvězdiček', minRating: 3.5 }
 ];
+
+/** Rating UI (hvězdičky na kartách + filtr) se ukazuje, až když má aspoň jeden produkt recenze. */
+export function hasAnyReviews(guides: { reviewCount: number }[]): boolean {
+  return guides.some((g) => g.reviewCount > 0);
+}
 
 const TravelGuides = () => {
   // State pro produkty a UI
@@ -476,6 +478,18 @@ const TravelGuides = () => {
     setSelectedRatingRanges([]);
   }, []);
 
+  // ✅ Rating UI (hvězdičky na kartách + filtr) se ukazuje jen když existují reálné recenze
+  const showRatingFilter = useMemo(() => hasAnyReviews(products), [products]);
+
+  // Když showRatingFilter spadne na false (žádné produkty s recenzí), vynuluj vybrané rating
+  // filtry — bez UI se sice nedají nastavit, ale stav by mohl přežít z dřívějška a potichu
+  // skrýt produkty.
+  useEffect(() => {
+    if (!showRatingFilter) {
+      setSelectedRatingRanges([]);
+    }
+  }, [showRatingFilter]);
+
   // ✅ Computed value: jsou nějaké checkbox filtry aktivní? (UX best practice)
   const hasActiveFilters = useMemo(() => {
     return selectedCategories.length > 0 ||
@@ -543,8 +557,8 @@ const TravelGuides = () => {
       });
     }
 
-    // 4. Filtrování podle rating ranges
-    if (selectedRatingRanges.length > 0) {
+    // 4. Filtrování podle rating ranges (jen když jsou reálné recenze — jinak by filtr byl neviditelný, ale funkční)
+    if (showRatingFilter && selectedRatingRanges.length > 0) {
       filtered = filtered.filter(product => {
         const rating = product.rating || 0;
         return selectedRatingRanges.some(rangeId => {
@@ -589,7 +603,7 @@ const TravelGuides = () => {
     });
 
     return sorted;
-  }, [products, deferredSearchQuery, categories, selectedCategories, selectedPriceRanges, selectedDurationRanges, selectedRatingRanges, activeSortOption]);
+  }, [products, deferredSearchQuery, categories, selectedCategories, selectedPriceRanges, selectedDurationRanges, selectedRatingRanges, showRatingFilter, activeSortOption]);
 
   return (
     <Layout ready>
@@ -754,26 +768,28 @@ const TravelGuides = () => {
                     </div>
                   </div>
 
-                  {/* Hodnocení */}
-                  <div>
-                    <h4 className="font-medium text-black mb-3">Hodnocení</h4>
-                    <div className="space-y-2">
-                      {ratingRangesWithCount.map(range => (
-                        <label key={range.id} className="flex items-center justify-between text-sm cursor-pointer hover:text-green-800 transition-colors">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              className="rounded text-green-600 focus:ring-green-500"
-                              checked={selectedRatingRanges.includes(range.id)}
-                              onChange={() => handleRatingRangeToggle(range.id)}
-                            />
-                            <span>{range.label}</span>
-                          </div>
-                          <span className="text-gray-500">({range.count})</span>
-                        </label>
-                      ))}
+                  {/* Hodnocení — jen když existují reálné recenze */}
+                  {showRatingFilter && (
+                    <div>
+                      <h4 className="font-medium text-black mb-3">Hodnocení</h4>
+                      <div className="space-y-2">
+                        {ratingRangesWithCount.map(range => (
+                          <label key={range.id} className="flex items-center justify-between text-sm cursor-pointer hover:text-green-800 transition-colors">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                className="rounded text-green-600 focus:ring-green-500"
+                                checked={selectedRatingRanges.includes(range.id)}
+                                onChange={() => handleRatingRangeToggle(range.id)}
+                              />
+                              <span>{range.label}</span>
+                            </div>
+                            <span className="text-gray-500">({range.count})</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
                 
                 {/* Clear filters */}
