@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(25);
+SELECT plan(28);
 
 -- ── Struktura ────────────────────────────────────────────────
 SELECT has_table('public'::name, 'reviews'::name);
@@ -70,12 +70,43 @@ VALUES ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000
 SELECT throws_ok(
   $$ INSERT INTO public.reviews (product_id, order_id, reviewer_name, rating, review_text)
      VALUES ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b', 'Y', 5, 'Druha recenze stejne kombinace.') $$,
-  '23505', NULL, 'UNIQUE (order_id, product_id) vynucen' );
+  '23505', NULL, 'partial UNIQUE index (order_id, product_id) vynucen pro pending/approved' );
+
+-- ── F1: zamitnuta recenze neuzamyka slot (order, product) navzdy ─────
+-- Partial unique index kryje jen non-rejected radky: po zamitnuti lze vlozit
+-- novou recenzi pro stejnou (order, product) kombinaci; zamitnuty radek
+-- zustava jako auditni zaznam (admin_notes). Druha pending/approved duplicita
+-- na stejnem slotu porad selze s 23505.
+INSERT INTO public.orders (id, customer_email, total_amount, status)
+VALUES ('00000000-0000-0000-0000-00000000000e', 'reviews-test4@example.com', 100, 'completed');
+
+INSERT INTO public.reviews (id, product_id, order_id, reviewer_name, rating, review_text)
+VALUES ('00000000-0000-0000-0000-000000000003',
+        '00000000-0000-0000-0000-00000000000a',
+        '00000000-0000-0000-0000-00000000000e',
+        'Reject Me', 2, 'Tahle recenze bude zamitnuta administratorem.');
+UPDATE public.reviews SET status = 'rejected', admin_notes = 'spam'
+WHERE id = '00000000-0000-0000-0000-000000000003';
+
+SELECT lives_ok(
+  $$ INSERT INTO public.reviews (product_id, order_id, reviewer_name, rating, review_text)
+     VALUES ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000e', 'Try Again', 4, 'Nova recenze po zamitnuti te predchozi.') $$,
+  'po zamitnuti puvodni recenze lze vlozit novou pro stejnou (order, product)' );
+
+SELECT is( (SELECT count(*) FROM public.reviews
+             WHERE order_id = '00000000-0000-0000-0000-00000000000e'
+               AND product_id = '00000000-0000-0000-0000-00000000000a')::int,
+           2, 'zamitnuta recenze zustava jako auditni zaznam, nova je pending' );
+
+SELECT throws_ok(
+  $$ INSERT INTO public.reviews (product_id, order_id, reviewer_name, rating, review_text)
+     VALUES ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000e', 'Duplicate', 3, 'Dalsi pokus o duplicitu na stejnem slotu.') $$,
+  '23505', NULL, 'druha pending/approved recenze na stejnem slotu porad selze' );
 
 -- ── RLS: anon ────────────────────────────────────────────────
 UPDATE public.reviews SET status = 'approved', approved_at = now()
 WHERE order_id = '00000000-0000-0000-0000-00000000000b';
--- pending recenze na order d (order c ma uz rejected radek -> UNIQUE by kolidoval)
+-- pending recenze na order d (cerstvy slot bez existujici recenze)
 INSERT INTO public.reviews (product_id, order_id, reviewer_name, rating, review_text)
 VALUES ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000d', 'Pending guy', 3, 'Tahle ceka na schvaleni, neverejna.');
 
@@ -107,7 +138,7 @@ SELECT is( (SELECT count(*) FROM public.reviews WHERE status = 'approved')::int,
 
 -- ── RLS: admin aal2 ──────────────────────────────────────────
 SET LOCAL request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal2"}';
-SELECT is( (SELECT count(*) FROM public.reviews)::int, 3, 'admin vidi vse vc. pending a rejected' );
+SELECT is( (SELECT count(*) FROM public.reviews)::int, 5, 'admin vidi vse vc. pending a rejected' );
 SELECT lives_ok(
   $$ UPDATE public.reviews SET status = 'approved', approved_at = now(), admin_notes = 'ok'
      WHERE status = 'pending' $$,

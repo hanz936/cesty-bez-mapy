@@ -61,7 +61,10 @@ serveEdge({ auth: "publishable", fnName: "get-review-request" }, async (req, ctx
     supabase
       .from("reviews")
       .select("product_id")
-      .eq("order_id", tokenResult.orderId),
+      .eq("order_id", tokenResult.orderId)
+      // A rejected review must not permanently mark the slot as reviewed — the
+      // customer can submit a fresh one (matches the partial unique index in the DB).
+      .neq("status", "rejected"),
   ]);
 
   if (itemsResult.error || reviewsResult.error) {

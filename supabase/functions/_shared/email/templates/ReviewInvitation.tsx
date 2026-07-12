@@ -68,6 +68,6 @@ export default ReviewInvitation;
 
 ReviewInvitation.PreviewProps = {
   customerName: "Jana Nováková",
-  reviewUrl: "https://cestybezmapy.cz/recenze?token=example123",
+  reviewUrl: "https://cestybezmapy.cz/recenze/pridat?token=example123",
   productTitles: ["Toskánsko – cestovní průvodce"],
 } satisfies ReviewInvitationProps;

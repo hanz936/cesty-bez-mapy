@@ -19,7 +19,6 @@ CREATE TABLE "public"."reviews" (
     CONSTRAINT "reviews_pkey" PRIMARY KEY ("id"),
     CONSTRAINT "reviews_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE CASCADE,
     CONSTRAINT "reviews_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "public"."orders"("id") ON DELETE CASCADE,
-    CONSTRAINT "reviews_order_id_product_id_key" UNIQUE ("order_id", "product_id"),
     CONSTRAINT "reviews_reviewer_name_check" CHECK (char_length("reviewer_name") BETWEEN 1 AND 100),
     CONSTRAINT "reviews_rating_check" CHECK ("rating" BETWEEN 1 AND 5),
     CONSTRAINT "reviews_review_text_check" CHECK (char_length("review_text") BETWEEN 10 AND 2000),
@@ -36,6 +35,11 @@ COMMENT ON COLUMN "public"."reviews"."review_text" IS 'Plain text 10-2000 chars.
 CREATE INDEX "idx_reviews_product_id_status" ON "public"."reviews" USING btree ("product_id", "status");
 CREATE INDEX "idx_reviews_status_pending" ON "public"."reviews" USING btree ("status") WHERE ("status" = 'pending');
 CREATE INDEX "idx_reviews_created_at" ON "public"."reviews" USING btree ("created_at" DESC);
+
+-- One active review per (order, product): partial unique index instead of a plain UNIQUE
+-- constraint. A rejected review must not permanently lock the slot — the customer can submit
+-- a fresh one after a rejection. The rejected row stays as the audit record (see admin_notes).
+CREATE UNIQUE INDEX "idx_reviews_order_id_product_id_unique" ON "public"."reviews" ("order_id", "product_id") WHERE ("status" <> 'rejected');
 
 CREATE TABLE "public"."review_requests" (
     "id" uuid DEFAULT gen_random_uuid() NOT NULL,
