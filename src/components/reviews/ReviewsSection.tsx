@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import * as Sentry from '@sentry/react';
 import ReviewCard from '../ui/ReviewCard';
 import { fetchApprovedReviews, fetchReviewStats } from '../../lib/reviews';
 import type { PublicReview } from '../../lib/reviews';
@@ -38,8 +39,9 @@ const ReviewsSection = ({ className = '' }: ReviewsSectionProps) => {
         setReviews(page.reviews);
         setTotal(page.total);
         setStats(s);
-      } catch {
+      } catch (err) {
         if (isMounted) setError(true);
+        Sentry.captureException(err, { tags: { area: 'reviews', component: 'ReviewsSection' } });
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -57,8 +59,9 @@ const ReviewsSection = ({ className = '' }: ReviewsSectionProps) => {
       const page = await fetchApprovedReviews({ limit: PAGE_SIZE, offset: reviews.length });
       setReviews((prev) => [...prev, ...page.reviews]);
       setTotal(page.total);
-    } catch {
+    } catch (err) {
       setError(true);
+      Sentry.captureException(err, { tags: { area: 'reviews', component: 'ReviewsSection' } });
     } finally {
       setLoadingMore(false);
     }

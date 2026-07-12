@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { ReactEventHandler } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import * as Sentry from '@sentry/react';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui';
 import Lightbox from '../components/ui/Lightbox';
@@ -11,6 +12,7 @@ import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import SeoTags from '../components/common/SeoTags';
 import { buildProductMeta } from '../utils/productSeo';
 import { fetchApprovedReviews } from '../lib/reviews';
+import type { PublicReview } from '../lib/reviews';
 import ProductReviews from '../components/reviews/ProductReviews';
 import type { Tables } from '../types/database.types';
 
@@ -49,6 +51,12 @@ const ProductDetail = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [seoReviews, setSeoReviews] = useState<{ author: string; rating: number; text: string; datePublished: string }[]>([]);
+  // Raw recenze (stejný fetch jako seoReviews, limit 6 = PRODUCT_REVIEWS_LIMIT v ProductReviews) —
+  // předávané jako `preloaded` do ProductReviews, aby si sekce nemusela dělat vlastní duplicitní fetch.
+  const [reviewsRaw, setReviewsRaw] = useState<PublicReview[]>([]);
+  // Když isolovaný fetch recenzí selže, `preloaded` se NEPŘEDÁVÁ — ProductReviews si udělá vlastní
+  // fetch (a případně ukáže poctivou chybovou hlášku) místo tichého prázdného gridu.
+  const [reviewsFetchFailed, setReviewsFetchFailed] = useState(false);
   const galleryRef = useRef<HTMLDivElement>(null);
 
   // Fetch product data from Supabase
@@ -59,6 +67,7 @@ const ProductDetail = () => {
       try {
         setLoading(true);
         setError(null);
+        setReviewsFetchFailed(false);
 
         const { data, error: fetchError } = await supabase
           .from('products')
@@ -97,6 +106,7 @@ const ProductDetail = () => {
           try {
             const page = await fetchApprovedReviews({ productId: data.id, limit: 6, offset: 0 });
             if (isMounted) {
+              setReviewsRaw(page.reviews);
               setSeoReviews(page.reviews.map((r) => ({
                 author: r.reviewer_name,
                 rating: r.rating,
@@ -104,10 +114,14 @@ const ProductDetail = () => {
                 datePublished: r.created_at.slice(0, 10),
               })));
             }
-          } catch {
+          } catch (reviewsErr) {
             // Recenze jsou pro JSON-LD jen obohacení — jejich výpadek nesmí shodit celou
             // stránku produktu do error stavu. seoReviews zůstane prázdné a JSON-LD ponese
             // aggregateRating bez pole review (buildProductMeta prázdné pole nepřidává).
+            // reviewsFetchFailed=true → ProductReviews níže NEDOSTANE `preloaded` a udělá si
+            // vlastní fetch (může se povést napodruhé, nebo ukáže vlastní poctivou chybu).
+            if (isMounted) setReviewsFetchFailed(true);
+            Sentry.captureException(reviewsErr, { tags: { area: 'reviews', component: 'ProductDetail' } });
           }
         }
       } catch (err) {
@@ -638,7 +652,16 @@ const ProductDetail = () => {
           </div>
         </section>
 
-        {product && <ProductReviews productSlug={product.slug} />}
+        {product && (
+          <ProductReviews
+            productSlug={product.slug}
+            preloaded={
+              reviewsFetchFailed
+                ? undefined
+                : { productId: product.id, reviewCount: product.review_count ?? 0, reviews: reviewsRaw }
+            }
+          />
+        )}
 
         <Lightbox
           images={galleryImages}

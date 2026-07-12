@@ -111,4 +111,80 @@ describe('ReviewSubmit', () => {
     renderPage('?token=123e4567-e89b-42d3-a456-426614174000');
     await waitFor(() => expect(screen.getByText(/Recenze odeslána/)).toBeInTheDocument());
   });
+
+  describe('odeslání recenze', () => {
+    const renderWithProduct = async (customerName: string | null = 'Jana Nováková') => {
+      getReviewRequestMock.mockResolvedValue({
+        ok: true,
+        data: {
+          customer_name: customerName,
+          products: [{ product_id: 'p1', title: 'Salzburg', image_url: null, already_reviewed: false }],
+        },
+      });
+      renderPage('?token=123e4567-e89b-42d3-a456-426614174000');
+      await waitFor(() => expect(screen.getByText('Salzburg')).toBeInTheDocument());
+    };
+
+    const submitButton = () => screen.getByRole('button', { name: 'Odeslat recenzi' });
+    const textArea = () => screen.getByRole('textbox', { name: 'Text recenze: Salzburg' });
+
+    it('blocks submit and shows Czech message when no rating is selected', async () => {
+      await renderWithProduct();
+      fireEvent.click(submitButton());
+      await waitFor(() =>
+        expect(screen.getByText('Vyber prosím počet hvězdiček.')).toBeInTheDocument(),
+      );
+      expect(submitReviewMock).not.toHaveBeenCalled();
+    });
+
+    it('blocks submit and shows Czech message when review text is too short', async () => {
+      await renderWithProduct();
+      fireEvent.click(screen.getAllByRole('radio')[4]); // 5 hvězdiček
+      fireEvent.change(textArea(), { target: { value: 'kratke' } });
+      fireEvent.click(submitButton());
+      await waitFor(() =>
+        expect(screen.getByText('Text recenze musí mít alespoň 10 znaků.')).toBeInTheDocument(),
+      );
+      expect(submitReviewMock).not.toHaveBeenCalled();
+    });
+
+    it('blocks submit and shows Czech message when name is empty', async () => {
+      await renderWithProduct(null);
+      fireEvent.click(screen.getAllByRole('radio')[4]);
+      fireEvent.change(textArea(), { target: { value: 'Dostatecne dlouhy text recenze na otestovani.' } });
+      fireEvent.click(submitButton());
+      await waitFor(() =>
+        expect(screen.getByText('Vyplň prosím jméno (max 100 znaků).')).toBeInTheDocument(),
+      );
+      expect(submitReviewMock).not.toHaveBeenCalled();
+    });
+
+    it('shows the thank-you state after a successful submit', async () => {
+      submitReviewMock.mockResolvedValue({ ok: true });
+      await renderWithProduct();
+      fireEvent.click(screen.getAllByRole('radio')[4]);
+      fireEvent.change(textArea(), { target: { value: 'Skvely pruvodce, moc doporucuji vsem.' } });
+      fireEvent.click(submitButton());
+      await waitFor(() => expect(screen.getByText(/Recenze odeslána/)).toBeInTheDocument());
+      expect(submitReviewMock).toHaveBeenCalledWith({
+        token: '123e4567-e89b-42d3-a456-426614174000',
+        product_id: 'p1',
+        rating: 5,
+        review_text: 'Skvely pruvodce, moc doporucuji vsem.',
+        reviewer_name: 'Jana Nováková',
+      });
+    });
+
+    it('shows the already_reviewed Czech message when submit fails with that error code', async () => {
+      submitReviewMock.mockResolvedValue({ ok: false, error: 'already_reviewed' });
+      await renderWithProduct();
+      fireEvent.click(screen.getAllByRole('radio')[4]);
+      fireEvent.change(textArea(), { target: { value: 'Skvely pruvodce, moc doporucuji vsem.' } });
+      fireEvent.click(submitButton());
+      await waitFor(() =>
+        expect(screen.getByText('Tento produkt jsi už ohodnotil/a — díky!')).toBeInTheDocument(),
+      );
+      expect(screen.queryByText(/Recenze odeslána/)).not.toBeInTheDocument();
+    });
+  });
 });

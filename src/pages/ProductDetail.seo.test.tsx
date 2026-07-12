@@ -25,6 +25,7 @@ vi.mock('../lib/reviews', () => ({
   fetchApprovedReviews: (...args: unknown[]) => fetchApprovedReviewsMock(...args),
   fetchReviewStats: vi.fn(),
 }));
+vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
 
 import ProductDetail from './ProductDetail';
 

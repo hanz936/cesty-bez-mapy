@@ -8,6 +8,7 @@ vi.mock('../../lib/reviews', () => ({
   fetchApprovedReviews: (...args: unknown[]) => fetchApprovedReviewsMock(...args),
   fetchReviewStats: (...args: unknown[]) => fetchReviewStatsMock(...args),
 }));
+vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
 
 import ReviewsSection, { formatReviewDate } from './ReviewsSection';
 

@@ -7,15 +7,20 @@ vi.mock('../../lib/reviews', () => ({
   fetchApprovedReviews: (...args: unknown[]) => fetchApprovedReviewsMock(...args),
 }));
 const singleMock = vi.fn<(...args: unknown[]) => unknown>();
+const fromMock = vi.fn<(...args: unknown[]) => unknown>();
 vi.mock('../../lib/supabase', () => ({
   supabase: {
-    from: () => ({
-      select: () => ({
-        eq: () => ({ eq: () => ({ eq: () => ({ single: singleMock }) }) }),
-      }),
-    }),
+    from: (...args: unknown[]) => {
+      fromMock(...args);
+      return {
+        select: () => ({
+          eq: () => ({ eq: () => ({ eq: () => ({ single: singleMock }) }) }),
+        }),
+      };
+    },
   },
 }));
+vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
 
 import ProductReviews from './ProductReviews';
 
@@ -69,5 +74,42 @@ describe('ProductReviews', () => {
     expect(container.querySelector('section')).toBeNull();
     expect(screen.queryByText(/nepodařilo načíst/)).not.toBeInTheDocument();
     expect(screen.queryByText(/zatím nemá recenze/)).not.toBeInTheDocument();
+  });
+
+  describe('preloaded (F3 — bez duplicitního fetche)', () => {
+    it('renders reviews from preloaded without calling supabase or fetchApprovedReviews', async () => {
+      const preloaded = {
+        productId: 'p1',
+        reviewCount: 1,
+        reviews: [{
+          id: 'r1', product_id: 'p1', reviewer_name: 'Jana N.', rating: 5,
+          review_text: 'Skvělý průvodce.', created_at: '2026-07-01T10:00:00.000Z',
+          products: { title: 'Salzburg', slug: 'salzburg' },
+        }],
+      };
+      render(
+        <MemoryRouter>
+          <ProductReviews productSlug="salzburg" preloaded={preloaded} />
+        </MemoryRouter>,
+      );
+      // preloaded → žádný loading flicker, obsah je hned na prvním renderu
+      expect(screen.getByText('Jana N.')).toBeInTheDocument();
+      await act(async () => { await Promise.resolve(); });
+      expect(fromMock).not.toHaveBeenCalled();
+      expect(singleMock).not.toHaveBeenCalled();
+      expect(fetchApprovedReviewsMock).not.toHaveBeenCalled();
+    });
+
+    it('renders honest empty state from preloaded with zero reviews (no fetch)', async () => {
+      render(
+        <MemoryRouter>
+          <ProductReviews productSlug="salzburg" preloaded={{ productId: 'p1', reviewCount: 0, reviews: [] }} />
+        </MemoryRouter>,
+      );
+      expect(screen.getByText(/zatím nemá recenze/)).toBeInTheDocument();
+      await act(async () => { await Promise.resolve(); });
+      expect(fromMock).not.toHaveBeenCalled();
+      expect(fetchApprovedReviewsMock).not.toHaveBeenCalled();
+    });
   });
 });
