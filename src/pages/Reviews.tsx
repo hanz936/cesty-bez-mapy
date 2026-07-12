@@ -37,10 +37,7 @@ const Reviews = memo(() => {
 
 
         {/* Reviews Section */}
-        <ReviewsSection
-          autoScroll={true}
-          className="pb-16"
-        />
+        <ReviewsSection className="pb-16" />
 
         {/* CTA Section - More elegant */}
         <section className="py-20 text-center">

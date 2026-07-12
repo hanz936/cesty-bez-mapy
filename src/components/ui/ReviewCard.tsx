@@ -4,9 +4,12 @@ interface ReviewCardProps {
   name: string;
   rating: number;
   text: string;
-  location: string;
-  source?: string;
+  /** Název recenzovaného produktu; null když produkt už není veřejně dostupný */
+  productTitle: string | null;
+  /** Formátované datum, např. "červenec 2026" */
   date: string;
+  /** true = recenze z ověřeného nákupu (u nás vždy — sběr je token-only) */
+  verified: boolean;
   className?: string;
 }
 
@@ -14,8 +17,9 @@ const ReviewCard = memo(({
   name,
   rating,
   text,
-  location,
+  productTitle,
   date,
+  verified,
   className = ''
 }: ReviewCardProps) => {
   // Generate stars based on rating - more elegant, smaller
@@ -69,6 +73,14 @@ const ReviewCard = memo(({
           {renderStars(rating)}
           <span className="ml-2 text-xs font-medium text-gray-500 tracking-wide">{rating}</span>
         </div>
+        {verified && (
+          <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-green-800 bg-green-50 px-2 py-1 rounded-full">
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+            </svg>
+            Ověřeno nákupem
+          </span>
+        )}
       </div>
 
       {/* Review text - fixed height with scroll */}
@@ -88,7 +100,7 @@ const ReviewCard = memo(({
           </div>
           <div>
             <p className="text-sm font-semibold text-gray-900 group-hover:text-green-800 transition-colors duration-300">{name}</p>
-            <p className="text-xs text-gray-500">{location}</p>
+            {productTitle && <p className="text-xs text-gray-500">{productTitle}</p>}
           </div>
         </div>
         <div className="text-right">
