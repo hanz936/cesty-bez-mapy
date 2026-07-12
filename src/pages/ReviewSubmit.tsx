@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, type KeyboardEvent } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { getReviewRequest, submitReview } from '../lib/reviews';
@@ -26,30 +26,59 @@ interface ProductFormState {
   error: string | null;
 }
 
-const StarPicker = ({ value, onChange, disabled }: { value: number; onChange: (v: number) => void; disabled: boolean }) => (
-  <div className="flex gap-1" role="radiogroup" aria-label="Hodnocení">
-    {[1, 2, 3, 4, 5].map((star) => (
-      <button
-        key={star}
-        type="button"
-        role="radio"
-        aria-checked={value === star}
-        aria-label={`${star} z 5 hvězdiček`}
-        disabled={disabled}
-        onClick={() => onChange(star)}
-        className="p-1 disabled:opacity-50"
-      >
-        <svg
-          className={`w-8 h-8 ${star <= value ? 'text-green-800' : 'text-gray-300'} transition-colors`}
-          fill="currentColor"
-          viewBox="0 0 24 24"
+const StarPicker = ({ value, onChange, disabled }: { value: number; onChange: (v: number) => void; disabled: boolean }) => {
+  const starRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // WAI-ARIA APG radio-group pattern: šipky posouvají výběr (s wrapem přes
+  // okraje) a fokus se přesouvá na nově vybrané radio; roving tabindex níže
+  // nechává v tab-orderu jen jedno radio (vybrané, resp. první bez výběru).
+  const selectStar = (star: number) => {
+    onChange(star);
+    starRefs.current[star - 1]?.focus();
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      selectStar(value >= 5 ? 1 : value + 1);
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      selectStar(value <= 1 ? 5 : value - 1);
+    }
+  };
+
+  return (
+    <div className="flex gap-1" role="radiogroup" aria-label="Hodnocení">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          ref={(el) => {
+            starRefs.current[star - 1] = el;
+          }}
+          type="button"
+          role="radio"
+          aria-checked={value === star}
+          aria-label={`${star} z 5 hvězdiček`}
+          tabIndex={star === (value || 1) ? 0 : -1}
+          disabled={disabled}
+          onClick={() => onChange(star)}
+          onKeyDown={handleKeyDown}
+          className="p-1 disabled:opacity-50"
         >
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-        </svg>
-      </button>
-    ))}
-  </div>
-);
+          <svg
+            className={`w-8 h-8 ${star <= value ? 'text-green-800' : 'text-gray-300'} transition-colors`}
+            fill="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+          </svg>
+        </button>
+      ))}
+    </div>
+  );
+};
+
+StarPicker.displayName = 'StarPicker';
 
 const ReviewSubmit = () => {
   const [searchParams] = useSearchParams();
