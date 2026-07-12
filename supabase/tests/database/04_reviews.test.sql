@@ -75,7 +75,7 @@ SELECT throws_ok(
 -- ── F1: zamitnuta recenze neuzamyka slot (order, product) navzdy ─────
 -- Partial unique index kryje jen non-rejected radky: po zamitnuti lze vlozit
 -- novou recenzi pro stejnou (order, product) kombinaci; zamitnuty radek
--- zustava jako auditni zaznam (admin_notes). Druha pending/approved duplicita
+-- zustava jako auditni zaznam (duvod v review_admin_notes). Druha pending/approved duplicita
 -- na stejnem slotu porad selze s 23505.
 INSERT INTO public.orders (id, customer_email, total_amount, status)
 VALUES ('00000000-0000-0000-0000-00000000000e', 'reviews-test4@example.com', 100, 'completed');
