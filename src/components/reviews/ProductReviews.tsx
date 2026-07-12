@@ -24,30 +24,47 @@ interface ProductRatingRow {
 /**
  * Recenze jednoho produktu (resolvuje produkt podle slugu). Používá se na
  * ProductDetail a CustomItineraryDetail. S nulou recenzí ukazuje poctivý
- * empty state (sekce zůstává — disclosure je viditelný vždy).
+ * empty state (sekce zůstává — disclosure je viditelný vždy); empty state se
+ * ale ukazuje VÝHRADNĚ při úspěšné odpovědi s nulou recenzí — skutečná chyba
+ * (síť, RLS, …) má vlastní hlášku, aby se nevydávala za "žádné recenze".
  */
 const ProductReviews = ({ productSlug, className = '' }: ProductReviewsProps) => {
   const [reviews, setReviews] = useState<PublicReview[]>([]);
   const [reviewCount, setReviewCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     async function load() {
       try {
-        const { data: product } = await supabase
+        const { data: product, error: lookupError } = await supabase
           .from('products')
           .select('id, average_rating, review_count')
           .eq('slug', productSlug)
           .eq('is_active', true)
           .eq('is_deleted', false)
           .single<ProductRatingRow>();
-        if (!isMounted || !product) return;
+        if (!isMounted) return;
+        if (lookupError || !product) {
+          // PGRST116 = .single() nenašel řádek (produkt neexistuje / není aktivní)
+          // → sekci skryjeme úplně; jakákoli jiná chyba → poctivá chybová hláška.
+          if (lookupError && lookupError.code !== 'PGRST116') {
+            setError(true);
+          } else {
+            setNotFound(true);
+          }
+          return;
+        }
         setReviewCount(product.review_count ?? 0);
         if ((product.review_count ?? 0) > 0) {
           const page = await fetchApprovedReviews({ productId: product.id, limit: PRODUCT_REVIEWS_LIMIT, offset: 0 });
           if (isMounted) setReviews(page.reviews);
         }
+      } catch {
+        // fetchApprovedReviews (nebo síť) selhal — stejné chování jako ReviewsSection na /recenze
+        if (isMounted) setError(true);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -59,7 +76,7 @@ const ProductReviews = ({ productSlug, className = '' }: ProductReviewsProps) =>
     };
   }, [productSlug]);
 
-  if (loading) return null;
+  if (loading || notFound) return null;
 
   return (
     <section aria-label="Recenze produktu" className={`py-16 ${className}`.trim()}>
@@ -67,11 +84,17 @@ const ProductReviews = ({ productSlug, className = '' }: ProductReviewsProps) =>
         <h2 className="text-2xl sm:text-3xl font-bold text-green-800 mb-4 text-center">Recenze</h2>
         <p className="text-sm text-gray-500 max-w-3xl mx-auto mb-10 text-center">{REVIEWS_DISCLOSURE}</p>
 
-        {reviewCount === 0 ? (
+        {error && (
+          <p className="text-center text-gray-600">Recenze se nepodařilo načíst. Zkus to prosím později.</p>
+        )}
+
+        {!error && reviewCount === 0 && (
           <p className="text-center text-gray-600">
             Tento průvodce zatím nemá recenze — buď první, kdo se podělí o zkušenost!
           </p>
-        ) : (
+        )}
+
+        {!error && reviewCount > 0 && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {reviews.map((review) => (

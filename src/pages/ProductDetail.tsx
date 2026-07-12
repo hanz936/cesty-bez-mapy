@@ -94,14 +94,20 @@ const ProductDetail = () => {
         setProduct(data);
 
         if ((data.review_count ?? 0) > 0) {
-          const page = await fetchApprovedReviews({ productId: data.id, limit: 6, offset: 0 });
-          if (isMounted) {
-            setSeoReviews(page.reviews.map((r) => ({
-              author: r.reviewer_name,
-              rating: r.rating,
-              text: r.review_text,
-              datePublished: r.created_at.slice(0, 10),
-            })));
+          try {
+            const page = await fetchApprovedReviews({ productId: data.id, limit: 6, offset: 0 });
+            if (isMounted) {
+              setSeoReviews(page.reviews.map((r) => ({
+                author: r.reviewer_name,
+                rating: r.rating,
+                text: r.review_text,
+                datePublished: r.created_at.slice(0, 10),
+              })));
+            }
+          } catch {
+            // Recenze jsou pro JSON-LD jen obohacení — jejich výpadek nesmí shodit celou
+            // stránku produktu do error stavu. seoReviews zůstane prázdné a JSON-LD ponese
+            // aggregateRating bez pole review (buildProductMeta prázdné pole nepřidává).
           }
         }
       } catch (err) {

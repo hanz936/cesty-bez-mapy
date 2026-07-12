@@ -18,6 +18,14 @@ function makeBuilder(result: { data: unknown; error: unknown }) {
 const fromMock = vi.fn<(...args: unknown[]) => unknown>();
 vi.mock('../lib/supabase', () => ({ supabase: { from: (...a: unknown[]) => fromMock(...a) } }));
 
+// fetchApprovedReviews mock — umožňuje simulovat výpadek recenzí nezávisle na product fetchi.
+// (fetchReviewStats jen doplňuje tvar modulu pro ostatní importéry; na této stránce se nevolá.)
+const fetchApprovedReviewsMock = vi.fn<(...args: unknown[]) => unknown>();
+vi.mock('../lib/reviews', () => ({
+  fetchApprovedReviews: (...args: unknown[]) => fetchApprovedReviewsMock(...args),
+  fetchReviewStats: vi.fn(),
+}));
+
 import ProductDetail from './ProductDetail';
 
 const fixtureProduct = {
@@ -57,6 +65,7 @@ const renderProductDetail = (slug = 'toskansko') =>
 describe('ProductDetail per-route SEO + Product JSON-LD + marker (SEO-03)', () => {
   beforeEach(() => {
     fromMock.mockReset();
+    fetchApprovedReviewsMock.mockReset();
   });
 
   it('po načtení produktu vykreslí prerender marker a Product JSON-LD v CZK', async () => {
@@ -103,5 +112,33 @@ describe('ProductDetail per-route SEO + Product JSON-LD + marker (SEO-03)', () =
     const scripts = [...container.querySelectorAll('script[type="application/ld+json"]')];
     const hasProductJsonLd = scripts.some((s) => (JSON.parse(s.textContent) as { '@type': string })['@type'] === 'Product');
     expect(hasProductJsonLd).toBe(false);
+  });
+
+  it('výpadek recenzí neshodí stránku — produkt se vykreslí a JSON-LD nese aggregateRating bez review', async () => {
+    const builder = makeBuilder({ data: { ...fixtureProduct, average_rating: 4.5, review_count: 2 }, error: null });
+    fromMock.mockReturnValue(builder);
+    fetchApprovedReviewsMock.mockRejectedValue(new Error('reviews down'));
+
+    const { container } = renderProductDetail();
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-prerender-ready="true"]')).not.toBeNull();
+    });
+
+    // Stránka NENÍ v error stavu — h1 je titulek produktu, ne „Nepodařilo se načíst produkt"
+    expect(container.querySelector('h1')).toHaveTextContent('Toskánsko na 7 dní');
+
+    const scripts = [...container.querySelectorAll('script[type="application/ld+json"]')];
+    const productJsonLd = scripts
+      .map((s) => JSON.parse(s.textContent) as Record<string, unknown>)
+      .find((j) => j['@type'] === 'Product');
+    expect(productJsonLd).toBeDefined();
+    expect(productJsonLd?.aggregateRating).toEqual({
+      '@type': 'AggregateRating',
+      ratingValue: '4.5',
+      reviewCount: 2,
+    });
+    // review pole chybí — seoReviews zůstalo prázdné a buildProductMeta prázdné pole nepřidává
+    expect(productJsonLd).not.toHaveProperty('review');
   });
 });

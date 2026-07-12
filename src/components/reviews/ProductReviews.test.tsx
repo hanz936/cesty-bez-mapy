@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const fetchApprovedReviewsMock = vi.fn<(...args: unknown[]) => unknown>();
@@ -42,5 +42,32 @@ describe('ProductReviews', () => {
     render(<MemoryRouter><ProductReviews productSlug="salzburg" /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText('Jana N.')).toBeInTheDocument());
     expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 6, offset: 0 });
+  });
+
+  it('shows error message (not fake empty state) when product lookup fails', async () => {
+    singleMock.mockResolvedValue({ data: null, error: { message: 'boom', code: 'XX000' } });
+    render(<MemoryRouter><ProductReviews productSlug="salzburg" /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByText(/nepodařilo načíst/)).toBeInTheDocument());
+    expect(screen.queryByText(/zatím nemá recenze/)).not.toBeInTheDocument();
+    expect(fetchApprovedReviewsMock).not.toHaveBeenCalled();
+  });
+
+  it('shows error message when the reviews fetch fails', async () => {
+    singleMock.mockResolvedValue({ data: { id: 'p1', average_rating: 5, review_count: 1 }, error: null });
+    fetchApprovedReviewsMock.mockRejectedValue(new Error('network down'));
+    render(<MemoryRouter><ProductReviews productSlug="salzburg" /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByText(/nepodařilo načíst/)).toBeInTheDocument());
+    expect(screen.queryByText(/zatím nemá recenze/)).not.toBeInTheDocument();
+  });
+
+  it('hides the section entirely when the product is not found (PGRST116)', async () => {
+    singleMock.mockResolvedValue({ data: null, error: { message: 'No rows', code: 'PGRST116' } });
+    const { container } = render(<MemoryRouter><ProductReviews productSlug="neexistuje" /></MemoryRouter>);
+    // flush load() — po dokončení nesmí být vidět sekce, error ani empty state
+    await act(async () => { await Promise.resolve(); });
+    expect(singleMock).toHaveBeenCalled();
+    expect(container.querySelector('section')).toBeNull();
+    expect(screen.queryByText(/nepodařilo načíst/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/zatím nemá recenze/)).not.toBeInTheDocument();
   });
 });
