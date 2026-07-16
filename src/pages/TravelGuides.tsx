@@ -249,6 +249,19 @@ export function hasAnyReviews(guides: { reviewCount: number }[]): boolean {
   return guides.some((g) => g.reviewCount > 0);
 }
 
+const SORT_OPTIONS = [
+  'Nejprodávanější',
+  'Nejdražší',
+  'Nejlevnější',
+  'Dle hodnocení',
+  'Nejnovější'
+];
+
+/** Sort „Dle hodnocení" se nabízí, až když má aspoň jeden produkt recenze (stejný gate jako hvězdičky/filtr). */
+export function visibleSortOptions(hasReviews: boolean): string[] {
+  return hasReviews ? [...SORT_OPTIONS] : SORT_OPTIONS.filter((o) => o !== 'Dle hodnocení');
+}
+
 const TravelGuides = () => {
   // State pro produkty a UI
   const [products, setProducts] = useState<ReturnType<typeof mapProductToGuide>[]>([]);
@@ -326,14 +339,6 @@ const TravelGuides = () => {
     // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget async function call inside useEffect (useEffect callbacks can't be async)
     fetchCategories();
   }, []);
-
-  const sortOptions = [
-    'Nejprodávanější',
-    'Nejdražší', 
-    'Nejlevnější',
-    'Dle hodnocení',
-    'Nejnovější'
-  ];
 
   const handleSortChange = useCallback((e: { target: { value: string } }) => {
     setActiveSortOption(e.target.value);
@@ -481,12 +486,17 @@ const TravelGuides = () => {
   // ✅ Rating UI (hvězdičky na kartách + filtr) se ukazuje jen když existují reálné recenze
   const showRatingFilter = useMemo(() => hasAnyReviews(products), [products]);
 
+  // Sort „Dle hodnocení" sdílí stejný gate — bez recenzí se v dropdownu nenabízí
+  const sortOptions = visibleSortOptions(showRatingFilter);
+
   // Když showRatingFilter spadne na false (žádné produkty s recenzí), vynuluj vybrané rating
   // filtry — bez UI se sice nedají nastavit, ale stav by mohl přežít z dřívějška a potichu
-  // skrýt produkty.
+  // skrýt produkty. Totéž pro sort „Dle hodnocení": bez nabídky v dropdownu se vrací na
+  // výchozí „Nejprodávanější" (funkční updater — activeSortOption nepatří do deps).
   useEffect(() => {
     if (!showRatingFilter) {
       setSelectedRatingRanges([]);
+      setActiveSortOption((prev) => (prev === 'Dle hodnocení' ? 'Nejprodávanější' : prev));
     }
   }, [showRatingFilter]);
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hasAnyReviews } from './TravelGuides';
+import { hasAnyReviews, visibleSortOptions } from './TravelGuides';
 
 describe('hasAnyReviews', () => {
   it('false when no product has reviews', () => {
@@ -10,5 +10,25 @@ describe('hasAnyReviews', () => {
   });
   it('false for an empty list', () => {
     expect(hasAnyReviews([])).toBe(false);
+  });
+});
+
+describe('visibleSortOptions', () => {
+  it('nabízí „Dle hodnocení" (v plném pořadí), když recenze existují', () => {
+    expect(visibleSortOptions(true)).toEqual([
+      'Nejprodávanější',
+      'Nejdražší',
+      'Nejlevnější',
+      'Dle hodnocení',
+      'Nejnovější',
+    ]);
+  });
+  it('bez recenzí vynechá přesně „Dle hodnocení", ostatní zachová v pořadí', () => {
+    expect(visibleSortOptions(false)).toEqual([
+      'Nejprodávanější',
+      'Nejdražší',
+      'Nejlevnější',
+      'Nejnovější',
+    ]);
   });
 });
