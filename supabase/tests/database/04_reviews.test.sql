@@ -1,11 +1,19 @@
 BEGIN;
-SELECT plan(37);
+SELECT plan(39);
 
 -- ── Struktura ────────────────────────────────────────────────
 SELECT has_table('public'::name, 'reviews'::name);
 SELECT has_table('public'::name, 'review_requests'::name);
 SELECT has_function('public'::name, 'refresh_product_rating'::name);
 SELECT has_trigger('public'::name, 'reviews'::name, 'trg_reviews_refresh_product_rating'::name);
+
+-- Advisor 0028/0029: trigger-only SECURITY DEFINER funkce nesmi byt spustitelna
+-- pres RPC anon/authenticated rolemi; trigger samotny EXECUTE volajiciho nekontroluje
+-- (agregacni asserty nize to dokazuji) — migrace 20260716181000
+SELECT is( has_function_privilege('anon', 'public.refresh_product_rating()', 'EXECUTE'),
+           false, 'anon nema EXECUTE na refresh_product_rating' );
+SELECT is( has_function_privilege('authenticated', 'public.refresh_product_rating()', 'EXECUTE'),
+           false, 'authenticated nema EXECUTE na refresh_product_rating' );
 
 -- ── Fixtures (jako postgres, RLS bypass) ─────────────────────
 INSERT INTO public.products (id, title, description, price, slug)
