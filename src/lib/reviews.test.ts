@@ -53,6 +53,20 @@ describe('reviews data layer', () => {
     expect(result.ok).toBe(false);
   });
 
+  it('submitReview returns { ok: true } on success and posts the full payload', async () => {
+    invokeMock.mockResolvedValue({ data: { success: true }, error: null });
+    const payload = { token: 't', product_id: 'p', rating: 5, review_text: 'dlouhy text recenze', reviewer_name: 'J' };
+    const result = await submitReview(payload);
+    expect(result).toEqual({ ok: true });
+    expect(invokeMock).toHaveBeenCalledWith('submit-review', { body: payload });
+  });
+
+  it('submitReview falls back to request_failed when no code is extractable (plain Error, no data)', async () => {
+    invokeMock.mockResolvedValue({ data: null, error: new Error('network down') });
+    const result = await submitReview({ token: 't', product_id: 'p', rating: 5, review_text: 'dlouhy text recenze', reviewer_name: 'J' });
+    expect(result).toEqual({ ok: false, error: 'request_failed' });
+  });
+
   it('getReviewRequest returns data on success', async () => {
     invokeMock.mockResolvedValue({ data: { customer_name: 'Jana', products: [] }, error: null });
     const result = await getReviewRequest('token-1');

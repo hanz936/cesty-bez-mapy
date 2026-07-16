@@ -8,7 +8,8 @@ vi.mock('../../lib/reviews', () => ({
   fetchApprovedReviews: (...args: unknown[]) => fetchApprovedReviewsMock(...args),
   fetchReviewStats: (...args: unknown[]) => fetchReviewStatsMock(...args),
 }));
-vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
+const captureExceptionMock = vi.fn<(...args: unknown[]) => unknown>();
+vi.mock('@sentry/react', () => ({ captureException: (...args: unknown[]) => captureExceptionMock(...args) }));
 
 import ReviewsSection, { formatReviewDate } from './ReviewsSection';
 
@@ -34,6 +35,18 @@ describe('ReviewsSection', () => {
     fetchReviewStatsMock.mockResolvedValue({ count: 0, average: 0 });
     render(<MemoryRouter><ReviewsSection /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText(/Zatím tu žádné recenze nejsou/)).toBeInTheDocument());
+  });
+
+  it('shows error message (not empty state) and reports to Sentry when the fetch fails', async () => {
+    fetchApprovedReviewsMock.mockRejectedValue(new Error('network down'));
+    fetchReviewStatsMock.mockResolvedValue({ count: 0, average: 0 });
+    render(<MemoryRouter><ReviewsSection /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByText(/nepodařilo načíst/)).toBeInTheDocument());
+    expect(screen.queryByText(/Zatím tu žádné recenze nejsou/)).not.toBeInTheDocument();
+    expect(captureExceptionMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ tags: { area: 'reviews', component: 'ReviewsSection' } }),
+    );
   });
 
   it('renders reviews with verified badge and disclosure, stats hidden under threshold', async () => {

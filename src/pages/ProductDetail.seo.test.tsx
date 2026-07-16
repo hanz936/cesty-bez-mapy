@@ -25,7 +25,8 @@ vi.mock('../lib/reviews', () => ({
   fetchApprovedReviews: (...args: unknown[]) => fetchApprovedReviewsMock(...args),
   fetchReviewStats: vi.fn(),
 }));
-vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
+const captureExceptionMock = vi.fn<(...args: unknown[]) => unknown>();
+vi.mock('@sentry/react', () => ({ captureException: (...args: unknown[]) => captureExceptionMock(...args) }));
 
 import ProductDetail from './ProductDetail';
 
@@ -67,6 +68,7 @@ describe('ProductDetail per-route SEO + Product JSON-LD + marker (SEO-03)', () =
   beforeEach(() => {
     fromMock.mockReset();
     fetchApprovedReviewsMock.mockReset();
+    captureExceptionMock.mockReset();
   });
 
   it('po načtení produktu vykreslí prerender marker a Product JSON-LD v CZK', async () => {
@@ -113,6 +115,8 @@ describe('ProductDetail per-route SEO + Product JSON-LD + marker (SEO-03)', () =
     const scripts = [...container.querySelectorAll('script[type="application/ld+json"]')];
     const hasProductJsonLd = scripts.some((s) => (JSON.parse(s.textContent) as { '@type': string })['@type'] === 'Product');
     expect(hasProductJsonLd).toBe(false);
+    // PGRST116 → setError bez throw: žádný catch se nespustí, do Sentry se nic nehlásí
+    expect(captureExceptionMock).not.toHaveBeenCalled();
   });
 
   it('výpadek recenzí neshodí stránku — produkt se vykreslí a JSON-LD nese aggregateRating bez review', async () => {
@@ -141,5 +145,11 @@ describe('ProductDetail per-route SEO + Product JSON-LD + marker (SEO-03)', () =
     });
     // review pole chybí — seoReviews zůstalo prázdné a buildProductMeta prázdné pole nepřidává
     expect(productJsonLd).not.toHaveProperty('review');
+
+    // Výpadek recenzí se hlásí do Sentry (tags.area = reviews), i když stránku neshodí
+    expect(captureExceptionMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ tags: { area: 'reviews', component: 'ProductDetail' } }),
+    );
   });
 });

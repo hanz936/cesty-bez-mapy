@@ -20,7 +20,8 @@ vi.mock('../../lib/supabase', () => ({
     },
   },
 }));
-vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
+const captureExceptionMock = vi.fn<(...args: unknown[]) => unknown>();
+vi.mock('@sentry/react', () => ({ captureException: (...args: unknown[]) => captureExceptionMock(...args) }));
 
 import ProductReviews from './ProductReviews';
 
@@ -55,6 +56,10 @@ describe('ProductReviews', () => {
     await waitFor(() => expect(screen.getByText(/nepodařilo načíst/)).toBeInTheDocument());
     expect(screen.queryByText(/zatím nemá recenze/)).not.toBeInTheDocument();
     expect(fetchApprovedReviewsMock).not.toHaveBeenCalled();
+    expect(captureExceptionMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ tags: { area: 'reviews', component: 'ProductReviews' } }),
+    );
   });
 
   it('shows error message when the reviews fetch fails', async () => {
@@ -63,17 +68,30 @@ describe('ProductReviews', () => {
     render(<MemoryRouter><ProductReviews productSlug="salzburg" /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText(/nepodařilo načíst/)).toBeInTheDocument());
     expect(screen.queryByText(/zatím nemá recenze/)).not.toBeInTheDocument();
+    expect(captureExceptionMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ tags: { area: 'reviews', component: 'ProductReviews' } }),
+    );
   });
 
   it('hides the section entirely when the product is not found (PGRST116)', async () => {
-    singleMock.mockResolvedValue({ data: null, error: { message: 'No rows', code: 'PGRST116' } });
+    // Deterministický deferred resolve: jediný pevný flush by při případném dalším
+    // await v load() nechal loading=true, které TAKY renderuje null → negativní
+    // asserty by prošly vakuózně. Resolve až po renderu zaručuje dokončený fetch.
+    let resolveSingle!: (value: { data: unknown; error: unknown }) => void;
+    singleMock.mockReturnValue(new Promise((resolve) => { resolveSingle = resolve; }));
     const { container } = render(<MemoryRouter><ProductReviews productSlug="neexistuje" /></MemoryRouter>);
-    // flush load() — po dokončení nesmí být vidět sekce, error ani empty state
-    await act(async () => { await Promise.resolve(); });
+    await act(async () => {
+      resolveSingle({ data: null, error: { message: 'No rows', code: 'PGRST116' } });
+      await Promise.resolve();
+    });
     expect(singleMock).toHaveBeenCalled();
     expect(container.querySelector('section')).toBeNull();
     expect(screen.queryByText(/nepodařilo načíst/)).not.toBeInTheDocument();
     expect(screen.queryByText(/zatím nemá recenze/)).not.toBeInTheDocument();
+    // PGRST116 = notFound, ne chyba: fetch recenzí nesmí vystřelit a nic se nehlásí do Sentry
+    expect(fetchApprovedReviewsMock).not.toHaveBeenCalled();
+    expect(captureExceptionMock).not.toHaveBeenCalled();
   });
 
   describe('preloaded (F3 — bez duplicitního fetche)', () => {
