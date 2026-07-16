@@ -109,6 +109,10 @@ WHERE order_id = '00000000-0000-0000-0000-00000000000b';
 -- pending recenze na order d (cerstvy slot bez existujici recenze)
 INSERT INTO public.reviews (product_id, order_id, reviewer_name, rating, review_text)
 VALUES ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000d', 'Pending guy', 3, 'Tahle ceka na schvaleni, neverejna.');
+-- fixture pro review_requests RLS asserty nize: bez radku by "0 radku" u ne-admina
+-- nerozlisilo RLS filtraci od prazdne tabulky
+INSERT INTO public.review_requests (order_id, expires_at)
+VALUES ('00000000-0000-0000-0000-00000000000b', now() + interval '12 months');
 
 SET LOCAL ROLE anon;
 SELECT is( (SELECT count(*) FROM (SELECT id, product_id, reviewer_name, rating, review_text, created_at FROM public.reviews) s)::int,
@@ -150,8 +154,8 @@ SELECT lives_ok(
 SELECT throws_ok(
   $$ UPDATE public.reviews SET review_text = 'prepsany text recenze zlym adminem' WHERE status = 'approved' $$,
   '42501', NULL, 'admin NEMUZE menit review_text (column grant)' );
-SELECT is( (SELECT count(*) FROM public.review_requests)::int, 0,
-           'admin review_requests SELECT projde (0 radku ve fixture)' );
+SELECT is( (SELECT count(*) FROM public.review_requests)::int, 1,
+           'admin review_requests SELECT projde (vidi fixture radek)' );
 RESET ROLE;
 
 -- ── RLS: review_admin_notes ──────────────────────────────────
