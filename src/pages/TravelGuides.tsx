@@ -616,7 +616,10 @@ const TravelGuides = () => {
   }, [products, deferredSearchQuery, categories, selectedCategories, selectedPriceRanges, selectedDurationRanges, selectedRatingRanges, showRatingFilter, activeSortOption]);
 
   return (
-    <Layout ready>
+    // ready až po dofetchnutí produktů — jinak prerender snapshotne loading stav
+    // bez gridu (a bez hvězdiček); při chybě fetche ready nedáme vůbec, ať build
+    // spadne nahlas místo shipnutí chybové stránky (stejná sémantika jako ProductDetail)
+    <Layout ready={!loading && !error}>
       <SeoTags meta={buildPageMeta(ROUTES.TRAVEL_GUIDES)} />
 
       {/* Hero Section */}
