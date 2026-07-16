@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(34);
+SELECT plan(37);
 
 -- ── Struktura ────────────────────────────────────────────────
 SELECT has_table('public'::name, 'reviews'::name);
@@ -135,6 +135,10 @@ SELECT is( (SELECT count(*) FROM public.reviews)::int, 1,
 UPDATE public.reviews SET status = 'rejected' WHERE status = 'approved';
 SELECT is( (SELECT count(*) FROM public.reviews WHERE status = 'approved')::int,
            1, 'ne-admin UPDATE nezasahl zadny radek (USING is_admin)' );
+-- authenticated ma na review_requests plny SELECT grant, ale RLS policy pousti
+-- jen admina -> ne-admin dostane prazdnou mnozinu (0 radku), zadna chyba.
+SELECT is( (SELECT count(*) FROM public.review_requests)::int, 0,
+           'ne-admin authenticated vidi 0 radku review_requests (RLS empty set, bez chyby)' );
 
 -- ── RLS: admin aal2 ──────────────────────────────────────────
 SET LOCAL request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal2"}';
@@ -160,6 +164,16 @@ SELECT lives_ok(
 SELECT is( (SELECT count(*) FROM public.review_admin_notes
              WHERE review_id = '00000000-0000-0000-0000-000000000003')::int,
            1, 'admin vidi svou poznamku' );
+-- Constrainty na notes: CHECK char_length BETWEEN 1 AND 2000 + NOT NULL.
+-- Recenze 002 zatim poznamku nema (PK = review_id), takze PK nezasahne driv.
+SELECT throws_ok(
+  $$ INSERT INTO public.review_admin_notes (review_id, notes)
+     VALUES ('00000000-0000-0000-0000-000000000002', '') $$,
+  '23514', NULL, 'prazdna poznamka odmitnuta (CHECK char_length >= 1)' );
+SELECT throws_ok(
+  $$ INSERT INTO public.review_admin_notes (review_id, notes)
+     VALUES ('00000000-0000-0000-0000-000000000002', NULL) $$,
+  '23502', NULL, 'NULL poznamka odmitnuta (NOT NULL)' );
 
 SET LOCAL request.jwt.claims = '{"is_admin": false, "is_anonymous": true, "aal": "aal1"}';
 SELECT is( (SELECT count(*) FROM public.review_admin_notes)::int, 0,
