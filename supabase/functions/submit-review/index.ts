@@ -24,7 +24,13 @@ const FAILURE_STATUS: Record<string, number> = {
   order_not_completed: 410,
 };
 
-serveEdge({ auth: "publishable", fnName: "submit-review" }, async (req, ctx) => {
+/** Kontext od serveEdge zúžený na to, co handler používá (serveEdge typuje ctx jako any). */
+export interface SubmitReviewCtx {
+  supabaseAdmin: SupabaseClient<Database>;
+}
+
+// Exportovaný handler (vzor resend-webhook): orchestrace je testovatelná přímo, bez HTTP kola.
+export async function handleSubmitReview(req: Request, ctx: SubmitReviewCtx): Promise<Response> {
   if (req.method !== "POST") {
     return jsonResponse({ error: "method_not_allowed" }, 405, {});
   }
@@ -91,4 +97,6 @@ serveEdge({ auth: "publishable", fnName: "submit-review" }, async (req, ctx) => 
 
   logInfo("review_submitted", { order_id: tokenResult.orderId, product_id: input.product_id });
   return jsonResponse({ success: true }, 200, {});
-});
+}
+
+serveEdge({ auth: "publishable", fnName: "submit-review" }, handleSubmitReview);
