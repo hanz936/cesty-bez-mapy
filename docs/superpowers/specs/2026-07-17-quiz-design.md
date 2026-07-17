@@ -22,6 +22,7 @@ jejíž scoring model se zachovává a opravuje; UI se staví znovu v Reactu.
 | Výsledky | Vždy top 3 + slovní úroveň shody + procento; pod tím fallback na míru |
 | Vizuál otázek | Tmavý foto-modal s bílým rámem; filmový pás jako progress; odpovědi = fotky „na stole"; výběr = zelená pečeť s fajfkou (kombinace konceptů A+C) |
 | Vizuál výsledků | „Pohlednice z tvé příští cesty": vítěz velká pohlednice, 2 alternativy menší, míra shody jako poštovní razítko s papírovým podkladem, fallback jako lísteček (v3) |
+| Sezónní popisky | Pohlednice ukazují popis produktu pro období zvolené v kvízu (`*_description` sloupce, fallback `description`) |
 | Typografie | Jeden font — výchozí font webu ('Segoe UI' stack); žádné nové fonty |
 | Barvy | Brandová zelená `green-800 #166534` (akcenty), inkoust pečeti `green-900 #14532d` |
 | Architektura | Otázky+váhy staticky ve FE; profily produktů v `products.quiz_data` (jsonb, sloupec existuje); admin záložka „Kvíz" pro Janu |
@@ -87,9 +88,15 @@ zaoblením ~14px. Jeden font = výchozí stack webu. Všechny texty na tmavém p
   podtitulek „vybraná podle tvých devíti odpovědí".
 - **Vítěz = velká pohlednice** (max-width ~620px, rotate −1.3°): papír `#fbf9f3`,
   fotka produktu (`image_url`) v papírovém rámu, pod ní vlevo název produktu (bold 800,
-  `#1c2b21`) + jednořádkový popisek (`#3d5c46`), vpravo cena tučně zeleně s malým
+  `#1c2b21`) + krátký popisek (`#3d5c46`), vpravo cena tučně zeleně s malým
   štítkem „kompletní itinerář" (`duration` v popisku). Přes pravý horní roh **pečeť shody**
   (§4.4) s úrovní a procentem. Pod tím plné zelené CTA „Zobrazit itinerář".
+- **Sezónní popisek (všechny 3 pohlednice):** popisek se bere ze sezónního sloupce
+  produktu odpovídajícího období zvolenému v otázce 2 — mapování přes existující
+  konstantu `SEASONS` v `src/constants/seasons.ts` (`key` jara/léta/podzimu/zimy je
+  identický s klíči kvízové dimenze `season`; `dbField` → `spring_description` atd.).
+  Když je sezónní popis `null`, fallback na obecný `description`. Text ořezat na
+  max. 2 řádky (`line-clamp-2`), pohlednice je jednořádková vizitka, ne odstavec.
 - **2 alternativy:** menší pohlednice vedle sebe (rotace +1.4° / −0.9°), menší pečeť
   (jen jeden kroužek), název, mini popisek, cena, podtržený link „Zobrazit itinerář".
 - **Fallback lísteček:** papírek `#fffef7` s tlustším zeleným horním okrajem
@@ -228,9 +235,10 @@ Pro každý produkt: přes zodpovězené otázky s ne-neutrální odpovědí
 ### 7.2 Data
 
 - Fetch při startu kvízu (intro → 1. otázka):
-  `supabase.from('products').select('id, slug, title, price, duration, image_url, quiz_data').eq('is_active', true).eq('is_deleted', false)`
-  — konzistentní s `TravelGuides.tsx`; filtrace `quiz_data` klientsky (katalog je malý;
-  server-side jsonb filtr `->>` je možný — ověřeno — ale netřeba).
+  `supabase.from('products').select('id, slug, title, description, price, duration, image_url, quiz_data, spring_description, summer_description, autumn_description, winter_description').eq('is_active', true).eq('is_deleted', false)`
+  — konzistentní s `TravelGuides.tsx` a `ProductDetail.tsx` (ten už sezónní sloupce
+  typovaně načítá přes `Pick<Tables<'products'>, …>`); filtrace `quiz_data` klientsky
+  (katalog je malý; server-side jsonb filtr `->>` je možný — ověřeno — ale netřeba).
 - Chyba fetche → přátelský error stav s „Zkusit znovu" (refetch); kvíz bez produktů
   nemá co doporučit, proto blokuje až výsledky, ne vyplňování.
 
@@ -308,6 +316,11 @@ Záznam v `publicRoutes.ts` (title „Cestovní kvíz — zjisti, kam vyrazit", 
   `trackEvent` wrapperem; kebab-case názvy dle konvence repa.
 - **Interní konzistence:** lazy routy (`App.tsx`), dotazy (`TravelGuides.tsx`), a11y radio
   vzor (`CustomRadio.tsx`), analytics wrapper, Tailwind 4.1, žádné nové závislosti.
+- **Sezónní popisky (doplněk):** sloupce `spring/summer/autumn/winter_description`
+  existují v DB (`database.types.ts`, `string | null`), `SEASONS` v
+  `src/constants/seasons.ts` mapuje identické klíče `spring/summer/autumn/winter`
+  na `dbField` a `ProductDetail.tsx` je už podmíněně renderuje (fallback vzor převzat) —
+  ověřeno čtením kódu; select více sloupců dle oficiálních Supabase docs (viz výše).
 
 ## 11. Obsahové úkoly (mimo kód, před spuštěním kvízu)
 
@@ -315,6 +328,8 @@ Záznam v `publicRoutes.ts` (title „Cestovní kvíz — zjisti, kam vyrazit", 
    styl jako stávající sada).
 2. **Profily produktů:** Jana vyplní záložku Kvíz u všech produktů katalogu (plánuje se
    výrazné rozšíření katalogu před launchem). Bez profilů kvíz doporučuje z prázdné množiny.
+   U produktů zároveň vyplňovat sezónní popisy (`Jaro/Léto/Podzim/Zima`) — pohlednice je
+   využijí pro personalizovaný text; bez nich padá copy na obecný popis.
 3. **Texty produktů:** při plnění katalogu opravit věcné chyby převzaté z reference
    (Matterhorn, Tallinn, Braniborská brána, Aperol Spritz).
 4. Schválení finálních textů otázek/copy Janou.
