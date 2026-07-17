@@ -235,7 +235,8 @@ Pro každý produkt: přes zodpovězené otázky s ne-neutrální odpovědí
 ### 7.2 Data
 
 - Fetch při startu kvízu (intro → 1. otázka):
-  `supabase.from('products').select('id, slug, title, description, price, duration, image_url, quiz_data, spring_description, summer_description, autumn_description, winter_description').eq('is_active', true).eq('is_deleted', false)`
+  `supabase.from('products').select('id, slug, title, description, price, duration, image_url, average_rating, quiz_data, spring_description, summer_description, autumn_description, winter_description').eq('is_active', true).eq('is_deleted', false)`
+  (`average_rating` kvůli remízám v §6.2)
   — konzistentní s `TravelGuides.tsx` a `ProductDetail.tsx` (ten už sezónní sloupce
   typovaně načítá přes `Pick<Tables<'products'>, …>`); filtrace `quiz_data` klientsky
   (katalog je malý; server-side jsonb filtr `->>` je možný — ověřeno — ale netřeba).
