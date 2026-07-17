@@ -84,7 +84,7 @@ const ReviewsSection = ({ className = '' }: ReviewsSectionProps) => {
       {!loading && !error && reviews.length === 0 && (
         <div className="text-center bg-white rounded-3xl p-12 shadow-sm border border-gray-100 max-w-2xl mx-auto">
           <p className="text-lg text-gray-700 mb-6">
-            Zatím tu žádné recenze nejsou — buď první, kdo se podělí o zkušenost!
+            Zatím tu žádné recenze nejsou. Buď první, kdo se podělí o zkušenost!
           </p>
           <Link
             to={ROUTES.TRAVEL_GUIDES}

@@ -31,7 +31,7 @@ describe('ProductReviews', () => {
   it('empty state when product has no reviews', async () => {
     singleMock.mockResolvedValue({ data: { id: 'p1', average_rating: 0, review_count: 0 }, error: null });
     render(<MemoryRouter><ProductReviews productSlug="salzburg" /></MemoryRouter>);
-    await waitFor(() => expect(screen.getByText(/zatím nemá recenze/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/zatím recenzi nemá/)).toBeInTheDocument());
     expect(fetchApprovedReviewsMock).not.toHaveBeenCalled();
   });
 
@@ -54,7 +54,7 @@ describe('ProductReviews', () => {
     singleMock.mockResolvedValue({ data: null, error: { message: 'boom', code: 'XX000' } });
     render(<MemoryRouter><ProductReviews productSlug="salzburg" /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText(/nepodařilo načíst/)).toBeInTheDocument());
-    expect(screen.queryByText(/zatím nemá recenze/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/zatím recenzi nemá/)).not.toBeInTheDocument();
     expect(fetchApprovedReviewsMock).not.toHaveBeenCalled();
     expect(captureExceptionMock).toHaveBeenCalledWith(
       expect.anything(),
@@ -67,7 +67,7 @@ describe('ProductReviews', () => {
     fetchApprovedReviewsMock.mockRejectedValue(new Error('network down'));
     render(<MemoryRouter><ProductReviews productSlug="salzburg" /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText(/nepodařilo načíst/)).toBeInTheDocument());
-    expect(screen.queryByText(/zatím nemá recenze/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/zatím recenzi nemá/)).not.toBeInTheDocument();
     expect(captureExceptionMock).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ tags: { area: 'reviews', component: 'ProductReviews' } }),
@@ -88,7 +88,7 @@ describe('ProductReviews', () => {
     expect(singleMock).toHaveBeenCalled();
     expect(container.querySelector('section')).toBeNull();
     expect(screen.queryByText(/nepodařilo načíst/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/zatím nemá recenze/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/zatím recenzi nemá/)).not.toBeInTheDocument();
     // PGRST116 = notFound, ne chyba: fetch recenzí nesmí vystřelit a nic se nehlásí do Sentry
     expect(fetchApprovedReviewsMock).not.toHaveBeenCalled();
     expect(captureExceptionMock).not.toHaveBeenCalled();
@@ -124,7 +124,7 @@ describe('ProductReviews', () => {
           <ProductReviews productSlug="salzburg" preloaded={{ productId: 'p1', reviewCount: 0, reviews: [] }} />
         </MemoryRouter>,
       );
-      expect(screen.getByText(/zatím nemá recenze/)).toBeInTheDocument();
+      expect(screen.getByText(/zatím recenzi nemá/)).toBeInTheDocument();
       await act(async () => { await Promise.resolve(); });
       expect(fromMock).not.toHaveBeenCalled();
       expect(fetchApprovedReviewsMock).not.toHaveBeenCalled();

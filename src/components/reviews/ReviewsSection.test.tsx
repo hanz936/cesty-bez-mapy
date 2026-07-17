@@ -55,7 +55,7 @@ describe('ReviewsSection', () => {
     render(<MemoryRouter><ReviewsSection /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText('Jana N.')).toBeInTheDocument());
     expect(screen.getByText('Ověřeno nákupem')).toBeInTheDocument();
-    expect(screen.getByText(/Zveřejňujeme pouze recenze zákazníků/)).toBeInTheDocument();
+    expect(screen.getByText(/Recenze u nás můžou psát jen zákazníci/)).toBeInTheDocument();
     expect(screen.queryByText('Průměrné hodnocení')).not.toBeInTheDocument();
   });
 

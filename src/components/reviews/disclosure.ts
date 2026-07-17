@@ -3,6 +3,7 @@
  * zobrazen přímo u recenzí i u formuláře. Finální znění schvaluje Jana.
  */
 export const REVIEWS_DISCLOSURE =
-  'Zveřejňujeme pouze recenze zákazníků, kteří produkt skutečně zakoupili — ' +
-  'recenzi lze vložit výhradně přes unikátní odkaz zaslaný e-mailem po zaplacení objednávky. ' +
-  'Kontrola před zveřejněním slouží pouze k odfiltrování spamu a vulgarit, nikdy se neřídí výší hodnocení.';
+  'Recenze u nás můžou psát jen zákazníci, kteří produkt opravdu koupili. ' +
+  'Odkaz na formulář posíláme e-mailem až po zaplacení objednávky. ' +
+  'Před zveřejněním recenze jen kontrolujeme, jestli nejde o spam nebo vulgarity. ' +
+  'Hodnocení do toho nemluví, zveřejňujeme i kritické recenze.';

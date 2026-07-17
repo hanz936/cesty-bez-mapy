@@ -109,7 +109,7 @@ const ProductReviews = ({ productSlug, className = '', preloaded }: ProductRevie
 
         {!error && reviewCount === 0 && (
           <p className="text-center text-gray-600">
-            Tento průvodce zatím nemá recenze — buď první, kdo se podělí o zkušenost!
+            Tenhle průvodce zatím recenzi nemá. Buď první, kdo se podělí o zkušenost!
           </p>
         )}
 

@@ -7,11 +7,11 @@ import { REVIEWS_DISCLOSURE } from '../components/reviews/disclosure';
 import { ROUTES } from '../constants';
 
 const ERROR_MESSAGES: Record<string, string> = {
-  invalid_token: 'Odkaz není platný. Zkontroluj, že jsi jej zkopíroval/a celý z e-mailu.',
-  not_found: 'Odkaz není platný. Zkontroluj, že jsi jej zkopíroval/a celý z e-mailu.',
+  invalid_token: 'Odkaz není platný. Zkontroluj, že jsi ho zkopíroval/a celý z e-mailu.',
+  not_found: 'Odkaz není platný. Zkontroluj, že jsi ho zkopíroval/a celý z e-mailu.',
   expired: 'Platnost odkazu už bohužel vypršela.',
   order_not_completed: 'K této objednávce nelze recenzi vložit.',
-  rate_limited: 'Příliš mnoho pokusů — zkus to prosím za chvíli.',
+  rate_limited: 'Příliš mnoho pokusů. Zkus to prosím za chvíli.',
   request_failed: 'Něco se pokazilo. Zkus to prosím znovu, nebo mi napiš na cestybezmapy@gmail.com.',
 };
 
@@ -158,7 +158,7 @@ const ReviewSubmit = () => {
           submitting: false,
           error:
             result.error === 'already_reviewed'
-              ? 'Tento produkt jsi už ohodnotil/a — díky!'
+              ? 'Tento produkt jsi už ohodnotil/a, díky!'
               : (ERROR_MESSAGES[result.error] ?? ERROR_MESSAGES.request_failed),
         });
       }
@@ -185,7 +185,8 @@ const ReviewSubmit = () => {
         {!loading && context && (
           <>
             <p className="text-gray-600 mb-2">
-              Díky, že si najdeš chvilku! Tvoje recenze bude po kontrole zveřejněna se jménem uvedeným níže.
+              Díky, že si najdeš chvilku! Napiš pár vět o tom, jak se ti s průvodcem cestovalo. Recenze vyjde
+              pod jménem, které vyplníš níže.
             </p>
             <p className="text-sm text-gray-500 mb-8">{REVIEWS_DISCLOSURE}</p>
 
@@ -212,7 +213,7 @@ const ReviewSubmit = () => {
                     <h2 className="text-xl font-bold text-gray-900 mb-4">{product.title}</h2>
                     {form.submitted ? (
                       <p className="text-green-800 font-medium">
-                        ✓ Recenze odeslána — po schválení se objeví na webu. Díky!
+                        ✓ Díky moc! Recenze je u nás. Jakmile projde kontrolou, uvidíš ji na webu.
                       </p>
                     ) : (
                       <>
