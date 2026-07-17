@@ -3,7 +3,6 @@ import { useSearchParams, Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { getReviewRequest, submitReview } from '../lib/reviews';
 import type { ReviewRequestContext, ReviewRequestProduct } from '../lib/reviews';
-import { REVIEWS_DISCLOSURE } from '../components/reviews/disclosure';
 import { ROUTES } from '../constants';
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -184,11 +183,10 @@ const ReviewSubmit = () => {
 
         {!loading && context && (
           <>
-            <p className="text-gray-600 mb-2">
+            <p className="text-gray-600 mb-8">
               Díky, že si najdeš chvilku! Napiš pár vět o tom, jak se ti s průvodcem cestovalo. Recenze vyjde
               pod jménem, které vyplníš níže.
             </p>
-            <p className="text-sm text-gray-500 mb-8">{REVIEWS_DISCLOSURE}</p>
 
             <label className="block mb-8">
               <span className="text-sm font-medium text-gray-700">Tvoje jméno (bude zveřejněno)</span>
@@ -213,7 +211,7 @@ const ReviewSubmit = () => {
                     <h2 className="text-xl font-bold text-gray-900 mb-4">{product.title}</h2>
                     {form.submitted ? (
                       <p className="text-green-800 font-medium">
-                        ✓ Díky moc! Recenze je u nás. Jakmile projde kontrolou, uvidíš ji na webu.
+                        ✓ Díky moc! Recenze je odeslaná.
                       </p>
                     ) : (
                       <>

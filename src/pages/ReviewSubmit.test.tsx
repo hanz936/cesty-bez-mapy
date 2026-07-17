@@ -51,7 +51,8 @@ describe('ReviewSubmit', () => {
     renderPage('?token=123e4567-e89b-42d3-a456-426614174000');
     await waitFor(() => expect(screen.getByText('Salzburg na víkend')).toBeInTheDocument());
     expect(screen.getByDisplayValue('Jana Nováková')).toBeInTheDocument();
-    expect(screen.getByText(/Recenze u nás můžou psát jen zákazníci/)).toBeInTheDocument();
+    // disclosure se na formuláři záměrně nezobrazuje (povinný je jen u zobrazených recenzí)
+    expect(screen.queryByText(/ověření zákazníci/)).not.toBeInTheDocument();
   });
 
   it('supports APG radio-group keyboard pattern (roving tabindex + arrow selection)', async () => {
@@ -109,7 +110,7 @@ describe('ReviewSubmit', () => {
       },
     });
     renderPage('?token=123e4567-e89b-42d3-a456-426614174000');
-    await waitFor(() => expect(screen.getByText(/Díky moc! Recenze je u nás/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Díky moc! Recenze je odeslaná/)).toBeInTheDocument());
   });
 
   describe('odeslání recenze', () => {
@@ -165,7 +166,7 @@ describe('ReviewSubmit', () => {
       fireEvent.click(screen.getAllByRole('radio')[4]);
       fireEvent.change(textArea(), { target: { value: 'Skvely pruvodce, moc doporucuji vsem.' } });
       fireEvent.click(submitButton());
-      await waitFor(() => expect(screen.getByText(/Díky moc! Recenze je u nás/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText(/Díky moc! Recenze je odeslaná/)).toBeInTheDocument());
       expect(submitReviewMock).toHaveBeenCalledWith({
         token: '123e4567-e89b-42d3-a456-426614174000',
         product_id: 'p1',
@@ -184,7 +185,7 @@ describe('ReviewSubmit', () => {
       await waitFor(() =>
         expect(screen.getByText('Tento produkt jsi už ohodnotil/a, díky!')).toBeInTheDocument(),
       );
-      expect(screen.queryByText(/Díky moc! Recenze je u nás/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Díky moc! Recenze je odeslaná/)).not.toBeInTheDocument();
     });
   });
 });
