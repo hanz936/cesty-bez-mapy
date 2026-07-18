@@ -3,6 +3,8 @@
  * Prevents sensitive information leaks in production
  */
 
+import * as Sentry from '@sentry/react'
+
 const isDevelopment = import.meta.env.MODE === 'development'
 const isTest = import.meta.env.MODE === 'test'
 
@@ -40,17 +42,20 @@ export const logger = {
       // In production, only log safe information
       const safeError = sanitizeError(error)
       console.error(message, safeError)
-
-      // Error monitoring service integration point
-      // errorMonitoring.captureException(safeError, { extra: additionalInfo })
     }
+    // Breadcrumb: no-op bez Sentry initu (dev/test/prerender); v produkci se odešle
+    // jen přiložený k případnému pozdějšímu eventu. Skutečné chyby aplikace hlásí
+    // call-sites přes Sentry.captureException (vzor reviews) — logger eventy netvoří.
+    // POZOR: do message nikdy PII (e-maily apod.) — message odchází do Sentry.
+    Sentry.addBreadcrumb({ category: 'logger', level: 'error', message })
   },
 
   warn: (message: string, data?: unknown): void => {
     if (isDevelopment || isTest) {
       console.warn(message, data)
     }
-    // Production warnings are usually suppressed
+    // Breadcrumb jen z message — `data` záměrně ne (PII disciplína), viz error výše.
+    Sentry.addBreadcrumb({ category: 'logger', level: 'warning', message })
   },
 
   info: (message: string, data?: unknown): void => {
