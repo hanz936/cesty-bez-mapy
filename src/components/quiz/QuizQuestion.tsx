@@ -76,7 +76,7 @@ const QuizQuestion = ({ question, index, total, selectedIndex, onSelect, onBack,
         OTÁZKA {index + 1} Z {total}
       </p>
       <FilmStrip current={index} total={total} />
-      <h2
+      <h1
         ref={headingRef}
         tabIndex={-1}
         id={headingId}
@@ -86,7 +86,7 @@ const QuizQuestion = ({ question, index, total, selectedIndex, onSelect, onBack,
           Otázka {index + 1} z {total}:{' '}
         </span>
         {question.question}
-      </h2>
+      </h1>
       <div role="radiogroup" aria-labelledby={headingId} className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-4">
         {question.options.map((option, i) => {
           const checked = selectedIndex === i;

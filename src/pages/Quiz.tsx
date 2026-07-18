@@ -148,6 +148,19 @@ const Quiz = () => {
     trackEvent(ANALYTICS_EVENTS.QUIZ_CUSTOM_CLICK);
   }, []);
 
+  // dispatch z useReducer je stabilní napříč rendery → prázdné deps (spec: M4 review fix)
+  const handleSelect = useCallback((optionIndex: number) => {
+    dispatch({ type: 'select', optionIndex });
+  }, []);
+
+  const handleBack = useCallback(() => {
+    dispatch({ type: 'back' });
+  }, []);
+
+  const handleNext = useCallback(() => {
+    dispatch({ type: 'next' });
+  }, []);
+
   const question = QUIZ_QUESTIONS[state.current];
 
   return (
@@ -186,9 +199,9 @@ const Quiz = () => {
                 index={state.current}
                 total={QUIZ_QUESTIONS.length}
                 selectedIndex={state.answers[question.dimension]}
-                onSelect={(optionIndex) => dispatch({ type: 'select', optionIndex })}
-                onBack={() => dispatch({ type: 'back' })}
-                onNext={() => dispatch({ type: 'next' })}
+                onSelect={handleSelect}
+                onBack={handleBack}
+                onNext={handleNext}
               />
             )}
 

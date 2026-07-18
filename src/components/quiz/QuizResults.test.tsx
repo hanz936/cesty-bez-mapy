@@ -62,8 +62,10 @@ describe('QuizResults', () => {
     expect(screen.getByRole('heading', { name: 'Nejblíž tvým odpovědím' })).toBeInTheDocument();
   });
 
-  it('prázdné výsledky → zpráva + odkaz na katalog + lísteček na míru', () => {
+  it('prázdné výsledky → nadpis „Zatím nemám co doporučit" bez podtitulku + zpráva + odkaz na katalog + lísteček na míru', () => {
     renderResults({ results: [], backfilled: false });
+    expect(screen.getByRole('heading', { name: 'Zatím nemám co doporučit' })).toBeInTheDocument();
+    expect(screen.queryByText('vybraná podle tvých devíti odpovědí')).not.toBeInTheDocument();
     expect(screen.getByText(/není žádný itinerář zařazený do kvízu/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /všechny průvodce/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Chci itinerář na míru' })).toBeInTheDocument();

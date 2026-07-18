@@ -61,18 +61,26 @@ const CustomItineraryNote = ({ prominent = false, onCustomClick }: { prominent?:
 
 const QuizResults = ({ resultSet, chosenSeason, onRestart, onResultClick, onCustomClick }: QuizResultsProps) => {
   const [winner, ...alternatives] = resultSet.results;
-  const heading = resultSet.backfilled ? 'Nejblíž tvým odpovědím' : 'Tvoje příští cesta';
-  const subtitle = resultSet.backfilled
-    ? 'Přesnou shodu s termínem a délkou teď v nabídce nemám — tohle jsou nejbližší cesty.'
-    : 'vybraná podle tvých devíti odpovědí';
+  const heading =
+    winner === undefined
+      ? 'Zatím nemám co doporučit'
+      : resultSet.backfilled
+        ? 'Nejblíž tvým odpovědím'
+        : 'Tvoje příští cesta';
+  const subtitle =
+    winner === undefined
+      ? null
+      : resultSet.backfilled
+        ? 'Přesnou shodu s termínem a délkou teď v nabídce nemám — tohle jsou nejbližší cesty.'
+        : 'vybraná podle tvých devíti odpovědí';
 
   return (
     <div>
       <p className="mb-1.5 text-center text-xs font-bold tracking-[3px] text-white/75">VÝSLEDEK KVÍZU</p>
-      <h2 className="mb-1 text-center text-3xl font-extrabold tracking-tight text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.5)]">
+      <h1 className="mb-1 text-center text-3xl font-extrabold tracking-tight text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.5)]">
         {heading}
-      </h2>
-      <p className="mb-7 text-center text-sm font-semibold text-[#d9e8d9]">{subtitle}</p>
+      </h1>
+      {subtitle && <p className="mb-7 text-center text-sm font-semibold text-[#d9e8d9]">{subtitle}</p>}
 
       {winner === undefined ? (
         <>
