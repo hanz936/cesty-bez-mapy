@@ -102,7 +102,7 @@ const QuizResults = ({ resultSet, chosenSeason, onRestart, onResultClick, onCust
             <PostcardPhoto product={winner.product} aspect="aspect-[16/7.5]" />
             <div className="flex items-end gap-3 px-1.5 pt-3">
               <div className="min-w-0">
-                <h3 className="text-xl font-extrabold tracking-tight text-[#1c2b21]">{winner.product.title}</h3>
+                <h2 className="text-xl font-extrabold tracking-tight text-[#1c2b21]">{winner.product.title}</h2>
                 <p className="mt-0.5 line-clamp-2 text-sm font-medium text-[#3d5c46]">
                   {postcardNote(winner.product, chosenSeason)}
                 </p>
@@ -138,7 +138,7 @@ const QuizResults = ({ resultSet, chosenSeason, onRestart, onResultClick, onCust
                   <SealBadge variant="score" tier={match.tier} score={match.score} size="sm" className="absolute -right-3.5 -top-5 w-[88px]" />
                   <PostcardPhoto product={match.product} aspect="aspect-[16/8]" />
                   <div className="px-1 pt-2">
-                    <h3 className="text-base font-extrabold text-[#1c2b21]">{match.product.title}</h3>
+                    <h2 className="text-base font-extrabold text-[#1c2b21]">{match.product.title}</h2>
                     <p className="line-clamp-2 text-xs font-medium text-[#3d5c46]">
                       {postcardNote(match.product, chosenSeason)}
                     </p>
