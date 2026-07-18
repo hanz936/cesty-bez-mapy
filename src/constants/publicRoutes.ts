@@ -13,6 +13,7 @@ export const PUBLIC_PAGES = [
   { path: ROUTES.HOME, title: 'Cesty (bez) mapy', description: 'Místo, kde najdeš inspiraci, itineráře i tipy na místa, která se do běžných průvodců nevešla.' },
   { path: ROUTES.MY_STORY, title: 'Můj příběh', description: 'Jak vznikly Cesty bez mapy — příběh o cestování bez itinerářů, objevování míst mimo mapu a inspiraci pro tvé vlastní cesty.' },
   { path: ROUTES.PLAN_YOUR_DREAM_TRIP, title: 'Naplánuj si cestu snů', description: 'Pomůžu ti naplánovat cestu na míru — itinerář podle tvých představ, tempa i rozpočtu. Cesty bez mapy, ušité na míru tobě.' },
+  { path: ROUTES.QUIZ, title: 'Cestovní kvíz — zjisti, kam vyrazit', description: 'Krátký kvíz o devíti otázkách ti doporučí itinerář přesně podle tvého stylu cestování. Zjisti, kam tě to táhne, a vyraz bez starostí.' },
   { path: ROUTES.TRAVEL_GUIDES, title: 'Cestovní průvodci', description: 'Stáhni si cestovní průvodce a itineráře plné tipů na místa, která se do běžných průvodců nevešla. Praktické PDF pro tvé cesty.' },
   { path: ROUTES.SALZBURG_ITINERARY, title: 'Salzburg na víkend', description: 'Víkendový itinerář do Salzburgu — co vidět, kam zajít a jak si užít město i okolí bez stresu. Tipy z cest bez mapy.' },
   { path: ROUTES.CUSTOM_ITINERARY_DETAIL, title: 'Itinerář na míru', description: 'Itinerář na míru přesně podle tvých představ — řekni mi, kam chceš, a já připravím plán cesty ušitý na míru tobě.' },

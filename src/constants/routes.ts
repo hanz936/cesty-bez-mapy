@@ -2,6 +2,7 @@ export const ROUTES = {
   HOME: '/',
   MY_STORY: '/muj-pribeh',
   PLAN_YOUR_DREAM_TRIP: '/naplanuj-si-cestu-snu',
+  QUIZ: '/kviz',
   TRAVEL_GUIDES: '/cestovni-pruvodci',
   SALZBURG_ITINERARY: '/salzburg-vikend',
   CUSTOM_ITINERARY_DETAIL: '/cestovni-pruvodci/itinerar-na-miru',

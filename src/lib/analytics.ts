@@ -20,6 +20,10 @@ export const ANALYTICS_EVENTS = {
   ITINERARY_SUBMIT: 'itinerary-submit',
   NEWSLETTER_SIGNUP: 'newsletter-signup',
   CONTACT_SUBMIT: 'contact-submit',
+  QUIZ_START: 'quiz-start',
+  QUIZ_COMPLETE: 'quiz-complete',
+  QUIZ_RESULT_CLICK: 'quiz-result-click',
+  QUIZ_CUSTOM_CLICK: 'quiz-custom-click',
 };
 
 export function trackEvent(name: string, data?: Record<string, unknown>): void {

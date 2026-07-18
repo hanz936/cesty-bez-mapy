@@ -69,9 +69,9 @@ const PlanYourDreamTrip = () => {
   }, [navigate]);
 
   const handleQuizClick = useCallback(() => {
-    // Quiz functionality will be implemented in future version
-    alert('Kvíz bude brzy dostupný! 🚀');
-  }, []);
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- react-router NavigateFunction returns void | Promise<void>; fire-and-forget navigation is the pre-existing JS behavior
+    navigate(ROUTES.QUIZ);
+  }, [navigate]);
 
   return (
     <Layout ready>
