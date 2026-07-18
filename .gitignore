@@ -126,3 +126,4 @@ Thumbs.db
 # Deno lockfile (root only — function-level je řešen samostatně výše)
 /deno.lock
 .audit-tmp/
+.worktrees/
