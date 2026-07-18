@@ -155,7 +155,8 @@ Texty v SVG dědí font webu. Žádná doména v pečeti.
   `parseQuizData(json: Json): QuizData | null` v engine (jediný zdroj pravdy tvaru).
   Volitelně MergeDeep override generovaných typů (supabase-js ≥ 2.48 umí typovat
   `->`/`->>` selektory — ověřeno v docs); pro v1 stačí validátor.
-- Vadný/neúplný `quiz_data` → produkt se přeskočí + `logger` warning (Sentry breadcrumb),
+- Vadný/neúplný `quiz_data` → produkt se přeskočí + `logger.warn` (dev/test) a explicitní
+  `Sentry.addBreadcrumb` (produkční stopa — odešle se jen s případným pozdějším eventem),
   kvíz běží dál.
 - Budoucí zpřísnění (mimo v1): `pg_jsonschema` CHECK constraint (ověřeno, že existuje).
 
@@ -227,8 +228,8 @@ Pro každý produkt: přes zodpovězené otázky s ne-neutrální odpovědí
 ### 7.1 Struktura
 
 - `src/pages/Quiz.tsx` — orchestrace obrazovek, stav (`useReducer`), sessionStorage.
-- `src/components/quiz/QuizIntro.tsx`, `QuizQuestion.tsx`, `QuizResults.tsx`,
-  `SealBadge.tsx` (varianty check/score).
+- `src/components/quiz/QuizQuestion.tsx`, `QuizResults.tsx`, `SealBadge.tsx`
+  (varianty check/score); intro obrazovka je jednoduchá → inline v `Quiz.tsx`.
 - `src/data/quizQuestions.ts` — otázky, váhy, prahy, texty (viz §5.2).
 - `src/lib/quizEngine.ts` — `parseQuizData`, `computeMatches` (viz §6).
 
@@ -248,8 +249,10 @@ Pro každý produkt: přes zodpovězené otázky s ne-neutrální odpovědí
 - Odpovědi = nativní `<input type="radio">` skryté přes `sr-only` (vzor
   `CustomRadio.tsx` — v repu ověřený), fotka jako `<label>`; fokus viditelný
   (`focus-within` ring zelený). Šipky fungují nativně v radio skupině; čísla 1–4 bonus.
-- Žádný auto-posun; „Další" disabled do výběru (`aria-disabled` + text pro SR).
-- Přechod otázek: fokus na nadpis otázky, `aria-live=polite` oznámení „Otázka X z 9".
+- Žádný auto-posun; „Další" do výběru `aria-disabled` (zůstává v tab-orderu, klik se
+  ignoruje) — ne nativní `disabled`, aby čtečka stav vysvětlila.
+- Přechod otázek: fokus na nadpis otázky; nadpis nese sr-only prefix „Otázka X z 9:"
+  (robustnější než `aria-live` — nehrozí dvojí hlášení při přesunu fokusu).
 - Filmový pás `role="progressbar"`; pečeť/dekorace `aria-hidden`.
 - `prefers-reduced-motion` viz §4.5. Tailwind 4.1 utility (`motion-reduce:`, arbitrary
   rotace) — žádná změna konfigurace, žádné nové fonty.
@@ -286,8 +289,10 @@ Záznam v `publicRoutes.ts` (title „Cestovní kvíz — zjisti, kam vyrazit", 
   - `transform` na `<Create>`/`<Edit>` (ověřeno v react-admin docs): doplní
     `version: 1`, výchozí nuly nevyplněných klíčů; při vypnutém `enabled` ponechá
     strukturu (nic nemaže).
-- **Validace** (form-level, jen když `enabled`): `season` a `duration` musí mít aspoň
-  jednu hodnotu > 0 (jinak produkt nikdy nevypadne) — blokující chyba.
+- **Validace** (input-level validátor na prvním radiu dimenze, jen když `enabled`):
+  `season` a `duration` musí mít aspoň jednu hodnotu > 0 (jinak produkt nikdy
+  nevypadne) — blokující chyba. Záměrně NE form-level `validate` na TabbedForm —
+  v react-adminu by vypnul všechny per-input validátory (required, maxFileSize).
 - **Varování (neblokující, `useWatch` + `Alert`):**
   - dimenze, kde žádná hodnota > 0 → „otázka X produkt nikam neposune";
   - dimenze, kde všechny hodnoty ≥ 2 → „otázka X u tohoto produktu nic nerozliší"
