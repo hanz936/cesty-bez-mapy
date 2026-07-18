@@ -4,7 +4,6 @@ import SeoTags from '../components/common/SeoTags';
 import { buildPageMeta } from '../utils/pageSeo';
 import { BASE_PATH, ROUTES } from '../constants';
 import { QUIZ_QUESTIONS, QUIZ_STORAGE_KEY } from '../data/quizQuestions';
-import type { QuizDimension } from '../data/quizQuestions';
 import { computeMatches } from '../lib/quizEngine';
 import type { QuizAnswerMap } from '../lib/quizEngine';
 import { useQuizProducts } from '../hooks/useQuizProducts';
@@ -92,7 +91,7 @@ const toAnswerMap = (answers: Record<string, number>): QuizAnswerMap => {
   for (const q of QUIZ_QUESTIONS) {
     const optionIndex = answers[q.dimension];
     if (optionIndex !== undefined) {
-      map[q.dimension as QuizDimension] = q.options[optionIndex]?.key ?? null;
+      map[q.dimension] = q.options[optionIndex]?.key ?? null;
     }
   }
   return map;
