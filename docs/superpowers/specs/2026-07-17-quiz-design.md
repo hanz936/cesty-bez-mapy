@@ -155,9 +155,9 @@ Texty v SVG dědí font webu. Žádná doména v pečeti.
   `parseQuizData(json: Json): QuizData | null` v engine (jediný zdroj pravdy tvaru).
   Volitelně MergeDeep override generovaných typů (supabase-js ≥ 2.48 umí typovat
   `->`/`->>` selektory — ověřeno v docs); pro v1 stačí validátor.
-- Vadný/neúplný `quiz_data` → produkt se přeskočí + `logger.warn` (dev/test) a explicitní
-  `Sentry.addBreadcrumb` (produkční stopa — odešle se jen s případným pozdějším eventem),
-  kvíz běží dál.
+- Vadný/neúplný `quiz_data` → produkt se přeskočí + `logger.warn`; logger centrálně
+  přidává `Sentry.addBreadcrumb` (plán Task 0 — odešle se jen s případným pozdějším
+  eventem), kvíz běží dál.
 - Budoucí zpřísnění (mimo v1): `pg_jsonschema` CHECK constraint (ověřeno, že existuje).
 
 ### 5.2 Otázky (`src/data/quizQuestions.ts`, statické)
