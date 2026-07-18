@@ -1,7 +1,7 @@
 # Kvíz „Nevíš kudy kam?" — design spec
 
 **Datum:** 2026-07-17
-**Stav:** schváleno userem (brainstorming session), čeká na implementační plán
+**Stav:** implementováno dle docs/superpowers/plans/2026-07-17-quiz.md (čeká: sezónní obrázky + profily produktů — §11)
 **Repa:** `cesty-bez-mapy` (FE — většina práce), `cesty-bez-mapy-admin` (záložka Kvíz)
 **Řeší launch gap:** „kvíz atrapa" z gap-analýzy 2026-07-04
 
