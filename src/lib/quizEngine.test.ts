@@ -73,7 +73,7 @@ describe('tierFor (spec §6.3)', () => {
 });
 
 describe('computeMatches (spec §6)', () => {
-  it('plný zásah = 100 %, nulový = 0 %', () => {
+  it('plný zásah = 100 %, minimální shoda pod 10 %', () => {
     const perfect = makeProduct(makeProfile(3));
     const zero = makeProduct(makeProfile(0, { season: { summer: 1 }, duration: { short: 1 } }));
     const { results } = computeMatches(fullAnswers(), [perfect, zero]);
