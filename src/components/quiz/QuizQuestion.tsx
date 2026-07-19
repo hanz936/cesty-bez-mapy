@@ -24,7 +24,7 @@ const FilmStrip = ({ current, total }: { current: number; total: number }) => {
       aria-valuemax={total}
       aria-valuenow={current + 1}
       aria-valuetext={`Otázka ${current + 1} z ${total}`}
-      className="mx-auto mb-5 w-full max-w-sm"
+      className="mx-auto mb-5 w-full max-w-sm xl:max-w-md"
     >
       <div className={perforation} />
       <div className="flex gap-1.5 py-1">
@@ -80,14 +80,14 @@ const QuizQuestion = ({ question, index, total, selectedIndex, onSelect, onBack,
         ref={headingRef}
         tabIndex={-1}
         id={headingId}
-        className="mb-6 text-center text-2xl font-extrabold tracking-tight text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.5)] focus:outline-none sm:text-3xl"
+        className="mb-6 text-center text-2xl font-extrabold tracking-tight text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.5)] focus:outline-none sm:text-3xl xl:mb-8 xl:text-4xl"
       >
         <span className="sr-only">
           Otázka {index + 1} z {total}:{' '}
         </span>
         {question.question}
       </h1>
-      <div role="radiogroup" aria-labelledby={headingId} className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-4">
+      <div role="radiogroup" aria-labelledby={headingId} className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-4 xl:gap-6">
         {question.options.map((option, i) => {
           const checked = selectedIndex === i;
           return (
@@ -110,7 +110,7 @@ const QuizQuestion = ({ question, index, total, selectedIndex, onSelect, onBack,
               />
               {checked && <SealBadge variant="check" size="sm" className="absolute -right-3 -top-4 w-11" />}
               <img src={option.img} alt="" className="aspect-[4/3.6] w-full object-cover" />
-              <span className="block px-1 pt-2 text-sm font-bold leading-snug text-[#1c2b21]">{option.text}</span>
+              <span className="block px-1 pt-2 text-sm font-bold leading-snug text-[#1c2b21] xl:text-base">{option.text}</span>
             </label>
           );
         })}
