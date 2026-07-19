@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hasAnyReviews, visibleSortOptions } from './TravelGuides';
+import { hasAnyReviews, visibleSortOptions } from './travelGuidesFilters';
 
 describe('hasAnyReviews', () => {
   it('false when no product has reviews', () => {

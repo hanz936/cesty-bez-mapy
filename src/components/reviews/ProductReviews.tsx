@@ -5,7 +5,7 @@ import ReviewCard from '../ui/ReviewCard';
 import { fetchApprovedReviews } from '../../lib/reviews';
 import type { PublicReview } from '../../lib/reviews';
 import { REVIEWS_DISCLOSURE } from './disclosure';
-import { formatReviewDate } from './ReviewsSection';
+import { formatReviewDate } from './formatReviewDate';
 import { supabase } from '../../lib/supabase';
 import { ROUTES } from '../../constants';
 

@@ -5,15 +5,12 @@ import ReviewCard from '../ui/ReviewCard';
 import { fetchApprovedReviews, fetchReviewStats } from '../../lib/reviews';
 import type { PublicReview } from '../../lib/reviews';
 import { REVIEWS_DISCLOSURE } from './disclosure';
+import { formatReviewDate } from './formatReviewDate';
 import { ROUTES } from '../../constants';
 
 const PAGE_SIZE = 9;
 /** Souhrnné statistiky ukazujeme až od 3 schválených recenzí (do té doby by průměr byl zavádějící). */
 const STATS_THRESHOLD = 3;
-
-export function formatReviewDate(iso: string): string {
-  return new Intl.DateTimeFormat('cs-CZ', { month: 'long', year: 'numeric' }).format(new Date(iso));
-}
 
 interface ReviewsSectionProps {
   className?: string;

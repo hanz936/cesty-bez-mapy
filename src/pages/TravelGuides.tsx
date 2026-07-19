@@ -9,6 +9,7 @@ import { buildPageMeta } from '../utils/pageSeo';
 import { BASE_PATH, ROUTES } from '../constants';
 import { supabase } from '../lib/supabase';
 import type { Tables } from '../types/database.types';
+import { hasAnyReviews, visibleSortOptions } from './travelGuidesFilters';
 
 interface GuideCardProps {
   guide: ReturnType<typeof mapProductToGuide>;
@@ -243,24 +244,6 @@ const ratingRanges = [
   { id: '4+', label: '4+ hvězdiček', minRating: 4.0 },
   { id: '3.5+', label: '3.5+ hvězdiček', minRating: 3.5 }
 ];
-
-/** Rating UI (hvězdičky na kartách + filtr) se ukazuje, až když má aspoň jeden produkt recenze. */
-export function hasAnyReviews(guides: { reviewCount: number }[]): boolean {
-  return guides.some((g) => g.reviewCount > 0);
-}
-
-const SORT_OPTIONS = [
-  'Nejprodávanější',
-  'Nejdražší',
-  'Nejlevnější',
-  'Dle hodnocení',
-  'Nejnovější'
-];
-
-/** Sort „Dle hodnocení" se nabízí, až když má aspoň jeden produkt recenze (stejný gate jako hvězdičky/filtr). */
-export function visibleSortOptions(hasReviews: boolean): string[] {
-  return hasReviews ? [...SORT_OPTIONS] : SORT_OPTIONS.filter((o) => o !== 'Dle hodnocení');
-}
 
 const TravelGuides = () => {
   // State pro produkty a UI

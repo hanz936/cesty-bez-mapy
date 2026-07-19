@@ -11,7 +11,8 @@ vi.mock('../../lib/reviews', () => ({
 const captureExceptionMock = vi.fn<(...args: unknown[]) => unknown>();
 vi.mock('@sentry/react', () => ({ captureException: (...args: unknown[]) => captureExceptionMock(...args) }));
 
-import ReviewsSection, { formatReviewDate } from './ReviewsSection';
+import ReviewsSection from './ReviewsSection';
+import { formatReviewDate } from './formatReviewDate';
 
 const REVIEW = {
   id: 'r1',
