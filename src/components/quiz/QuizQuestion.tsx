@@ -24,7 +24,7 @@ const FilmStrip = ({ current, total }: { current: number; total: number }) => {
       aria-valuemax={total}
       aria-valuenow={current + 1}
       aria-valuetext={`Otázka ${current + 1} z ${total}`}
-      className="mx-auto mb-5 w-full max-w-sm xl:max-w-md"
+      className="mx-auto mb-5 w-full max-w-sm xl:max-w-lg"
     >
       <div className={perforation} />
       <div className="flex gap-1.5 py-1">
@@ -72,7 +72,7 @@ const QuizQuestion = ({ question, index, total, selectedIndex, onSelect, onBack,
 
   return (
     <div>
-      <p className="mb-2.5 text-center text-xs font-bold tracking-[3px] text-white/75">
+      <p className="mb-2.5 text-center text-xs font-bold tracking-[3px] text-white/75 xl:text-sm">
         OTÁZKA {index + 1} Z {total}
       </p>
       <FilmStrip current={index} total={total} />
@@ -80,7 +80,7 @@ const QuizQuestion = ({ question, index, total, selectedIndex, onSelect, onBack,
         ref={headingRef}
         tabIndex={-1}
         id={headingId}
-        className="mb-6 text-center text-2xl font-extrabold tracking-tight text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.5)] focus:outline-none sm:text-3xl xl:mb-8 xl:text-4xl"
+        className="mb-6 text-center text-2xl font-extrabold tracking-tight text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.5)] focus:outline-none sm:text-3xl xl:mb-9 xl:text-5xl xl:leading-tight"
       >
         <span className="sr-only">
           Otázka {index + 1} z {total}:{' '}
@@ -93,7 +93,7 @@ const QuizQuestion = ({ question, index, total, selectedIndex, onSelect, onBack,
           return (
             <label
               key={option.text}
-              className={`relative cursor-pointer rounded bg-[#fbf9f3] p-1.5 pb-2 text-center shadow-[0_10px_26px_rgba(0,0,0,0.42)] transition-transform duration-200 focus-within:ring-2 focus-within:ring-green-500 focus-within:ring-offset-2 motion-reduce:transition-none ${
+              className={`relative cursor-pointer rounded bg-[#fbf9f3] p-1.5 pb-2 text-center shadow-[0_10px_26px_rgba(0,0,0,0.42)] transition-transform duration-200 focus-within:ring-2 focus-within:ring-green-500 focus-within:ring-offset-2 motion-reduce:transition-none xl:p-2 xl:pb-3 ${
                 checked
                   ? 'z-10 -translate-y-1.5 scale-105 ring-[2.5px] ring-green-800'
                   : `${ROTATIONS[i % ROTATIONS.length]} hover:-translate-y-1`
@@ -108,18 +108,18 @@ const QuizQuestion = ({ question, index, total, selectedIndex, onSelect, onBack,
                 className="sr-only"
                 aria-label={option.text}
               />
-              {checked && <SealBadge variant="check" size="sm" className="absolute -right-3 -top-4 w-11" />}
+              {checked && <SealBadge variant="check" size="sm" className="absolute -right-3 -top-4 w-11 xl:w-14" />}
               <img src={option.img} alt="" className="aspect-[4/3.6] w-full object-cover" />
               <span className="block px-1 pt-2 text-sm font-bold leading-snug text-[#1c2b21] xl:text-base">{option.text}</span>
             </label>
           );
         })}
       </div>
-      <div className="mt-7 flex items-center justify-between">
+      <div className="mt-7 flex items-center justify-between xl:mt-10">
         <button
           type="button"
           onClick={onBack}
-          className={`rounded-lg border-2 border-white/55 bg-white/10 px-5 py-2.5 text-sm font-bold text-white ${
+          className={`rounded-lg border-2 border-white/55 bg-white/10 px-5 py-2.5 text-sm font-bold text-white xl:px-7 xl:py-3 xl:text-base ${
             index === 0 ? 'invisible' : ''
           }`}
         >
@@ -132,7 +132,7 @@ const QuizQuestion = ({ question, index, total, selectedIndex, onSelect, onBack,
             if (hasSelection) onNext();
           }}
           aria-disabled={!hasSelection}
-          className="rounded-lg border-2 border-white/35 bg-green-800 px-5 py-2.5 text-sm font-bold text-white shadow-lg aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+          className="rounded-lg border-2 border-white/35 bg-green-800 px-5 py-2.5 text-sm font-bold text-white shadow-lg aria-disabled:cursor-not-allowed aria-disabled:opacity-50 xl:px-7 xl:py-3 xl:text-base"
         >
           {index === total - 1 ? 'Vyhodnotit' : 'Další →'}
         </button>

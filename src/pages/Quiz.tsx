@@ -171,15 +171,15 @@ const Quiz = () => {
         className="flex min-h-screen items-center justify-center bg-cover bg-center px-2 py-6 sm:px-4 sm:py-10"
         style={{ backgroundImage: `url(${BASE_PATH}/images/background-quiz-image.png)` }}
       >
-        <div className="w-full max-w-4xl overflow-hidden rounded-xl border-[6px] border-white shadow-[0_8px_30px_rgba(0,0,0,0.35)] lg:max-w-5xl xl:max-w-6xl">
-          <div className="bg-[radial-gradient(ellipse_at_50%_30%,rgba(18,28,38,0.5),rgba(10,18,26,0.8))] p-6 sm:p-8 xl:p-10">
+        <div className="w-full max-w-4xl overflow-hidden rounded-xl border-[6px] border-white shadow-[0_8px_30px_rgba(0,0,0,0.35)] lg:max-w-[min(1440px,86vw)]">
+          <div className="bg-[radial-gradient(ellipse_at_50%_30%,rgba(18,28,38,0.5),rgba(10,18,26,0.8))] p-6 sm:p-8 lg:flex lg:min-h-[min(78vh,900px)] lg:flex-col lg:justify-center xl:p-10">
             {state.screen === 'intro' && (
               <div className="py-10 text-center">
                 <p className="mb-2 text-xs font-bold tracking-[3px] text-white/75">CESTOVNÍ KVÍZ</p>
-                <h1 className="mb-3 text-3xl font-extrabold tracking-tight text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.5)] sm:text-4xl">
+                <h1 className="mb-3 text-3xl font-extrabold tracking-tight text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.5)] sm:text-4xl xl:text-5xl">
                   Nevíš kudy kam?
                 </h1>
-                <p className="mx-auto mb-8 max-w-md text-sm font-semibold text-[#d9e8d9] sm:text-base">
+                <p className="mx-auto mb-8 max-w-md text-sm font-semibold text-[#d9e8d9] sm:text-base xl:max-w-lg xl:text-lg">
                   Odpověz na 9 otázek — zabere ti to zhruba 2 minuty — a já ti doporučím itineráře,
                   které ti sednou nejvíc.
                 </p>
