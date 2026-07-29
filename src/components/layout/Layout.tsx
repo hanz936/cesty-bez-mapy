@@ -64,9 +64,11 @@ interface LayoutProps {
   children?: ReactNode;
   className?: string;
   ready?: boolean;
+  /** Patička navazuje přímo na obsah, bez horní mezery (celoplošné barevné scény). */
+  flushFooter?: boolean;
 }
 
-const Layout = ({ children, className = '', ready }: LayoutProps) => {
+const Layout = ({ children, className = '', ready, flushFooter }: LayoutProps) => {
   return (
     <LayoutErrorBoundary>
       <div
@@ -84,7 +86,7 @@ const Layout = ({ children, className = '', ready }: LayoutProps) => {
         <main id="main-content" className="flex-1">
           {children}
         </main>
-        <Footer />
+        <Footer flush={flushFooter} />
       </div>
     </LayoutErrorBoundary>
   );

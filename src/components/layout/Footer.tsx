@@ -120,9 +120,17 @@ const NavigationSection = memo(({ title, links, ariaLabel, className = "" }: Nav
 NavigationSection.displayName = 'NavigationSection';
 
 
-const Footer = () => {
+interface FooterProps {
+  /** Patička navazuje přímo na obsah, bez horní mezery — pro stránky končící celoplošnou barevnou scénou. */
+  flush?: boolean;
+}
+
+const Footer = ({ flush = false }: FooterProps) => {
   return (
-    <footer className="bg-gradient-to-br from-gray-50 to-gray-100 text-black pt-20 mt-32 relative overflow-hidden" role="contentinfo">
+    <footer
+      className={`bg-gradient-to-br from-gray-50 to-gray-100 text-black pt-20 relative overflow-hidden ${flush ? '' : 'mt-32'}`}
+      role="contentinfo"
+    >
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-800 via-green-600 to-green-800" aria-hidden="true"></div>
       
       <div className="absolute inset-0 opacity-5 hidden md:block" aria-hidden="true">
@@ -263,9 +271,9 @@ const Footer = () => {
 
 Footer.displayName = 'Footer';
 
-const FooterWithErrorBoundary = () => (
+const FooterWithErrorBoundary = ({ flush }: FooterProps) => (
   <FooterErrorBoundary>
-    <Footer />
+    <Footer flush={flush} />
   </FooterErrorBoundary>
 );
 

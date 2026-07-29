@@ -162,77 +162,89 @@ const Quiz = () => {
   }, []);
 
   const question = QUIZ_QUESTIONS[state.current];
+  const isQuestions = state.screen === 'questions';
 
   return (
-    <Layout ready>
+    <Layout ready flushFooter>
       <SeoTags meta={buildPageMeta(ROUTES.QUIZ)} />
-      {/* Scéna (spec §4.1): foto pozadí + tmavý překryv + bílý rám. Layout dodává <main>. */}
+      {/* Scéna (spec §4.1): celoplošná foto scéna, polaroidy leží přímo na ní — jediné rámy na
+          obrazovce jsou samotné polaroidy. Výška = okno bez navigace (h-20 / xl:h-24), aby byl kvíz
+          vidět celý bez scrollování; svh, ne vh, ať se na mobilu nic neschová pod lištou prohlížeče. */}
       <div
-        className="flex min-h-screen items-center justify-center bg-cover bg-center px-2 py-6 sm:px-4 sm:py-10"
+        className="relative flex min-h-[calc(100svh-5rem)] justify-center bg-cover bg-center px-4 py-4 tall:py-8 xl:min-h-[calc(100svh-6rem)]"
         style={{ backgroundImage: `url(${BASE_PATH}/images/background-quiz-image.png)` }}
       >
-        <div className="w-full max-w-4xl overflow-hidden rounded-xl border-[6px] border-white shadow-[0_8px_30px_rgba(0,0,0,0.35)] lg:max-w-[min(1440px,86vw)]">
-          <div className="bg-[radial-gradient(ellipse_at_50%_30%,rgba(18,28,38,0.5),rgba(10,18,26,0.8))] p-6 sm:p-8 lg:flex lg:min-h-[min(78vh,900px)] lg:flex-col lg:justify-center xl:p-10">
-            {state.screen === 'intro' && (
+        {/* Ztmavení nese kontrast bílého textu — fotka pozadí je místy hodně světlá. */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_35%,rgba(18,28,38,0.55),rgba(10,18,26,0.85))]"
+        />
+        <div className="relative flex w-full max-w-4xl flex-col lg:max-w-[min(1340px,88vw)]">
+          {/* Úvod a výsledky jsou jeden blok — volné místo se dělí 1:2, takže sedí nad optickým
+              středem. Obrazovka s otázkami si výšku řídí sama (ukotvený ukazatel), výplně proto
+              nechceme. Na nízkých oknech se mezery smrsknou na nulu a nic se neořízne. */}
+          {!isQuestions && <div className="grow" />}
+          {state.screen === 'intro' && (
+            <div className="py-10 text-center">
+              <p className="mb-2 text-xs font-bold tracking-[3px] text-white/75">CESTOVNÍ KVÍZ</p>
+              <h1 className="mb-3 text-3xl font-extrabold tracking-tight text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.5)] sm:text-4xl xl:text-5xl">
+                Nevíš kudy kam?
+              </h1>
+              <p className="mx-auto mb-8 max-w-md text-sm font-semibold text-[#d9e8d9] sm:text-base xl:max-w-lg xl:text-lg">
+                Odpověz na 9 otázek — zabere ti to zhruba 2 minuty — a já ti doporučím itineráře,
+                které ti sednou nejvíc.
+              </p>
+              <button
+                type="button"
+                onClick={handleStart}
+                className="rounded-lg border-2 border-white/35 bg-green-800 px-8 py-3 font-bold text-white shadow-lg"
+              >
+                Začít kvíz
+              </button>
+            </div>
+          )}
+
+          {state.screen === 'questions' && question && (
+            <QuizQuestion
+              question={question}
+              index={state.current}
+              total={QUIZ_QUESTIONS.length}
+              selectedIndex={state.answers[question.dimension]}
+              onSelect={handleSelect}
+              onBack={handleBack}
+              onNext={handleNext}
+            />
+          )}
+
+          {state.screen === 'results' &&
+            (status === 'error' ? (
               <div className="py-10 text-center">
-                <p className="mb-2 text-xs font-bold tracking-[3px] text-white/75">CESTOVNÍ KVÍZ</p>
-                <h1 className="mb-3 text-3xl font-extrabold tracking-tight text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.5)] sm:text-4xl xl:text-5xl">
-                  Nevíš kudy kam?
-                </h1>
-                <p className="mx-auto mb-8 max-w-md text-sm font-semibold text-[#d9e8d9] sm:text-base xl:max-w-lg xl:text-lg">
-                  Odpověz na 9 otázek — zabere ti to zhruba 2 minuty — a já ti doporučím itineráře,
-                  které ti sednou nejvíc.
+                <p className="mb-4 text-sm font-semibold text-white">
+                  Nepodařilo se načíst nabídku itinerářů. Zkus to prosím znovu.
                 </p>
                 <button
                   type="button"
-                  onClick={handleStart}
-                  className="rounded-lg border-2 border-white/35 bg-green-800 px-8 py-3 font-bold text-white shadow-lg"
+                  onClick={retry}
+                  className="rounded-lg border-2 border-white/55 bg-white/10 px-5 py-2.5 text-sm font-bold text-white"
                 >
-                  Začít kvíz
+                  Zkusit znovu
                 </button>
               </div>
-            )}
-
-            {state.screen === 'questions' && question && (
-              <QuizQuestion
-                question={question}
-                index={state.current}
-                total={QUIZ_QUESTIONS.length}
-                selectedIndex={state.answers[question.dimension]}
-                onSelect={handleSelect}
-                onBack={handleBack}
-                onNext={handleNext}
+            ) : resultSet === null ? (
+              <p className="py-10 text-center text-sm font-semibold text-white" aria-busy="true">
+                Vyhodnocuji…
+              </p>
+            ) : (
+              <QuizResults
+                resultSet={resultSet}
+                chosenSeason={answerMap.season ?? null}
+                onRestart={handleRestart}
+                onResultClick={handleResultClick}
+                onCustomClick={handleCustomClick}
               />
-            )}
+            ))}
 
-            {state.screen === 'results' &&
-              (status === 'error' ? (
-                <div className="py-10 text-center">
-                  <p className="mb-4 text-sm font-semibold text-white">
-                    Nepodařilo se načíst nabídku itinerářů. Zkus to prosím znovu.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={retry}
-                    className="rounded-lg border-2 border-white/55 bg-white/10 px-5 py-2.5 text-sm font-bold text-white"
-                  >
-                    Zkusit znovu
-                  </button>
-                </div>
-              ) : resultSet === null ? (
-                <p className="py-10 text-center text-sm font-semibold text-white" aria-busy="true">
-                  Vyhodnocuji…
-                </p>
-              ) : (
-                <QuizResults
-                  resultSet={resultSet}
-                  chosenSeason={answerMap.season ?? null}
-                  onRestart={handleRestart}
-                  onResultClick={handleResultClick}
-                  onCustomClick={handleCustomClick}
-                />
-              ))}
-          </div>
+          {!isQuestions && <div className="grow-2" />}
         </div>
       </div>
     </Layout>

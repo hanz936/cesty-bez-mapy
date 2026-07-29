@@ -2,6 +2,14 @@
 @plugin "@tailwindcss/typography";
 @import "./styles/utilities.css";
 
+/* Vysoké okno = je kde dýchat. Používá kvíz, který se musí vejít na jednu obrazovku:
+   na nízkých oknech drží mezery těsné, na vysokých je rozpustí. */
+@custom-variant tall {
+  @media (min-height: 800px) {
+    @slot;
+  }
+}
+
 /* ===== Blog „Inspirace na cesty" ===== */
 .blog-content { color: #1f2937; }
 .blog-content img.blog-img { border-radius: 0.75rem; margin: 1.5rem 0; }
