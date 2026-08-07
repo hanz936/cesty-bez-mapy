@@ -486,13 +486,17 @@ Expected: PASS, 5 testů.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/components/reviews/ProductRatingSummary.tsx src/components/reviews/ProductRatingSummary.test.tsx
+git add src/utils/rating.ts src/utils/rating.test.ts src/components/reviews/ProductRatingSummary.tsx src/components/reviews/ProductRatingSummary.test.tsx
 git commit -m "feat(reviews): add rating summary strip
 
 Google requires the aggregateRating value to be visible on any page whose
 markup declares it; the product page currently ships aggregateRating in
 JSON-LD without showing an average anywhere. Renders as a link when given
-an href, as static text otherwise."
+an href, as static text otherwise.
+
+Rounding lives in one helper because the database stores two decimals while
+the summary shows one, and the value in the markup has to be the value on
+the screen."
 ```
 
 ---
