@@ -6,20 +6,22 @@
 
 **Architecture:** Nová routa `/cestovni-pruvodci/:slug/recenze` (+ `/strana/:strana` pro strany 2+). Stránka dohledá produkt podle slugu, spočítá počet stran z `products.review_count`, ořízne stranu do platného rozsahu **ještě před** dotazem a načte jednu stranu přes existující `fetchApprovedReviews`. Detail produktu dostane souhrnný proužek s hvězdičkami, který na tuhle stránku odkazuje. Strukturovaná data se rozdělí: detail zůstává merchant listing (`offers` + `aggregateRating` + 3 `review`), stránka recenzí je product snippet (`Product` bez `offers`, `aggregateRating` + `review` odpovídající zobrazené straně).
 
-**Tech Stack:** React 19, TypeScript, React Router 7 (declarative), Tailwind 4, Supabase JS 2, Vitest 3 + Testing Library, Playwright (prerender), Vite 7.
+Protože jsou stránky recenzí předgenerované, doplňuje práci ještě databázový trigger, který po změně schválených recenzí spustí Vercel deploy hook — jinak by prerenderovaný `noindex` i počet stran zastaraly. Zároveň mizí natvrdo zapsaný `canonical` ze šablony `index.html`, aby ho klientský kód nemusel přepisovat.
+
+**Tech Stack:** React 19, TypeScript, React Router 7 (declarative), Tailwind 4, Supabase JS 2, PostgreSQL + pgTAP, Vitest 3 + Testing Library, Playwright (prerender), Vite 7.
 
 **Spec:** [`docs/superpowers/specs/2026-08-07-product-reviews-page-design.md`](../specs/2026-08-07-product-reviews-page-design.md)
 
 ## Global Constraints
 
 - **Veškerý text v UI česky.** Kód, commity a názvy souborů anglicky.
-- **Žádná databázová migrace.** `products.average_rating` i `review_count` udržuje trigger `refresh_product_rating`.
+- **Jedna databázová migrace, a jen jedna:** trigger na `public.reviews`, který po změně schválených recenzí volá Vercel deploy hook (Task 11). Agregáty `products.average_rating` a `review_count` dál udržuje stávající `refresh_product_rating` — ten se nemění.
 - **Recenze mají column-level GRANT jen na 6 sloupců pro `anon`.** Vždy používat `REVIEW_COLUMNS` z `src/lib/reviews.ts`; `select('*')` vrátí 42501.
-- **Počet stran se počítá z `products.review_count`, nikdy z `count` stránkovaného dotazu.** PostgREST vrací na `Range` mimo rozsah HTTP 416 a `fetchApprovedReviews` na chybu vyhazuje výjimku.
+- **Počet stran se počítá z `products.review_count`, nikdy z `count` stránkovaného dotazu.** Důvod: `fetchApprovedReviews` posílá `{ count: 'exact' }`, a právě kvůli tomu PostgREST na `Range` mimo rozsah odpoví **416** (bez count preference by vrátil 200 a prázdné pole). `fetchApprovedReviews` na chybu vyhazuje, takže z takové odpovědi se `count` nedozvíme.
 - **Limit recenzí na detailu produktu je jedna sdílená konstanta.** Dnes je hodnota na dvou místech (`ProductReviews.tsx:12` a natvrdo `limit: 6` v `ProductDetail.tsx:111`).
-- **`REVIEWS_DISCLOSURE` musí být na každé stránce, kde recenze zobrazujeme.** Povinnost dle § 5a odst. 5 zákona č. 634/1992 Sb.
-- **Recenzí na stranu: 10.** Konstanta `REVIEWS_PAGE_SIZE`.
-- **Recenzí na detailu produktu: 3.** Konstanta `PRODUCT_REVIEWS_LIMIT`.
+- **`REVIEWS_DISCLOSURE` musí být na každé stránce, kde recenze zobrazujeme.** Povinnost dle § 5a odst. 5 zákona č. 634/1992 Sb. ČOI k tomu žádá informaci „přímo tam, kde jsou spotřebitelské recenze zveřejněné"; požadavek na viditelnost bez rolování neexistuje.
+- **Číselné konstanty mají JEDEN zdroj pravdy: `src/constants/reviews.ts`.** `REVIEWS_PAGE_SIZE = 10`, `PRODUCT_REVIEWS_LIMIT = 3`, `MAX_PRERENDERED_REVIEW_PAGES`. Node skripty ten soubor importují přímo s příponou `.ts` — `prerender.mjs:4` a `sitemap.mjs:3` už dnes takhle importují `../src/constants/publicRoutes.ts` a Node 24 (`engines: node 24.x`) TypeScript odstrojí nativně. Konstanta se **nikde nekopíruje**.
+- **Zaokrouhlení hodnocení má taky jeden zdroj.** DB ukládá `round(avg, 2)` (může být `4.67`), ale zobrazujeme jedno desetinné místo. Viditelný text a `ratingValue` v JSON-LD **musí nést tutéž hodnotu** — Google zakazuje markup obsahu, který na stránce není.
 - **Chyba se nikdy nevydává za prázdno.** Selhání načtení → vlastní hláška; nula recenzí → prázdný stav.
 - **Sentry:** `Sentry.captureException(err, { tags: { area: 'reviews', component: '<Jméno>' } })`.
 - Testy se spouští `npm run test:run`, typová kontrola `npm run type-check`, lint `npm run lint`.
@@ -28,7 +30,9 @@
 
 ### Task 1: `ReviewCard` — režimy `teaser`/`full`, oprava ořezu a překryvu
 
-Karta má dnes textový box s pevnou výškou `h-32` (128 px) a na odstavci `line-clamp-6`. Do boxu se vejde jen 4,92 řádku, takže se výpustka nikdy neukáže a text se ustřihne uprostřed řádku. Zároveň má karta v základní třídě `h-[400px]`, což dnes přebíjí `h-full` od volajících — na nové stránce (jeden sloupec, `h-full` se nepředává) by to plný text ořízlo.
+Karta má dnes textový box s pevnou výškou `h-32` (128 px) a na odstavci `line-clamp-6`. Do boxu se vejde jen 4,92 řádku (6 × 26 px = 156 px > 128 px), takže se výpustka nikdy neukáže a text se ustřihne uprostřed řádku.
+
+Zároveň má karta v základní třídě `h-[400px]`. Pozor na časté nedorozumění: **dnešní volající tím postižení nejsou.** V přeloženém CSS je `.h-full` až za `.h-\[400px\]` (byte-offsety 34020 > 33922 v `dist/assets/index-*.css`), stejná specificita, takže při shodě vyhrává `h-full` — a `ReviewsSection.tsx:107` i `ProductReviews.tsx:128` ho předávají. Odstranění `h-[400px]` je tedy pro stávající mřížky **beze změny**. Nutné je proto, že nová stránka je jeden sloupec a `h-full` nepředává — tam by 400 px plný text ořízlo.
 
 **Files:**
 - Modify: `src/components/ui/ReviewCard.tsx`
@@ -71,6 +75,13 @@ describe('ReviewCard', () => {
     expect(screen.getByText(new RegExp(`^"?${'A'.repeat(50)}`))).toBeInTheDocument();
     expect(container.innerHTML).not.toContain('line-clamp');
     expect(container.innerHTML).not.toContain('h-32');
+  });
+
+  it('full zalamuje nezalomitelný text, aby ho overflow-hidden neustřihl', () => {
+    // Recenze běžně obsahují URL; bez zalomení by dlouhý token přetekl kartu.
+    const url = `https://example.com/${'a'.repeat(300)}`;
+    render(<ReviewCard {...base} text={url} variant="full" />);
+    expect(screen.getByText(new RegExp('^"?https://example')).className).toContain('wrap-break-word');
   });
 
   it('teaser je výchozí režim', () => {
@@ -141,7 +152,11 @@ na:
       <div className="mb-8 flex-grow">
         <p
           className={`text-gray-700 leading-relaxed text-base italic font-light tracking-wide ${
-            variant === 'teaser' ? 'line-clamp-6' : 'whitespace-pre-line'
+            // `wrap-break-word` je povinné: karta má v základní třídě `overflow-hidden`,
+            // takže nezalomitelný token (typicky URL v recenzi) by přetekl a tiše se
+            // ustřihl — přesně to, co má `full` odstranit. Formulář povoluje 2 000 znaků.
+            // (`wrap-break-word` je v Tailwindu 4 kanonický tvar; starší alias hlásí LSP.)
+            variant === 'teaser' ? 'line-clamp-6' : 'whitespace-pre-line wrap-break-word'
           }`}
         >
           "{text}"
@@ -258,11 +273,14 @@ git commit -m "feat(reviews): add Czech pluralisation helper for review counts"
 ### Task 3: `ProductRatingSummary` — souhrn hodnocení jako odkaz
 
 **Files:**
+- Create: `src/utils/rating.ts`
+- Create: `src/utils/rating.test.ts`
 - Create: `src/components/reviews/ProductRatingSummary.tsx`
 - Create: `src/components/reviews/ProductRatingSummary.test.tsx`
 
 **Interfaces:**
 - Consumes: `reviewCountLabel` (Task 2)
+- Produces také: `roundRating`, `formatRatingCs`, `ratingValueJsonLd` v `src/utils/rating.ts` — používá Task 5 a Task 9.
 - Produces:
   ```tsx
   interface ProductRatingSummaryProps {
@@ -310,6 +328,13 @@ describe('ProductRatingSummary', () => {
     expect(screen.getByText(/5,0/)).toBeInTheDocument();
   });
 
+  it('průměr z DB zaokrouhlí na jedno desetinné místo', () => {
+    // DB ukládá round(avg, 2) → 4.67. Uživatel musí vidět touž hodnotu,
+    // jakou pošleme do JSON-LD, jinak markujeme obsah, který na stránce není.
+    renderIn(<ProductRatingSummary average={4.67} count={3} />);
+    expect(screen.getByText(/4,7/)).toBeInTheDocument();
+  });
+
   it('skloňuje počet recenzí', () => {
     const { rerender } = renderIn(<ProductRatingSummary average={5} count={3} />);
     expect(screen.getByText(/3 recenze/)).toBeInTheDocument();
@@ -326,10 +351,59 @@ Expected: FAIL — komponenta neexistuje.
 
 - [ ] **Step 3: Write minimal implementation**
 
-Vytvoř `src/components/reviews/ProductRatingSummary.tsx`:
+Nejdřív vytvoř `src/utils/rating.ts` — jediné místo, které rozhoduje o zaokrouhlení:
+
+```ts
+/**
+ * Zaokrouhlení průměrného hodnocení na jedno desetinné místo.
+ *
+ * DB drží `round(avg(rating), 2)` (`refresh_product_rating`), takže hodnota může být
+ * třeba 4.67. Zobrazujeme ale jedno desetinné místo — a Google zakazuje markup obsahu,
+ * který na stránce není vidět. Viditelný text i `ratingValue` proto musí projít
+ * TOUTO funkcí, aby nemohly vydat různá čísla.
+ */
+export function roundRating(average: number): number {
+  return Math.round(average * 10) / 10;
+}
+
+/** Pro zobrazení: česká desetinná čárka. */
+export function formatRatingCs(average: number): string {
+  return roundRating(average).toFixed(1).replace('.', ',');
+}
+
+/** Pro JSON-LD: tečka podle schema.org, ale tatáž hodnota, jakou vidí uživatel. */
+export function ratingValueJsonLd(average: number): string {
+  return roundRating(average).toFixed(1);
+}
+```
+
+a `src/utils/rating.test.ts`:
+
+```ts
+import { describe, it, expect } from 'vitest';
+import { roundRating, formatRatingCs, ratingValueJsonLd } from './rating';
+
+describe('rating', () => {
+  it('zaokrouhluje na jedno desetinné místo', () => {
+    expect(roundRating(4.67)).toBe(4.7);
+    expect(roundRating(4.64)).toBe(4.6);
+    expect(roundRating(5)).toBe(5);
+  });
+
+  it('zobrazení a JSON-LD nesou tutéž hodnotu, jen jiný oddělovač', () => {
+    expect(formatRatingCs(4.67)).toBe('4,7');
+    expect(ratingValueJsonLd(4.67)).toBe('4.7');
+    expect(formatRatingCs(5)).toBe('5,0');
+    expect(ratingValueJsonLd(5)).toBe('5.0');
+  });
+});
+```
+
+Pak vytvoř `src/components/reviews/ProductRatingSummary.tsx`:
 
 ```tsx
 import { Link } from 'react-router-dom';
+import { formatRatingCs } from '../../utils/rating';
 import { reviewCountLabel } from './reviewCountLabel';
 
 interface ProductRatingSummaryProps {
@@ -375,7 +449,7 @@ const Stars = ({ average }: { average: number }) => (
 const ProductRatingSummary = ({ average, count, href, className = '' }: ProductRatingSummaryProps) => {
   if (count === 0) return null;
 
-  const formattedAverage = average.toFixed(1).replace('.', ',');
+  const formattedAverage = formatRatingCs(average);
   const label = `${count} ${reviewCountLabel(count)}`;
   const body = (
     <>
@@ -427,6 +501,7 @@ an href, as static text otherwise."
 
 **Files:**
 - Modify: `src/lib/reviews.ts:38-48`
+- Modify: `src/lib/reviews.test.ts:18-41` — **povinné**, ne volitelné: oba stávající testy mockují `order` tak, že vrací rovnou `{ range }`, resp. `{ eq }`. Druhé `.order()` na tom objektu neexistuje, takže po změně implementace spadnou na `TypeError: query.order(...).order is not a function`.
 - Create: `src/lib/productForReviews.test.ts`
 
 **Interfaces:**
@@ -497,29 +572,41 @@ describe('fetchProductForReviews', () => {
 });
 ```
 
-Do stávajícího `src/lib/reviews.test.ts` přidej na konec souboru nový blok, který ohlídá řazení:
+V `src/lib/reviews.test.ts` **nahraď** oba stávající testy `fetchApprovedReviews` (řádky 18–41) verzí s fluent mockem, která zároveň ohlídá druhý klíč řazení:
 
 ```ts
-describe('fetchApprovedReviews řazení', () => {
-  it('řadí created_at DESC a id DESC jako rozhodující klíč', async () => {
-    // Bez druhého klíče může offsetové stránkování při shodných časech
-    // (dávkové schválení, import) řádek zopakovat nebo přeskočit.
-    const orderCalls: unknown[][] = [];
-    const builder = {
-      order: (...args: unknown[]) => { orderCalls.push(args); return builder; },
-      eq: () => builder,
-      range: () => Promise.resolve({ data: [], count: 0, error: null }),
-    };
-    vi.doMock('./supabase', () => ({ supabase: { from: () => ({ select: () => builder }) } }));
-    const { fetchApprovedReviews } = await import('./reviews');
-    await fetchApprovedReviews({ limit: 10, offset: 0 });
-    expect(orderCalls).toEqual([
-      ['created_at', { ascending: false }],
-      ['id', { ascending: false }],
-    ]);
+  it('fetchApprovedReviews selects explicit columns with product embed and range', async () => {
+    const range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+    const orderById = vi.fn().mockReturnValue({ range });
+    const order = vi.fn().mockReturnValue({ order: orderById });
+    const select = vi.fn().mockReturnValue({ order });
+    fromMock.mockReturnValue({ select });
+
+    await fetchApprovedReviews({ limit: 9, offset: 0 });
+
+    expect(fromMock).toHaveBeenCalledWith('reviews');
+    expect(select).toHaveBeenCalledWith(`${REVIEW_COLUMNS}, products ( title, slug )`, { count: 'exact' });
+    expect(order).toHaveBeenCalledWith('created_at', { ascending: false });
+    // `id` jako rozhodující druhý klíč — bez něj je pořadí při shodných časech
+    // nedefinované a offsetové stránkování může řádek zopakovat nebo přeskočit.
+    expect(orderById).toHaveBeenCalledWith('id', { ascending: false });
+    expect(range).toHaveBeenCalledWith(0, 8);
   });
-});
+
+  it('fetchApprovedReviews filters by productId when provided', async () => {
+    const range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+    const eq = vi.fn().mockReturnValue({ range });
+    const orderById = vi.fn().mockReturnValue({ eq });
+    const order = vi.fn().mockReturnValue({ order: orderById });
+    const select = vi.fn().mockReturnValue({ order });
+    fromMock.mockReturnValue({ select });
+
+    await fetchApprovedReviews({ productId: 'p1', limit: 6, offset: 0 });
+    expect(eq).toHaveBeenCalledWith('product_id', 'p1');
+  });
 ```
+
+**Nepoužívej `vi.doMock` + dynamický `await import('./reviews')`.** Soubor má `./reviews` staticky importovaný na řádku 13, takže modul už je v registry a dynamický import vrátí kešovanou instanci navázanou na top-level `vi.mock`. Bez `vi.resetModules()` před `vi.doMock` nemá takový blok žádný účinek (ověřeno spuštěním) a spadne až na nesouvisejícím `TypeError`.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -558,9 +645,15 @@ export interface ProductForReviews {
 }
 
 /**
- * Produkt pro stránku recenzí — jen pole potřebná pro souhrn, nadpis a JSON-LD.
+ * Produkt pro stránku recenzí — jen pole potřebná pro souhrn, nadpis a JSON-LD
+ * (`hero_subtitle` slouží jako `Product.description`, viz `buildProductReviewsMeta`).
  * `null` = produkt neexistuje nebo není veřejný (PGRST116). Jakákoli jiná chyba
  * se vyhazuje, aby se výpadek nevydával za „produkt nenalezen".
+ *
+ * `.single()`, ne `.maybeSingle()`: postgrest-js 2.105 už u `maybeSingle()` neposílá
+ * `Accept: application/vnd.pgrst.object+json` a kardinalitu řeší na klientu, takže by
+ * PGRST116 nikdy nepřišel a větev níž by byla mrtvý kód. `.single()` navíc kopíruje
+ * dva existující call-sites (`ProductDetail.tsx:93-98`, `ProductReviews.tsx:65-70`).
  */
 export async function fetchProductForReviews(slug: string): Promise<ProductForReviews | null> {
   const { data, error } = await supabase
@@ -583,10 +676,10 @@ export async function fetchProductForReviews(slug: string): Promise<ProductForRe
 Run: `npm run test:run -- src/lib/productForReviews.test.ts src/lib/reviews.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Ověř, že přidané řazení nerozbilo stávající testy**
+- [ ] **Step 5: Ověř, že přidané řazení nerozbilo zbytek sady**
 
 Run: `npm run test:run && npm run type-check`
-Expected: PASS. Pokud některý existující test v `reviews.test.ts` počítal s jediným voláním `.order()`, uprav ho na dvě volání — chování dotazu je záměrná změna.
+Expected: PASS. Oba dotčené testy jsi přepsal ve Step 1 — jestli teď něco padá na `query.order(...).order is not a function`, znamená to, že se přepis neuplatnil.
 
 - [ ] **Step 6: Commit**
 
@@ -607,7 +700,7 @@ timestamps collide, so add id as a tiebreaker."
 - Modify: `src/utils/productSeo.test.ts`
 
 **Interfaces:**
-- Consumes: `ProductForReviews` (Task 4)
+- Consumes: `ProductForReviews` (Task 4), `ratingValueJsonLd` (Task 3)
 - Produces:
   ```ts
   export interface ProductReviewsMeta {
@@ -616,7 +709,7 @@ timestamps collide, so add id as a tiebreaker."
     canonical: string;
     ogImage: string;
     robots?: string;
-    jsonLd: ProductReviewsJsonLd;
+    jsonLd?: ProductReviewsJsonLd;
   }
   export function buildProductReviewsMeta(
     product: ProductForReviews,
@@ -631,12 +724,19 @@ timestamps collide, so add id as a tiebreaker."
 
 - [ ] **Step 1: Write the failing test**
 
-Do `src/utils/productSeo.test.ts` přidej:
+V `src/utils/productSeo.test.ts` rozšiř **stávající** import na řádku 2:
 
 ```ts
-import { buildProductReviewsMeta } from './productSeo';
+import { buildProductMeta, buildProductReviewsMeta } from './productSeo';
+```
 
-const product = {
+a na konec souboru přidej:
+
+```ts
+// Fixtura se JMENUJE JINAK NEŽ `product` schválně: soubor už `const product`
+// deklaruje na řádku 4. Kolize by shodila celý soubor na SyntaxError, tedy
+// i stávající testy buildProductMeta.
+const REVIEWS_PRODUCT = {
   id: 'p1',
   title: 'Roadtrip po Itálii',
   detail_title: 'Roadtrip po Itálii na 20 dní',
@@ -646,63 +746,88 @@ const product = {
   average_rating: 4.5,
   review_count: 12,
 };
-const reviews = [
+const reviewsFixture = [
   { author: 'Jana N.', rating: 5, text: 'Skvělé.', datePublished: '2026-07-01' },
   { author: 'Petr K.', rating: 4, text: 'Dobré.', datePublished: '2026-06-20' },
 ];
 
 describe('buildProductReviewsMeta', () => {
   it('JSON-LD je Product BEZ offers (stránka není prodejní)', () => {
-    const meta = buildProductReviewsMeta(product, { page: 1, reviews }, 'https://x.cz');
-    expect(meta.jsonLd['@type']).toBe('Product');
+    const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: reviewsFixture }, 'https://x.cz');
+    expect(meta.jsonLd?.['@type']).toBe('Product');
     expect(meta.jsonLd).not.toHaveProperty('offers');
   });
 
   it('review[] odpovídá počtu recenzí na zobrazené straně', () => {
-    const meta = buildProductReviewsMeta(product, { page: 1, reviews }, 'https://x.cz');
-    expect(meta.jsonLd.review).toHaveLength(2);
-    expect(meta.jsonLd.review?.[0].author.name).toBe('Jana N.');
+    const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: reviewsFixture }, 'https://x.cz');
+    expect(meta.jsonLd?.review).toHaveLength(2);
+    expect(meta.jsonLd?.review?.[0].author.name).toBe('Jana N.');
   });
 
   it('nese aggregateRating s průměrem a počtem', () => {
-    const meta = buildProductReviewsMeta(product, { page: 1, reviews }, 'https://x.cz');
-    expect(meta.jsonLd.aggregateRating).toEqual({
+    const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: reviewsFixture }, 'https://x.cz');
+    expect(meta.jsonLd?.aggregateRating).toEqual({
       '@type': 'AggregateRating',
       ratingValue: '4.5',
       reviewCount: 12,
     });
   });
 
+  it('ratingValue nese TOTÉŽ číslo, jaké uvidí uživatel', () => {
+    // DB drží round(avg, 2) = 4.67; souhrn na stránce zobrazí 4,7.
+    // Kdyby JSON-LD poslalo 4.67, markujeme obsah, který na stránce není.
+    const meta = buildProductReviewsMeta(
+      { ...REVIEWS_PRODUCT, average_rating: 4.67 },
+      { page: 1, reviews: reviewsFixture },
+      'https://x.cz',
+    );
+    expect(meta.jsonLd?.aggregateRating?.ratingValue).toBe('4.7');
+  });
+
+  it('name odpovídá nadpisu stránky, ne internímu title', () => {
+    const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: reviewsFixture }, 'https://x.cz');
+    expect(meta.jsonLd?.name).toBe('Roadtrip po Itálii na 20 dní');
+  });
+
+  it('description popisuje produkt, ne stránku', () => {
+    const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: reviewsFixture }, 'https://x.cz');
+    expect(meta.jsonLd?.description).toBe('Kompletně naplánovaná cesta');
+    // Meta description je něco jiného než Product.description.
+    expect(meta.description).toMatch(/Recenze od ověřených zákazníků/);
+  });
+
   it('canonical strany 1 je bez segmentu /strana', () => {
-    const meta = buildProductReviewsMeta(product, { page: 1, reviews }, 'https://x.cz');
+    const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: reviewsFixture }, 'https://x.cz');
     expect(meta.canonical).toBe('https://x.cz/cestovni-pruvodci/italie-roadtrip/recenze');
   });
 
   it('canonical strany 2 míří sám na sebe, ne na stranu 1', () => {
-    const meta = buildProductReviewsMeta(product, { page: 2, reviews }, 'https://x.cz');
+    const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 2, reviews: reviewsFixture }, 'https://x.cz');
     expect(meta.canonical).toBe('https://x.cz/cestovni-pruvodci/italie-roadtrip/recenze/strana/2');
   });
 
   it('titulek strany 2 se liší od strany 1', () => {
-    const first = buildProductReviewsMeta(product, { page: 1, reviews }, 'https://x.cz');
-    const second = buildProductReviewsMeta(product, { page: 2, reviews }, 'https://x.cz');
-    expect(first.title).toBe('Recenze — Roadtrip po Itálii');
-    expect(second.title).toBe('Recenze — Roadtrip po Itálii (strana 2)');
+    const first = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: reviewsFixture }, 'https://x.cz');
+    const second = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 2, reviews: reviewsFixture }, 'https://x.cz');
+    expect(first.title).toBe('Recenze — Roadtrip po Itálii na 20 dní');
+    expect(second.title).toBe('Recenze — Roadtrip po Itálii na 20 dní (strana 2)');
   });
 
-  it('bez recenzí nese noindex a vynechá aggregateRating i review', () => {
+  it('bez recenzí nese noindex a JSON-LD VYNECHÁ ÚPLNĚ', () => {
+    // Google: „You must include one of the following properties: review,
+    // aggregateRating, offers." Product bez všech tří je neplatný markup a
+    // Search Console ho hlásí jako chybu — proto radši žádný.
     const meta = buildProductReviewsMeta(
-      { ...product, average_rating: 0, review_count: 0 },
+      { ...REVIEWS_PRODUCT, average_rating: 0, review_count: 0 },
       { page: 1, reviews: [] },
       'https://x.cz',
     );
-    expect(meta.robots).toBe('noindex, follow');
-    expect(meta.jsonLd).not.toHaveProperty('aggregateRating');
-    expect(meta.jsonLd).not.toHaveProperty('review');
+    expect(meta.robots).toBe('noindex');
+    expect(meta.jsonLd).toBeUndefined();
   });
 
   it('se recenzemi noindex nenastavuje', () => {
-    const meta = buildProductReviewsMeta(product, { page: 1, reviews }, 'https://x.cz');
+    const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: reviewsFixture }, 'https://x.cz');
     expect(meta.robots).toBeUndefined();
   });
 });
@@ -715,10 +840,23 @@ Expected: FAIL — `buildProductReviewsMeta` neexistuje.
 
 - [ ] **Step 3: Write minimal implementation**
 
-V `src/utils/productSeo.ts` přidej import typu na začátek:
+V `src/utils/productSeo.ts` přidej na začátek k importům:
 
 ```ts
+import { ratingValueJsonLd } from './rating';
 import type { ProductForReviews } from '../lib/reviews';
+```
+
+A oprav **stávající** `buildProductMeta` na řádku 96 — detail produktu má dnes tentýž rozpor a Task 9 mu navíc přidává viditelný souhrn, takže by byl na očích. Z:
+
+```ts
+      ratingValue: String(options.rating.average),
+```
+
+na:
+
+```ts
+      ratingValue: ratingValueJsonLd(options.rating.average),
 ```
 
 Nad `buildProductMeta` vytáhni sdílené mapování `Review` (aby nevznikly dvě verze pravdy) — přidej:
@@ -748,9 +886,14 @@ Na konec souboru přidej:
 ```ts
 /**
  * JSON-LD pro stránku recenzí. Google tenhle typ stránky nazývá „product snippet"
- * (na rozdíl od „merchant listing" na detailu produktu) a jeho vzorový příklad
- * „Product review page" `offers` NEOBSAHUJE — koupit se tu nedá a stránka tak
- * nekonkuruje detailu produktu o roli prodejní stránky.
+ * (na rozdíl od „merchant listing" na detailu produktu). `offers` je v jeho tabulce
+ * vlastností uvedené jako **Recommended, ne Required**, a Google u příkladu
+ * „Product review page" ukazuje i minimální variantu bez něj. Vynecháváme ho záměrně:
+ * koupit se tu nedá a stránka tak nekonkuruje detailu produktu o roli prodejní stránky.
+ *
+ * Pozor: `Product` musí nést **aspoň jedno** z `review` / `aggregateRating` / `offers`.
+ * Když produkt nemá recenze, nevydáváme JSON-LD vůbec — proto je v `ProductReviewsMeta`
+ * volitelné.
  */
 export interface ProductReviewsJsonLd {
   '@context': string;
@@ -769,7 +912,8 @@ export interface ProductReviewsMeta {
   ogImage: string;
   /** Nastaveno jen když produkt nemá recenze — jinak nedefinováno. */
   robots?: string;
-  jsonLd: ProductReviewsJsonLd;
+  /** Chybí, když produkt nemá recenze — `Product` bez review/aggregateRating/offers je neplatný. */
+  jsonLd?: ProductReviewsJsonLd;
 }
 
 /** Cesta stránky recenzí produktu (strana 1 je bez segmentu `/strana`). */
@@ -797,19 +941,25 @@ export function buildProductReviewsMeta(
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string image_url must fall through to fallback
   const image = product.image_url || `${siteUrl}/images/placeholder-guide.jpg`;
 
-  const jsonLd: ProductReviewsJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: product.title,
-    description,
-    image: [image],
-  };
-
+  // `Product` musí nést aspoň jedno z review/aggregateRating/offers. Bez recenzí
+  // by žádné z nich nebylo → radši nevydáme JSON-LD vůbec, než neplatný markup.
+  let jsonLd: ProductReviewsJsonLd | undefined;
   if (count > 0) {
-    jsonLd.aggregateRating = {
-      '@type': 'AggregateRating',
-      ratingValue: String(product.average_rating ?? 0),
-      reviewCount: count,
+    jsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      // `name` i `description` musí odpovídat tomu, co je na stránce vidět:
+      // nadpis nese `productTitle`, perex produktu je `hero_subtitle`.
+      name: productTitle,
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string subtitle must fall through
+      description: product.hero_subtitle?.trim() || description,
+      image: [image],
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        // Tatáž funkce jako ProductRatingSummary → zobrazená hodnota == ratingValue.
+        ratingValue: ratingValueJsonLd(product.average_rating ?? 0),
+        reviewCount: count,
+      },
     };
     if (options.reviews.length > 0) {
       jsonLd.review = toReviewJsonLd(options.reviews);
@@ -821,7 +971,9 @@ export function buildProductReviewsMeta(
     description,
     canonical: `${siteUrl}${productReviewsPath(product.slug, options.page)}`,
     ogImage: image,
-    robots: count === 0 ? 'noindex, follow' : undefined,
+    // Jen `noindex`. Google `follow` mezi platnými pravidly neuvádí — následování
+    // odkazů je výchozí chování, takže `noindex, follow` je pro něj totéž co `noindex`.
+    robots: count === 0 ? 'noindex' : undefined,
     jsonLd,
   };
 }
@@ -838,10 +990,14 @@ Expected: PASS včetně stávajících testů `buildProductMeta` (refaktor na `t
 git add src/utils/productSeo.ts src/utils/productSeo.test.ts
 git commit -m "feat(seo): build product-snippet metadata for the reviews page
 
-Google's own 'Product review page' example carries Product + aggregateRating
-+ review and no offers, which keeps the reviews page from competing with the
-product page as the sellable listing. Each page canonicalises to itself
-because Google forbids pointing a paginated sequence at page one."
+offers is Recommended rather than Required for a product snippet, so the
+reviews page omits it and stops competing with the product page as the
+sellable listing. Product needs at least one of review, aggregateRating or
+offers, so a product with no reviews gets no JSON-LD at all rather than an
+invalid node. ratingValue goes through the same rounding as the visible
+summary, because marking up a value the page never shows is not allowed.
+Each page canonicalises to itself because Google forbids pointing a
+paginated sequence at page one."
 ```
 
 ---
@@ -879,8 +1035,8 @@ describe('SeoTags', () => {
   });
 
   it('s robots značku vykreslí', () => {
-    render(<SeoTags meta={{ ...base, robots: 'noindex, follow' }} />);
-    expect(document.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex, follow');
+    render(<SeoTags meta={{ ...base, robots: 'noindex' }} />);
+    expect(document.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex');
   });
 });
 ```
@@ -907,7 +1063,7 @@ import type { ProductMeta, ProductReviewsMeta } from '../../utils/productSeo';
 Do `SeoTagsMeta` přidej za `ogImage`:
 
 ```tsx
-  /** Např. 'noindex, follow' pro stránky, které nemají do indexu. */
+  /** Např. 'noindex' pro stránky, které nemají do indexu. */
   robots?: string;
 ```
 
@@ -942,6 +1098,8 @@ git commit -m "feat(seo): let SeoTags emit a robots meta tag"
 Google crawler neklikne na tlačítko, jde jen po `<a href>`, takže stránkování musí být odkazy.
 
 **Files:**
+- Create: `src/components/reviews/paginationItems.ts`
+- Create: `src/components/reviews/paginationItems.test.ts`
 - Create: `src/components/reviews/ReviewsPagination.tsx`
 - Create: `src/components/reviews/ReviewsPagination.test.tsx`
 
@@ -960,7 +1118,36 @@ Google crawler neklikne na tlačítko, jde jen po `<a href>`, takže stránková
 
 - [ ] **Step 1: Write the failing test**
 
-Vytvoř `src/components/reviews/ReviewsPagination.test.tsx`:
+Vytvoř `src/components/reviews/paginationItems.test.ts`:
+
+```ts
+import { describe, it, expect } from 'vitest';
+import { paginationItems } from './paginationItems';
+
+describe('paginationItems', () => {
+  it('do sedmi stran vypíše všechny', () => {
+    expect(paginationItems(1, 7)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it('uprostřed dlouhé sekvence zkrátí obě strany', () => {
+    expect(paginationItems(10, 30)).toEqual([1, 'gap', 9, 10, 11, 'gap', 30]);
+  });
+
+  it('na začátku zkrátí jen konec', () => {
+    expect(paginationItems(2, 30)).toEqual([1, 2, 3, 'gap', 30]);
+  });
+
+  it('na konci zkrátí jen začátek', () => {
+    expect(paginationItems(30, 30)).toEqual([1, 'gap', 29, 30]);
+  });
+
+  it('nikdy nevyrobí stranu mimo rozsah', () => {
+    expect(paginationItems(1, 30)).toEqual([1, 2, 'gap', 30]);
+  });
+});
+```
+
+A `src/components/reviews/ReviewsPagination.test.tsx`:
 
 ```tsx
 import { describe, it, expect } from 'vitest';
@@ -987,11 +1174,29 @@ describe('ReviewsPagination', () => {
     expect(screen.getByRole('navigation', { name: 'Stránkování recenzí' })).toBeInTheDocument();
   });
 
-  it('aktuální strana má aria-current a není odkaz', () => {
+  it('aktuální strana zůstává odkazem a nese aria-current', () => {
+    // W3C Design System: „it is fully linked so users of Assistive Technology
+    // can find which is the currently active link."
     renderAt(2, 3);
-    const current = screen.getByText('2');
+    const current = screen.getByRole('link', { name: 'Strana 2' });
     expect(current).toHaveAttribute('aria-current', 'page');
-    expect(current.tagName).not.toBe('A');
+    expect(current).toHaveAttribute('href', '/r/strana/2');
+  });
+
+  it('u krátké sekvence vypíše všechny strany', () => {
+    renderAt(1, 7);
+    expect(screen.getAllByRole('link', { name: /^Strana \d+$/ })).toHaveLength(7);
+    expect(screen.queryByText('…')).not.toBeInTheDocument();
+  });
+
+  it('u dlouhé sekvence zkrátí prostředek výpustkami', () => {
+    renderAt(10, 30);
+    // Vždy první, poslední, aktuální a její sousedi.
+    for (const page of ['1', '9', '10', '11', '30']) {
+      expect(screen.getByRole('link', { name: `Strana ${page}` })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole('link', { name: 'Strana 5' })).not.toBeInTheDocument();
+    expect(screen.getAllByText('…')).toHaveLength(2);
   });
 
   it('každý odkaz má vlastní přístupný název', () => {
@@ -1018,15 +1223,49 @@ describe('ReviewsPagination', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm run test:run -- src/components/reviews/ReviewsPagination.test.tsx`
-Expected: FAIL — komponenta neexistuje.
+Run: `npm run test:run -- src/components/reviews/ReviewsPagination.test.tsx src/components/reviews/paginationItems.test.ts`
+Expected: FAIL — ani komponenta, ani `paginationItems` neexistují.
 
 - [ ] **Step 3: Write minimal implementation**
 
-Vytvoř `src/components/reviews/ReviewsPagination.tsx`:
+Nejdřív `src/components/reviews/paginationItems.ts` (vlastní modul, ne export z komponenty —
+`react-refresh/only-export-components` by u exportované funkce vedle komponenty hlásil varování):
+
+```ts
+export type PaginationItem = number | 'gap';
+
+/** Do téhle délky se vypíšou všechny strany; nad ní se prostředek zkrátí. */
+const FULL_LIST_LIMIT = 7;
+
+/**
+ * Které strany se ve stránkování vypíšou. Vždy první, poslední, aktuální a její
+ * sousedi; mezery mezi nimi nahradí `'gap'`. Bez zkrácení by produkt s 300
+ * recenzemi vyrobil 30 odkazů v jedné navigaci.
+ */
+export function paginationItems(currentPage: number, totalPages: number): PaginationItem[] {
+  if (totalPages <= FULL_LIST_LIMIT) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const keep = new Set<number>([1, totalPages, currentPage, currentPage - 1, currentPage + 1]);
+  const sorted = [...keep].filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
+
+  const items: PaginationItem[] = [];
+  let previous = 0;
+  for (const page of sorted) {
+    if (previous > 0 && page - previous > 1) items.push('gap');
+    items.push(page);
+    previous = page;
+  }
+  return items;
+}
+```
+
+Pak `src/components/reviews/ReviewsPagination.tsx`:
 
 ```tsx
 import { Link } from 'react-router-dom';
+import { paginationItems } from './paginationItems';
 
 interface ReviewsPaginationProps {
   currentPage: number;
@@ -1044,11 +1283,18 @@ const currentClass =
  * Stránkování recenzí. Vždy odkazy, nikdy tlačítka — Google crawler neklikne
  * na tlačítko a další strany by nenašel. Odkaz na stranu 1 je vždy přítomný,
  * protože dokumentace doporučuje zdůraznit začátek kolekce.
+ *
+ * Aktuální strana zůstává odkazem s `aria-current="page"`, jak doporučuje W3C
+ * Design System: „it is fully linked so users of Assistive Technology can find
+ * which is the currently active link."
+ *
+ * Šipky `‹`/`›` se nedublují s `aria-label` — přístupný název odkazu ho nahrazuje,
+ * a WCAG 2.5.3 symbolicky užitý znak za viditelný popisek nepovažuje.
  */
 const ReviewsPagination = ({ currentPage, totalPages, buildHref, className = '' }: ReviewsPaginationProps) => {
   if (totalPages <= 1) return null;
 
-  const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+  const items = paginationItems(currentPage, totalPages);
 
   return (
     <nav aria-label="Stránkování recenzí" className={`flex justify-center ${className}`.trim()}>
@@ -1060,19 +1306,24 @@ const ReviewsPagination = ({ currentPage, totalPages, buildHref, className = '' 
             </Link>
           </li>
         )}
-        {pages.map((page) => (
-          <li key={page}>
-            {page === currentPage ? (
-              <span className={currentClass} aria-current="page">
-                {page}
-              </span>
-            ) : (
-              <Link to={buildHref(page)} className={linkClass} aria-label={`Strana ${page}`}>
-                {page}
+        {items.map((item, index) =>
+          item === 'gap' ? (
+            <li key={`gap-${index}`} className="px-1 text-gray-400" aria-hidden="true">
+              …
+            </li>
+          ) : (
+            <li key={item}>
+              <Link
+                to={buildHref(item)}
+                className={item === currentPage ? currentClass : linkClass}
+                aria-label={`Strana ${item}`}
+                aria-current={item === currentPage ? 'page' : undefined}
+              >
+                {item}
               </Link>
-            )}
-          </li>
-        ))}
+            </li>
+          ),
+        )}
         {currentPage < totalPages && (
           <li>
             <Link to={buildHref(currentPage + 1)} className={linkClass} aria-label="Další strana">
@@ -1090,17 +1341,20 @@ export default ReviewsPagination;
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm run test:run -- src/components/reviews/ReviewsPagination.test.tsx`
-Expected: PASS, 6 testů.
+Run: `npm run test:run -- src/components/reviews/ReviewsPagination.test.tsx src/components/reviews/paginationItems.test.ts`
+Expected: PASS — 8 testů komponenty a 5 testů `paginationItems`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/components/reviews/ReviewsPagination.tsx src/components/reviews/ReviewsPagination.test.tsx
+git add src/components/reviews/ReviewsPagination.tsx src/components/reviews/ReviewsPagination.test.tsx src/components/reviews/paginationItems.ts src/components/reviews/paginationItems.test.ts
 git commit -m "feat(reviews): add link-based pagination nav
 
 Crawlers follow anchors, not button clicks, so paging has to be real links
-for the deeper pages to be discoverable at all."
+for the deeper pages to be discoverable at all. The current page stays a
+link carrying aria-current, so assistive tech can locate it in the list.
+Sequences longer than seven pages collapse the middle, otherwise a product
+with 300 reviews would render thirty links in one nav."
 ```
 
 ---
@@ -1108,6 +1362,8 @@ for the deeper pages to be discoverable at all."
 ### Task 8: `ProductReviewsPage` — samotná stránka
 
 **Files:**
+- Create: `src/constants/reviews.ts`
+- Create: `src/constants/reviews.test.ts`
 - Create: `src/pages/ProductReviewsPage.tsx`
 - Create: `src/pages/ProductReviewsPage.test.tsx`
 - Modify: `src/constants/routes.ts`
@@ -1115,16 +1371,66 @@ for the deeper pages to be discoverable at all."
 
 **Interfaces:**
 - Consumes: `fetchProductForReviews`, `ProductForReviews`, `fetchApprovedReviews` (Task 4); `buildProductReviewsMeta`, `productReviewsPath` (Task 5); `SeoTags` s `robots` (Task 6); `ReviewsPagination` (Task 7); `ProductRatingSummary` (Task 3); `ReviewCard` s `variant="full"` (Task 1)
-- Produces: `REVIEWS_PAGE_SIZE = 10`; routy `ROUTES.PRODUCT_REVIEWS` a `ROUTES.PRODUCT_REVIEWS_PAGED`. Používá Task 9 a Task 10.
+- Produces:
+  ```ts
+  // src/constants/reviews.ts — JEDINÝ zdroj pravdy, importuje ho i prerender.mjs a sitemap.mjs
+  export const REVIEWS_PAGE_SIZE = 10;
+  export const PRODUCT_REVIEWS_LIMIT = 3;
+  export const MAX_PRERENDERED_REVIEW_PAGES = 20;
+  export function clampPage(raw: string | undefined, totalPages: number): number;
+  ```
+  a routy `ROUTES.PRODUCT_REVIEWS` / `ROUTES.PRODUCT_REVIEWS_PAGED`. Používá Task 9 a Task 10.
 
 - [ ] **Step 1: Write the failing test**
 
-Vytvoř `src/pages/ProductReviewsPage.test.tsx`:
+Vytvoř `src/constants/reviews.test.ts`:
+
+```ts
+import { describe, it, expect } from 'vitest';
+import { clampPage, REVIEWS_PAGE_SIZE, PRODUCT_REVIEWS_LIMIT } from './reviews';
+
+describe('konstanty recenzí', () => {
+  it('drží dohodnuté hodnoty', () => {
+    expect(REVIEWS_PAGE_SIZE).toBe(10);
+    expect(PRODUCT_REVIEWS_LIMIT).toBe(3);
+  });
+});
+
+describe('clampPage', () => {
+  it('bez segmentu strany vrací první stranu', () => {
+    expect(clampPage(undefined, 3)).toBe(1);
+  });
+
+  it('platnou stranu propustí', () => {
+    expect(clampPage('2', 3)).toBe(2);
+    expect(clampPage('3', 3)).toBe(3);
+  });
+
+  it('stranu nad rozsah ořízne na poslední platnou', () => {
+    expect(clampPage('99', 3)).toBe(3);
+    expect(clampPage('99999999999999999999', 3)).toBe(3);
+  });
+
+  it('cokoli, co není kladné celé číslo bez vodicí nuly, spadne na první stranu', () => {
+    for (const raw of ['0', '-1', 'abc', '2.5', '2.0', '+2', '02', '0x2', '2e1', ' 2 ', '', '٢', 'Infinity']) {
+      expect(clampPage(raw, 3)).toBe(1);
+    }
+  });
+
+  it('při nule stran vrací vždy 1, aby nevznikla strana 0', () => {
+    expect(clampPage('5', 0)).toBe(1);
+    expect(clampPage(undefined, 0)).toBe(1);
+  });
+});
+```
+
+A `src/pages/ProductReviewsPage.test.tsx`:
 
 ```tsx
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { CartProvider } from '../contexts';
 
 const fetchProductForReviewsMock = vi.fn<(...args: unknown[]) => unknown>();
 const fetchApprovedReviewsMock = vi.fn<(...args: unknown[]) => unknown>();
@@ -1152,17 +1458,23 @@ const LocationSpy = () => {
   return <div data-testid="pathname">{location.pathname}</div>;
 };
 
+// `CartProvider` je povinný: stránka renderuje Layout → Navigation → CartButton,
+// který volá `useCart()`. Bez providera to vyhodí a spadne to do NavigationErrorBoundary —
+// testy sice projdou, ale testovaly by jiný strom, než jaký běží v produkci
+// (a každý test by vypsal plný React error stack). Stejně to řeší ProductDetail.seo.test.tsx.
 function renderAt(path: string) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <LocationSpy />
-      <Routes>
-        <Route path="/cestovni-pruvodci/:slug/recenze" element={<ProductReviewsPage />} />
-        <Route path="/cestovni-pruvodci/:slug/recenze/strana/:strana" element={<ProductReviewsPage />} />
-        <Route path="/cestovni-pruvodci/:slug" element={<div>DETAIL PRODUKTU</div>} />
-        <Route path="*" element={<div>NENALEZENO</div>} />
-      </Routes>
-    </MemoryRouter>,
+    <CartProvider>
+      <MemoryRouter initialEntries={[path]}>
+        <LocationSpy />
+        <Routes>
+          <Route path="/cestovni-pruvodci/:slug/recenze" element={<ProductReviewsPage />} />
+          <Route path="/cestovni-pruvodci/:slug/recenze/strana/:strana" element={<ProductReviewsPage />} />
+          <Route path="/cestovni-pruvodci/:slug" element={<div>DETAIL PRODUKTU</div>} />
+          <Route path="*" element={<div>NENALEZENO</div>} />
+        </Routes>
+      </MemoryRouter>
+    </CartProvider>,
   );
 }
 
@@ -1265,23 +1577,34 @@ describe('ProductReviewsPage', () => {
     expect(screen.queryByText(/zatím recenzi nemá/)).not.toBeInTheDocument();
   });
 
-  it('po přechodu na jinou stranu přesune fokus na nadpis, ale ne při prvním načtení', async () => {
+  it('po kliknutí na jinou stranu přesune fokus na nadpis', async () => {
     fetchProductForReviewsMock.mockResolvedValue(product);
     fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
-    const { rerender } = renderAt('/cestovni-pruvodci/italie/recenze');
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument());
-    expect(document.activeElement).not.toBe(screen.getByRole('heading', { level: 1 }));
+    renderAt('/cestovni-pruvodci/italie/recenze');
+    const heading = await screen.findByRole('heading', { level: 1 });
+    expect(document.activeElement).not.toBe(heading);
 
-    rerender(
-      <MemoryRouter initialEntries={['/cestovni-pruvodci/italie/recenze/strana/2']}>
-        <LocationSpy />
-        <Routes>
-          <Route path="/cestovni-pruvodci/:slug/recenze" element={<ProductReviewsPage />} />
-          <Route path="/cestovni-pruvodci/:slug/recenze/strana/:strana" element={<ProductReviewsPage />} />
-        </Routes>
-      </MemoryRouter>,
+    // Navigovat se MUSÍ uvnitř téhož routeru. `MemoryRouter` drží historii v `useRef`
+    // a `initialEntries` čte jen při prvním renderu, takže `rerender()` s novým
+    // routerem stejného typu na stejné pozici location vůbec nezmění — React ho
+    // jen re-renderuje a nové `initialEntries` zahodí. (Ověřeno spuštěním.)
+    fireEvent.click(await screen.findByRole('link', { name: 'Strana 2' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('pathname')).toHaveTextContent('/cestovni-pruvodci/italie/recenze/strana/2'),
     );
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 })));
+  });
+
+  it('přímý vstup na stranu 2 fokus NEsebere', async () => {
+    // Regrese: guard nesmí viset na tom, že se `page` po načtení dat změní z 1 na 2 —
+    // to nastane i při příchodu z Googlu nebo ze záložky a uživateli by to bez varování
+    // přeskočilo fokus doprostřed stránky.
+    fetchProductForReviewsMock.mockResolvedValue(product);
+    fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
+    renderAt('/cestovni-pruvodci/italie/recenze/strana/2');
+    await waitFor(() => expect(fetchApprovedReviewsMock).toHaveBeenCalled());
+    const heading = await screen.findByRole('heading', { level: 1 });
+    expect(document.activeElement).not.toBe(heading);
   });
 
   it('odkazuje zpět na detail produktu', async () => {
@@ -1300,10 +1623,45 @@ describe('ProductReviewsPage', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm run test:run -- src/pages/ProductReviewsPage.test.tsx`
-Expected: FAIL — stránka neexistuje.
+Run: `npm run test:run -- src/pages/ProductReviewsPage.test.tsx src/constants/reviews.test.ts`
+Expected: FAIL — ani stránka, ani `src/constants/reviews.ts` neexistují.
 
-- [ ] **Step 3: Přidej routy do konstant**
+- [ ] **Step 3: Přidej konstanty a routy**
+
+Vytvoř `src/constants/reviews.ts`. Soubor musí zůstat **prostý TypeScript bez JSX, bez `enum` a bez `namespace`** a interní importy (žádné tu zatím nejsou) by musely mít explicitní příponu — importují ho totiž i `prerender.mjs` a `sitemap.mjs`, které jedou pod nativním type-strippingem Node 24:
+
+```ts
+/** Kolik recenzí je na jedné straně stránky recenzí. */
+export const REVIEWS_PAGE_SIZE = 10;
+
+/**
+ * Kolik recenzí ukazuje detail produktu. Hodnotu čte jak ProductReviews
+ * (vykreslení), tak ProductDetail (preload + JSON-LD) — Google vyžaduje, aby se
+ * počet recenzí v markupu rovnal počtu viditelných.
+ */
+export const PRODUCT_REVIEWS_LIMIT = 3;
+
+/**
+ * Strop pro počet prerenderovaných stran recenzí na jeden produkt. Každá strana
+ * je jedna návštěva headless Chromia navíc; hlubší strany zůstanou dostupné,
+ * jen se nepředgenerují ani neuvedou v sitemapě.
+ */
+export const MAX_PRERENDERED_REVIEW_PAGES = 20;
+
+/**
+ * Ořízne stranu z adresy do platného rozsahu. Musí se stát PŘED dotazem:
+ * `fetchApprovedReviews` posílá `count: 'exact'`, takže PostgREST na `Range`
+ * mimo rozsah odpoví 416, funkce na chybu vyhodí a `count` se nedozvíme.
+ * Počet stran proto plyne z `products.review_count`.
+ *
+ * Přijímáme jen kladné celé číslo bez vodicí nuly. Volnější `Number()` by bralo
+ * i `0x2`, `2e1`, `+2` nebo ` 2 ` a vyrobilo pro tutéž stranu několik adres.
+ */
+export function clampPage(raw: string | undefined, totalPages: number): number {
+  if (!raw || !/^[1-9]\d*$/.test(raw)) return 1;
+  return Math.min(Number(raw), Math.max(totalPages, 1));
+}
+```
 
 V `src/constants/routes.ts` přidej do `ROUTES` za `CUSTOM_ITINERARY_PREVIEW`:
 
@@ -1327,24 +1685,11 @@ import ReviewsPagination from '../components/reviews/ReviewsPagination';
 import ProductRatingSummary from '../components/reviews/ProductRatingSummary';
 import { REVIEWS_DISCLOSURE } from '../components/reviews/disclosure';
 import { formatReviewDate } from '../components/reviews/formatReviewDate';
+import { REVIEWS_PAGE_SIZE, clampPage } from '../constants/reviews';
 import { fetchApprovedReviews, fetchProductForReviews } from '../lib/reviews';
 import type { ProductForReviews, PublicReview } from '../lib/reviews';
 import { buildProductReviewsMeta, productReviewsPath } from '../utils/productSeo';
 import NotFound from './NotFound';
-
-export const REVIEWS_PAGE_SIZE = 10;
-
-/**
- * Ořízne stranu do platného rozsahu. Musí se stát PŘED dotazem: PostgREST
- * odpovídá na `Range` mimo rozsah stavem 416 a `fetchApprovedReviews` na chybu
- * vyhazuje, takže z takové odpovědi bychom se `count` nikdy nedozvěděli.
- * Počet stran proto plyne z `products.review_count`.
- */
-export function clampPage(raw: string | undefined, totalPages: number): number {
-  const parsed = Number(raw);
-  if (!raw || !Number.isInteger(parsed) || parsed < 1) return 1;
-  return Math.min(parsed, Math.max(totalPages, 1));
-}
 
 const ProductReviewsPage = () => {
   const { slug, strana } = useParams();
@@ -1357,17 +1702,15 @@ const ProductReviewsPage = () => {
   const [notFound, setNotFound] = useState(false);
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  // Fokus se přesouvá jen při skutečné změně strany, ne při prvním načtení —
-  // jinak bychom uživateli sebrali fokus hned po příchodu na stránku.
-  const isFirstRender = useRef(true);
 
   useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
+    // Fokus přesouváme jen po skutečné navigaci uvnitř aplikace. React Router dává
+    // mountovací lokaci klíč 'default', takže přímý vstup na /strana/2 (z Googlu, ze
+    // záložky, ze sitemapy) fokus nesebere. Nešlo by to poznat podle změny `page`:
+    // ta se z 1 na 2 vyšplhá i při přímém vstupu, až doběhne načtení dat.
+    if (location.key === 'default') return;
     headingRef.current?.focus();
-  }, [page]);
+  }, [page, location.key]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1390,11 +1733,12 @@ const ProductReviewsPage = () => {
         const currentPage = clampPage(strana, totalPages);
 
         // Adresa neodpovídá platné straně (mimo rozsah, nečíselná, nebo /strana/1)
-        // → přesměrujeme, ať tentýž obsah nežije pod víc adresami. Recenze se
-        // načtou až po přesměrování, na správné adrese.
-        const canonicalPath = productReviewsPath(slug!, currentPage);
-        if (location.pathname !== canonicalPath) {
-          setRedirectTo(canonicalPath);
+        // → přesměrujeme, ať tentýž obsah nežije pod víc adresami. Porovnáváme
+        // parametr, ne `location.pathname`: pathname v závislostech efektu by při
+        // každém přesměrování znovu natáhl produkt a k rozhodnutí nic nepřidává.
+        const canonicalStrana = currentPage === 1 ? undefined : String(currentPage);
+        if (strana !== canonicalStrana) {
+          setRedirectTo(productReviewsPath(slug!, currentPage));
           return;
         }
         setPage(currentPage);
@@ -1411,7 +1755,11 @@ const ProductReviewsPage = () => {
         if (isMounted) setReviews(result.reviews);
       } catch (err) {
         if (isMounted) setError(true);
-        Sentry.captureException(err, { tags: { area: 'reviews', component: 'ProductReviewsPage' } });
+        // PostgREST vrací u 416 useknuté tělo (doslova `{"`), na kterém postgrest-js
+        // zhavaruje při JSON.parse a vyhodí prostý objekt bez stacku. Sentry by z toho
+        // udělal „Non-Error exception captured" bez jakékoli informace.
+        const cause = err instanceof Error ? err : new Error(JSON.stringify(err));
+        Sentry.captureException(cause, { tags: { area: 'reviews', component: 'ProductReviewsPage' } });
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -1421,18 +1769,32 @@ const ProductReviewsPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [slug, strana, location.pathname]);
+  }, [slug, strana]);
 
+  // Ani jedna z těchhle dvou větví nevykreslí Layout s `ready`, takže je prerender
+  // neuloží — `waitForSelector('[data-prerender-ready]')` vyprší a build spadne.
+  // Je to ZÁMĚR: obě jsou během buildu dosažitelné jen závodem (produkt se deaktivuje
+  // nebo mu ubudou recenze mezi načtením seznamu rout a návštěvou stránky). Hlasitý
+  // pád je lepší než tiše nasazená 404 nebo přesměrování na platné adrese.
   if (notFound) return <NotFound />;
-  // `replace`, aby se neplatná adresa nezanesla do historie prohlížeče. Pozor:
-  // je to history.replaceState, ne `window.location` — Googlebot to nevidí jako
-  // přesměrování, ale jako obsah pod původní adresou. Tyhle adresy proto nikde
-  // neodkazujeme ani nedáváme do sitemapy.
-  if (redirectTo) return <Navigate to={redirectTo} replace />;
+  if (redirectTo) {
+    return (
+      <>
+        {/* `replace`, aby se neplatná adresa nezanesla do historie. Pozor: je to
+            history.replaceState, ne `window.location` — Googlebot to nevidí jako
+            přesměrování, ale jako obsah pod PŮVODNÍ adresou. Tyhle adresy proto
+            nikde neodkazujeme, nedáváme do sitemapy, a pro jistotu jim rovnou
+            řekneme, ať se neindexují. (React 19 značku zvedne do <head>.) */}
+        <meta name="robots" content="noindex" />
+        <Navigate to={redirectTo} replace />
+      </>
+    );
+  }
 
   const count = product?.review_count ?? 0;
   const totalPages = Math.ceil(count / REVIEWS_PAGE_SIZE);
-  const productTitle = product?.detail_title?.trim() ?? product?.title ?? '';
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string detail_title must fall through, stejně jako v buildProductReviewsMeta
+  const productTitle = product ? product.detail_title?.trim() || product.title : '';
   const meta = product
     ? buildProductReviewsMeta(product, {
         page,
@@ -1446,9 +1808,14 @@ const ProductReviewsPage = () => {
     : null;
 
   return (
-    <Layout ready={!loading && !!product}>
+    // `!error` v `ready` je záměr: bez něj by výpadek Supabase během prerenderu
+    // tiše nasadil statické HTML s textem „Recenze se nepodařilo načíst" — má <h1>
+    // i dost bajtů, takže by prošlo i validací. Takhle build spadne a je to vidět.
+    <Layout ready={!loading && !!product && !error}>
       {meta && <SeoTags meta={meta} />}
-      <main className="max-w-4xl mx-auto px-5 py-16" role="main">
+      {/* `div`, ne `main` — Layout už `<main id="main-content">` renderuje a druhý
+          orientační bod je nevalidní HTML i matoucí cíl pro skip-link. */}
+      <div className="max-w-4xl mx-auto px-5 py-16">
         <Link to={`/cestovni-pruvodci/${slug}`} className="text-green-800 underline underline-offset-4">
           ← Zpět na průvodce
         </Link>
@@ -1456,7 +1823,7 @@ const ProductReviewsPage = () => {
         <h1
           ref={headingRef}
           tabIndex={-1}
-          className="text-3xl sm:text-4xl font-bold text-green-800 mt-6 mb-4 focus:outline-none"
+          className="text-3xl sm:text-4xl font-bold text-green-800 mt-6 mb-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-800 focus-visible:ring-offset-2 rounded"
         >
           Recenze — {productTitle}
         </h1>
@@ -1465,9 +1832,11 @@ const ProductReviewsPage = () => {
           <ProductRatingSummary average={product.average_rating ?? 0} count={count} className="mb-4" />
         )}
 
-        <p className="text-sm text-gray-500 mb-10">{REVIEWS_DISCLOSURE}</p>
+        {/* `gray-600` (7,56:1), ne `gray-500` (4,84:1) — AA sice projde obojí,
+            ale u drobného textu je rezerva 0,34 na paletě, která se může posunout. */}
+        <p className="text-sm text-gray-600 mb-10">{REVIEWS_DISCLOSURE}</p>
 
-        {loading && <p className="text-center text-gray-500">Načítám recenze…</p>}
+        {loading && <p className="text-center text-gray-600">Načítám recenze…</p>}
 
         {!loading && error && (
           <p className="text-center text-gray-600">Recenze se nepodařilo načíst. Zkus to prosím později.</p>
@@ -1505,7 +1874,7 @@ const ProductReviewsPage = () => {
             />
           </>
         )}
-      </main>
+      </div>
     </Layout>
   );
 };
@@ -1522,16 +1891,16 @@ V `src/App.tsx` přidej za řádek s `<Route path="/cestovni-pruvodci/:slug" …
               <Route path={ROUTES.PRODUCT_REVIEWS_PAGED} element={<ProductReviewsPage />} />
 ```
 
-A k importům stránek (mezi ostatní `import` stránek, ne mezi `lazy`):
+A k `lazy` deklaracím (řádky 16-22), kam patří všechny nedávno přidané stránky — `<Suspense>` už v `App.tsx` je a klastr F-3 celý code-split zavedl schválně:
 
 ```tsx
-import ProductReviewsPage from './pages/ProductReviewsPage';
+const ProductReviewsPage = lazy(() => import('./pages/ProductReviewsPage'));
 ```
 
 - [ ] **Step 6: Run tests to verify they pass**
 
-Run: `npm run test:run -- src/pages/ProductReviewsPage.test.tsx`
-Expected: PASS, 12 testů.
+Run: `npm run test:run -- src/pages/ProductReviewsPage.test.tsx src/constants/reviews.test.ts`
+Expected: PASS — 13 testů stránky a 6 testů konstant. Žádný test nesmí do konzole vypsat React error stack; kdyby ano, chybí `CartProvider`.
 
 - [ ] **Step 7: Ověř typy a lint**
 
@@ -1541,14 +1910,20 @@ Expected: PASS.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/pages/ProductReviewsPage.tsx src/pages/ProductReviewsPage.test.tsx src/constants/routes.ts src/App.tsx
+git add src/pages/ProductReviewsPage.tsx src/pages/ProductReviewsPage.test.tsx src/constants/reviews.ts src/constants/reviews.test.ts src/constants/routes.ts src/App.tsx
 git commit -m "feat(reviews): add per-product reviews page
 
 Full review texts, ten per page, paginated through the path so each page can
 carry its own canonical in prerendered HTML. The page count comes from
 products.review_count and the requested page is clamped before the query
-runs, because PostgREST answers an out-of-range Range header with 416 and the
-paged query could then never report a total to clamp against."
+runs, because the paged query sends count=exact and PostgREST answers an
+out-of-range Range header with 416, so it could never report a total to
+clamp against.
+
+Focus moves to the heading only after an in-app navigation, keyed off the
+router location rather than the page number: the number also climbs from 1
+to 2 when someone lands on page 2 directly, and stealing focus there would
+drop them into the middle of a page they just opened."
 ```
 
 ---
@@ -1558,14 +1933,14 @@ paged query could then never report a total to clamp against."
 Dnes je limit na dvou místech: `PRODUCT_REVIEWS_LIMIT = 6` v `ProductReviews.tsx:12` a **natvrdo `limit: 6`** v `ProductDetail.tsx:111`. Změna jen konstanty by se na detailu vůbec neprojevila.
 
 **Files:**
-- Create: `src/components/reviews/productReviewsLimit.ts`
 - Modify: `src/components/reviews/ProductReviews.tsx:12,80,118,132-138`
 - Modify: `src/pages/ProductDetail.tsx:54,111,335,357-362`
 - Modify: `src/components/reviews/ProductReviews.test.tsx`
+- Modify: `src/pages/ProductDetail.seo.test.tsx`
 
 **Interfaces:**
-- Consumes: `ProductRatingSummary` (Task 3), `productReviewsPath` (Task 5), `ReviewCard` `variant` (Task 1)
-- Produces: `PRODUCT_REVIEWS_LIMIT = 3` v `src/components/reviews/productReviewsLimit.ts`
+- Consumes: `PRODUCT_REVIEWS_LIMIT` (Task 8), `ProductRatingSummary` (Task 3), `productReviewsPath` (Task 5), `ReviewCard` `variant` (Task 1)
+- Produces: nic nového — jen napojení na sdílenou konstantu
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1597,12 +1972,17 @@ A přidej nové testy na konec bloku `describe('ProductReviews', …)`:
 A do `src/pages/ProductDetail.seo.test.tsx` přidej test, že preload i vykreslení používají tentýž počet:
 
 ```tsx
-import { PRODUCT_REVIEWS_LIMIT } from '../components/reviews/productReviewsLimit';
+import { PRODUCT_REVIEWS_LIMIT } from '../constants/reviews';
 
 it('preload recenzí používá sdílenou konstantu, ne vlastní číslo', () => {
   expect(PRODUCT_REVIEWS_LIMIT).toBe(3);
   // Regrese: ProductDetail měl limit napevno, takže změna konstanty se neprojevila.
-  const source = readFileSync(new URL('./ProductDetail.tsx', import.meta.url), 'utf8');
+  //
+  // Čteme cestou relativní ke kořeni projektu (cwd Vitestu). NEPOUŽÍVAT
+  // `new URL('./ProductDetail.tsx', import.meta.url)`: Vite ten literál přepisuje
+  // svým assetImportMetaUrl transformem na `http://localhost:3000/src/...`, takže
+  // `readFileSync` spadne na ERR_INVALID_URL_SCHEME. (Ověřeno spuštěním.)
+  const source = readFileSync('src/pages/ProductDetail.tsx', 'utf8');
   expect(source).not.toMatch(/limit:\s*6/);
   expect(source).toContain('PRODUCT_REVIEWS_LIMIT');
 });
@@ -1617,29 +1997,16 @@ import { readFileSync } from 'node:fs';
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `npm run test:run -- src/components/reviews/ProductReviews.test.tsx src/pages/ProductDetail.seo.test.tsx`
-Expected: FAIL — limit je 6, modul `productReviewsLimit` neexistuje, odkaz míří na `/recenze`.
+Expected: FAIL — limit je 6 a odkaz míří na `/recenze`.
 
-- [ ] **Step 3: Vytvoř sdílenou konstantu**
-
-Vytvoř `src/components/reviews/productReviewsLimit.ts`:
-
-```ts
-/**
- * Kolik recenzí ukazuje detail produktu. Musí zůstat JEDNO číslo: hodnotu čte
- * jak ProductReviews (vykreslení), tak ProductDetail (preload + JSON-LD), a
- * Google vyžaduje, aby se počet recenzí v markupu rovnal počtu viditelných.
- */
-export const PRODUCT_REVIEWS_LIMIT = 3;
-```
-
-- [ ] **Step 4: Uprav `ProductReviews`**
+- [ ] **Step 3: Uprav `ProductReviews`**
 
 V `src/components/reviews/ProductReviews.tsx`:
 
 Nahraď řádek 12 (`const PRODUCT_REVIEWS_LIMIT = 6;`) importem — přidej k ostatním importům:
 
 ```tsx
-import { PRODUCT_REVIEWS_LIMIT } from './productReviewsLimit';
+import { PRODUCT_REVIEWS_LIMIT } from '../../constants/reviews';
 import { productReviewsPath } from '../../utils/productSeo';
 ```
 
@@ -1675,7 +2042,7 @@ Blok odkazu (řádky 132-138) nahraď — odkaz se ukazuje už při jediné rece
 
 Import `ROUTES` z `'../../constants'` odstraň, pokud ho soubor už nikde nepoužívá (jinak zůstane nepoužitý a spadne lint).
 
-- [ ] **Step 5: Uprav `ProductDetail`**
+- [ ] **Step 4: Uprav `ProductDetail`**
 
 V `src/pages/ProductDetail.tsx`:
 
@@ -1683,7 +2050,7 @@ Přidej k importům:
 
 ```tsx
 import ProductRatingSummary from '../components/reviews/ProductRatingSummary';
-import { PRODUCT_REVIEWS_LIMIT } from '../components/reviews/productReviewsLimit';
+import { PRODUCT_REVIEWS_LIMIT } from '../constants/reviews';
 import { productReviewsPath } from '../utils/productSeo';
 ```
 
@@ -1718,20 +2085,20 @@ Pod `<h1>` v „Title Section" (řádky 357-362) přidej souhrn hodnocení:
             </div>
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [ ] **Step 5: Run tests to verify they pass**
 
 Run: `npm run test:run -- src/components/reviews/ProductReviews.test.tsx src/pages/ProductDetail.seo.test.tsx`
 Expected: PASS.
 
-- [ ] **Step 7: Ověř celou sadu**
+- [ ] **Step 6: Ověř celou sadu**
 
 Run: `npm run test:run && npm run type-check && npm run lint`
 Expected: PASS. JSON-LD detailu teď nese nejvýš 3 `review`, což odpovídá třem zobrazeným kartám.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src/components/reviews/productReviewsLimit.ts src/components/reviews/ProductReviews.tsx src/components/reviews/ProductReviews.test.tsx src/pages/ProductDetail.tsx src/pages/ProductDetail.seo.test.tsx
+git add src/components/reviews/ProductReviews.tsx src/components/reviews/ProductReviews.test.tsx src/pages/ProductDetail.tsx src/pages/ProductDetail.seo.test.tsx
 git commit -m "feat(reviews): show three teasers and a linked rating summary on product pages
 
 The review limit lived in two places — a constant in ProductReviews and a
@@ -1745,7 +2112,9 @@ to what is actually visible, and drops the section from a measured 2430px to
 
 ### Task 10: Prerender a sitemap — routy recenzí včetně dalších stran
 
-Neprerenderovaná adresa dostane přes Vercel rewrite `index.html`, jehož zdroj nese `canonical` na homepage (`index.html:17`) — a JS by ho pak přepisoval, což Google zakazuje. Proto se prerenderují routy recenzí pro **všechny aktivní produkty**, včetně těch bez recenzí (ty nesou `noindex` už ve zdrojovém HTML).
+Neprerenderovaná adresa dostane přes Vercel rewrite `index.html`, tedy prázdnou skořápku bez nadpisu a bez obsahu — a `noindex` u produktu bez recenzí by se objevil až po vykonání JavaScriptu. Proto se prerenderují routy recenzí pro **všechny aktivní produkty**, včetně těch bez recenzí.
+
+(Task 11 zároveň odstraňuje natvrdo zapsaný `canonical` z `index.html:17`. Do té doby by neprerenderovaná adresa dostala canonical mířící na homepage a klientský kód by ho přepisoval — což Google výslovně zakazuje. Prerender tenhle problém řeší jen pro adresy, které předgeneruje; Task 11 ho řeší pro všechny.)
 
 **Files:**
 - Modify: `scripts/contentSlugs.mjs:24-26`
@@ -1755,12 +2124,18 @@ Neprerenderovaná adresa dostane přes Vercel rewrite `index.html`, jehož zdroj
 - Modify: `scripts/sitemap.test.js`
 
 **Interfaces:**
-- Consumes: `REVIEWS_PAGE_SIZE` (Task 8) — v Node skriptech se nedá importovat z `.tsx`, proto se hodnota 10 duplikuje jako `REVIEWS_PAGE_SIZE` v `prerender.mjs` s komentářem odkazujícím na zdroj pravdy.
-- Produces: `collectRoutes(blogPosts, products)` nově generuje i routy recenzí.
+- Consumes: `REVIEWS_PAGE_SIZE` a `MAX_PRERENDERED_REVIEW_PAGES` ze `src/constants/reviews.ts` (Task 8). **Hodnota se nikde nekopíruje** — oba skripty ten soubor importují přímo, přesně jako už dnes importují `../src/constants/publicRoutes.ts`.
+- Produces: `collectRoutes(blogPosts, products)` nově generuje i routy recenzí; `collectSitemapPaths(posts, products)`.
 
 - [ ] **Step 1: Write the failing test**
 
-V `scripts/prerender.test.js` nahraď blok `describe('collectRoutes', …)`:
+V `scripts/prerender.test.js` doplň k importům
+
+```js
+import { MAX_PRERENDERED_REVIEW_PAGES } from '../src/constants/reviews.ts';
+```
+
+a nahraď blok `describe('collectRoutes', …)`:
 
 ```js
 describe('collectRoutes', () => {
@@ -1800,6 +2175,12 @@ describe('collectRoutes', () => {
     expect(routes).toContain('/cestovni-pruvodci/x/recenze');
     expect(routes).not.toContain('/cestovni-pruvodci/x/recenze/strana/2');
   });
+  it('počet prerenderovaných stran má strop', () => {
+    // 500 recenzí = 50 stran; předgenerujeme jen prvních MAX_PRERENDERED_REVIEW_PAGES.
+    const routes = collectRoutes([], [{ slug: 'velky', review_count: 500 }]);
+    expect(routes).toContain(`/cestovni-pruvodci/velky/recenze/strana/${MAX_PRERENDERED_REVIEW_PAGES}`);
+    expect(routes).not.toContain(`/cestovni-pruvodci/velky/recenze/strana/${MAX_PRERENDERED_REVIEW_PAGES + 1}`);
+  });
 });
 ```
 
@@ -1807,6 +2188,7 @@ V `scripts/sitemap.test.js` přidej:
 
 ```js
 import { collectSitemapPaths } from './sitemap.mjs';
+import { MAX_PRERENDERED_REVIEW_PAGES } from '../src/constants/reviews.ts';
 
 describe('collectSitemapPaths', () => {
   it('obsahuje produkty i jejich routy recenzí včetně dalších stran', () => {
@@ -1819,6 +2201,10 @@ describe('collectSitemapPaths', () => {
     const paths = collectSitemapPaths([], [{ slug: 'x', review_count: 0 }]);
     expect(paths).toContain('/cestovni-pruvodci/x');
     expect(paths).not.toContain('/cestovni-pruvodci/x/recenze');
+  });
+  it('neslibuje strany nad stropem prerenderu', () => {
+    const paths = collectSitemapPaths([], [{ slug: 'velky', review_count: 500 }]);
+    expect(paths).not.toContain(`/cestovni-pruvodci/velky/recenze/strana/${MAX_PRERENDERED_REVIEW_PAGES + 1}`);
   });
 });
 ```
@@ -1841,20 +2227,26 @@ export function fetchProductSlugs() {
 
 - [ ] **Step 4: Rozšiř `prerender.mjs`**
 
-V `scripts/prerender.mjs` nahraď `collectRoutes`:
+V `scripts/prerender.mjs` přidej k importům (hned za `publicRoutes.ts` na řádku 4):
 
 ```js
-/** Musí odpovídat REVIEWS_PAGE_SIZE v src/pages/ProductReviewsPage.tsx (Node skript nemůže importovat .tsx). */
-const REVIEWS_PAGE_SIZE = 10;
+import { REVIEWS_PAGE_SIZE, MAX_PRERENDERED_REVIEW_PAGES } from '../src/constants/reviews.ts';
+```
 
+a nahraď `collectRoutes`:
+
+```js
 /**
  * Statické veřejné routy + /inspirace/:slug + /cestovni-pruvodci/:slug
  * + stránky recenzí (bez duplikátů).
  *
  * Routa recenzí se generuje i pro produkt bez recenzí: neprerenderovaná adresa
- * by dostala přes rewrite index.html s canonicalem na homepage, který by pak
- * JavaScript přepisoval — a to Google zakazuje. Prázdná stránka nese noindex
- * už ve zdrojovém HTML.
+ * by dostala přes rewrite index.html, a než se stihne uplatnit klientský canonical,
+ * je tam ten ze zdroje. Prázdná stránka navíc nese noindex už ve zdrojovém HTML.
+ *
+ * Hlubší strany mají strop — každá je jedna návštěva headless Chromia navíc
+ * a prerender po každých osmi routách browser restartuje. Nad stropem strany
+ * dál fungují, jen se nepředgenerují.
  */
 export function collectRoutes(blogPosts, productSlugs = []) {
   const blog = (blogPosts || []).map((p) => `/inspirace/${p.slug}`);
@@ -1863,7 +2255,8 @@ export function collectRoutes(blogPosts, productSlugs = []) {
     products.push(`/cestovni-pruvodci/${product.slug}`);
     products.push(`/cestovni-pruvodci/${product.slug}/recenze`);
     const totalPages = Math.ceil((product.review_count ?? 0) / REVIEWS_PAGE_SIZE);
-    for (let page = 2; page <= totalPages; page++) {
+    const lastPage = Math.min(totalPages, MAX_PRERENDERED_REVIEW_PAGES);
+    for (let page = 2; page <= lastPage; page++) {
       products.push(`/cestovni-pruvodci/${product.slug}/recenze/strana/${page}`);
     }
   }
@@ -1873,15 +2266,20 @@ export function collectRoutes(blogPosts, productSlugs = []) {
 
 - [ ] **Step 5: Rozšiř `sitemap.mjs`**
 
-V `scripts/sitemap.mjs` přidej nad `run()` exportovaný helper a použij ho:
+V `scripts/sitemap.mjs` přidej k importům (za `publicRoutes.ts` na řádku 3):
 
 ```js
-/** Musí odpovídat REVIEWS_PAGE_SIZE v src/pages/ProductReviewsPage.tsx. */
-const REVIEWS_PAGE_SIZE = 10;
+import { REVIEWS_PAGE_SIZE, MAX_PRERENDERED_REVIEW_PAGES } from '../src/constants/reviews.ts';
+```
 
+a nad `run()` exportovaný helper, který pak použiješ:
+
+```js
 /**
  * Cesty do sitemapy. Stránka recenzí se uvádí jen u produktů, které recenzi mají —
- * prázdná nese noindex, takže do sitemapy nepatří.
+ * prázdná nese noindex, a do sitemapy patří jen adresy, které chceme ve výsledcích.
+ * Hlubší strany mají stejný strop jako prerender, aby sitemapa neslibovala adresy,
+ * které nemají statické HTML.
  */
 export function collectSitemapPaths(posts, products) {
   const paths = [
@@ -1894,7 +2292,8 @@ export function collectSitemapPaths(posts, products) {
     if (count === 0) continue;
     paths.push(`/cestovni-pruvodci/${product.slug}/recenze`);
     const totalPages = Math.ceil(count / REVIEWS_PAGE_SIZE);
-    for (let page = 2; page <= totalPages; page++) {
+    const lastPage = Math.min(totalPages, MAX_PRERENDERED_REVIEW_PAGES);
+    for (let page = 2; page <= lastPage; page++) {
       paths.push(`/cestovni-pruvodci/${product.slug}/recenze/strana/${page}`);
     }
   }
@@ -1942,16 +2341,288 @@ git add scripts/contentSlugs.mjs scripts/prerender.mjs scripts/sitemap.mjs scrip
 git commit -m "build(seo): prerender the reviews pages and list them in the sitemap
 
 Every active product gets a prerendered reviews route, including products
-with no reviews: an unprerendered URL is served index.html, whose source
-canonical points at the homepage, and letting JavaScript rewrite that is
-exactly what Google's canonicalisation guidance forbids. Empty pages carry
-noindex in the source instead. Deeper pages are derived from review_count,
-which fetchProductSlugs now returns."
+with no reviews: an unprerendered URL is served the empty index.html shell,
+so the heading, the reviews and the noindex on empty pages would all appear
+only after JavaScript runs. Deeper pages are derived from review_count,
+which fetchProductSlugs now returns, and capped so one product cannot add
+fifty headless browser visits to the build."
 ```
 
 ---
 
-### Task 11: Ověření celku
+### Task 11: Rebuild po změně recenzí + zrušení canonicalu ve zdroji
+
+Bez tohohle tasku je SEO záměr celé práce v produkci nefunkční, a to dvěma způsoby.
+
+**1. Prerenderovaný `noindex` zastarává.** Task 10 předgeneruje stránku recenzí i pro produkt bez recenzí a ta nese `noindex` **ve zdrojovém HTML**. Nic ale nespouští rebuild, když Jana schválí první recenzi: deploy hook má dnes jen `blog_posts` (`trg_blog_publish_deploy`, `baseline.sql:2455`), tabulka `reviews` žádný trigger nemá. Stránka by zůstala neindexovatelná až do dalšího nasazení — a klientsky se to nespraví, protože u `noindex` může Google rendering a vykonání JavaScriptu přeskočit úplně.
+
+**2. Živá stránka odkazuje na strany, které nejsou předgenerované.** `ReviewsPagination` počítá `totalPages` z čerstvého `review_count` ze Supabase, ne z buildu. Jakmile počet schválených recenzí překročí násobek `REVIEWS_PAGE_SIZE`, objeví se v DOMu `<a href>` na stranu, pro kterou statické HTML neexistuje.
+
+Druhá půlka tasku je levná systémová pojistka. Dokud je v šabloně natvrdo `canonical` na homepage, dostane **každá** neprerenderovaná adresa canonical na homepage a klientský kód ho pak přepíše — a přepisovat canonical přítomný ve zdroji Google zakazuje. Dokumentace nabízí přesně tuhle cestu: *„If you can't set the canonical URL in the HTML source code, leave it out and only set it with JavaScript."*
+
+**Files:**
+- Create: `supabase/migrations/<timestamp>_add_reviews_deploy_hook.sql`
+- Modify: `supabase/tests/database/04_reviews.test.sql`
+- Modify: `index.html:17`
+- Create: `src/utils/sourceCanonical.test.ts`
+
+**Interfaces:**
+- Consumes: nic
+- Produces: trigger `trg_reviews_deploy_hook` na `public.reviews`
+
+- [ ] **Step 1: Write the failing tests**
+
+Do `supabase/tests/database/04_reviews.test.sql` přidej dvě aserce a zvyš číslo v `plan(...)` na začátku souboru o 2:
+
+```sql
+select has_function('public', 'notify_vercel_reviews_change', 'deploy-hook funkce pro recenze existuje');
+select has_trigger('public', 'reviews', 'trg_reviews_deploy_hook', 'reviews mají deploy-hook trigger');
+```
+
+A vytvoř `src/utils/sourceCanonical.test.ts` — strážce proti návratu canonicalu do šablony:
+
+```ts
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+
+describe('index.html', () => {
+  it('nenese natvrdo zapsaný canonical', () => {
+    // Google: „make sure that JavaScript doesn't change the canonical link element.
+    // If you can't set the canonical URL in the HTML source code, leave it out and
+    // only set it with JavaScript." Šablona je sdílená všemi routami, takže canonical
+    // v ní by na každé neprerenderované adrese ukazoval na homepage — a SeoTags by ho
+    // pak přepisoval, což je přesně ten zakázaný vzorec.
+    const html = readFileSync('index.html', 'utf8');
+    expect(html).not.toMatch(/rel="canonical"/);
+  });
+});
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+```bash
+cd /Users/janparma/Desktop/Projekty/cesty-bez-mapy
+npm run test:run -- src/utils/sourceCanonical.test.ts
+```
+Expected: FAIL — `index.html` canonical zatím obsahuje.
+
+```bash
+supabase db reset && supabase test db
+```
+Expected: FAIL na obou nových ascercích — funkce ani trigger neexistují.
+
+- [ ] **Step 3: Napiš migraci**
+
+```bash
+supabase migration new add_reviews_deploy_hook
+```
+
+Do vzniklého souboru:
+
+```sql
+-- Rebuild the static output when the set of approved reviews changes.
+--
+-- Reviews pages are prerendered: a product with no approved reviews ships a
+-- noindex in its source HTML, and the number of paginated pages is baked in at
+-- build time. Both go stale the moment a review is approved or removed, and a
+-- stale noindex cannot be undone client-side because Google may skip rendering
+-- entirely when it sees one. Mirrors trg_blog_publish_deploy on blog_posts.
+create or replace function "public"."notify_vercel_reviews_change"() returns "trigger"
+    language "plpgsql" security definer
+    set "search_path" to ''
+    as $$
+declare
+  hook_url text;
+  is_relevant boolean;
+begin
+  -- Only approved rows are public, so only transitions into or out of
+  -- 'approved' can change what the prerendered pages contain.
+  is_relevant :=
+       (TG_OP = 'INSERT' and NEW.status = 'approved')
+    or (TG_OP = 'UPDATE' and (NEW.status = 'approved' or OLD.status = 'approved'))
+    or (TG_OP = 'DELETE' and OLD.status = 'approved');
+  if not is_relevant then
+    return coalesce(NEW, OLD);
+  end if;
+
+  select decrypted_secret into hook_url
+  from vault.decrypted_secrets
+  where name = 'vercel_deploy_hook';
+
+  if hook_url is not null then
+    perform net.http_post(
+      url := hook_url,
+      headers := '{"Content-Type": "application/json"}'::jsonb,
+      body := '{}'::jsonb
+    );
+  end if;
+
+  return coalesce(NEW, OLD);
+end;
+$$;
+
+alter function "public"."notify_vercel_reviews_change"() owner to "postgres";
+revoke all on function "public"."notify_vercel_reviews_change"() from public, "anon", "authenticated";
+grant all on function "public"."notify_vercel_reviews_change"() to "service_role";
+
+create trigger "trg_reviews_deploy_hook"
+  after insert or delete or update of "status" on "public"."reviews"
+  for each row execute function "public"."notify_vercel_reviews_change"();
+```
+
+Pojmenování drží `supabase/CONVENTIONS.md`: trigger `trg_<tab>_<purpose>`, funkce `snake_case` verb_noun, povinné `set search_path = ''` a plně kvalifikované reference. Všechno tohle mechanicky vynucuje pgTAP guard `00_naming_conventions.test.sql`.
+
+- [ ] **Step 4: Odstraň canonical ze šablony**
+
+V `index.html` smaž řádek 17:
+
+```html
+    <link rel="canonical" href="https://www.cestybezmapy.cz/" />
+```
+
+Prerenderované stránky si canonical vkládají samy přes `SeoTags`, takže o nic nepřicházejí. Homepage ho dostane taky — `Home` renderuje `SeoTags` jako každá jiná stránka.
+
+- [ ] **Step 5: Run tests to verify they pass**
+
+```bash
+npm run test:run -- src/utils/sourceCanonical.test.ts
+supabase db reset && supabase test db
+```
+Expected: PASS. `supabase test db` musí projít **celý**, včetně naming guardu — kdyby si stěžoval na `search_path` nebo prefix triggeru, je chyba v migraci, ne v guardu.
+
+- [ ] **Step 6: Ověř, že prerender pořád vkládá canonical**
+
+```bash
+set -a; . .env.local; set +a; npm run build
+grep -o 'rel="canonical" href="[^"]*"' dist/index.html
+```
+Expected: právě jeden canonical mířící na `https://www.cestybezmapy.cz/`. Kdyby jich bylo víc nebo žádný, zastav se — React 19 meta/link per routu nededuplikuje a duplicitní canonical je horší než žádný.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add supabase/migrations index.html src/utils/sourceCanonical.test.ts supabase/tests/database/04_reviews.test.sql
+git commit -m "fix(seo): rebuild on review changes, drop the template canonical
+
+Reviews pages are prerendered, so a product with no approved reviews ships a
+noindex in its source HTML and the page count is baked in at build time. Both
+went stale as soon as a review was approved, and nothing triggered a rebuild:
+only blog_posts had a deploy hook. A stale noindex is not recoverable
+client-side either, because Google may skip rendering when it sees one.
+
+Dropping the hardcoded canonical from index.html removes the matching hazard
+for every unprerendered URL, not just reviews: the template pointed them all
+at the homepage and SeoTags then rewrote it, which is the one thing Google's
+canonicalisation guidance tells you not to do."
+```
+
+**Nasazení migrace na produkci není součástí tohohle tasku** — děje se až v Tasku 13 a jen s výslovným svolením.
+
+---
+
+### Task 12: Repo-wide oprava vnořeného `<main>`
+
+`Layout.tsx:86` renderuje `<main id="main-content">`. Šestnáct stránek uvnitř něj renderuje **vlastní** `<main>` (celkem 18 elementů — `OrderConfirmation` má tři návratové větve). WHATWG to zakazuje dvakrát: hierarchická korektnost i „a document must not have more than one main element that does not have the hidden attribute". Prakticky: čtečka nabídne dvě „hlavní oblasti" a skip-link `href="#main-content"` míří na ten vnější, takže uživatele vysadí nad obsahem stránky.
+
+Task 8 tuhle chybu u nové stránky nezavádí; tenhle task uklidí zbytek.
+
+**Files:**
+- Modify: `src/pages/ReviewSubmit.tsx:170`, `Stahnout.tsx:109`, `SalzburgItinerary.tsx:127`, `TravelInspiration.tsx:123`, `Checkout.tsx:202`, `Contact.tsx:174`, `OrderConfirmation.tsx:146,164,427`, `CustomItineraryPreview.tsx:254`, `Privacy.tsx:12`, `BlogPostDetail.tsx:133`, `CustomItineraryDetail.tsx:100`, `CustomItineraryForm.tsx:1165`, `TravelGuides.tsx:618`, `Reviews.tsx:36`, `ProductDetail.tsx:340`, `FAQ.tsx:209`
+- Modify: `src/pages/FAQ.test.tsx:6-10`
+- Create: `src/pages/layoutLandmarks.test.ts`
+
+**Interfaces:**
+- Consumes: nic
+- Produces: nic — čistě strukturální oprava
+
+- [ ] **Step 1: Write the failing test**
+
+Vytvoř `src/pages/layoutLandmarks.test.ts`:
+
+```ts
+import { describe, it, expect } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+
+describe('orientační body stránek', () => {
+  it('žádná stránka nerenderuje vlastní <main> — Layout ho už má', () => {
+    // Layout.tsx renderuje <main id="main-content">. Druhý <main> uvnitř něj je
+    // nevalidní HTML, dá čtečce dvě „hlavní oblasti" a skip-link pak míří nad obsah.
+    const offenders = readdirSync('src/pages')
+      .filter((file) => file.endsWith('.tsx') && !file.includes('.test.'))
+      .filter((file) => readFileSync(`src/pages/${file}`, 'utf8').includes('<main'));
+    expect(offenders).toEqual([]);
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npm run test:run -- src/pages/layoutLandmarks.test.ts`
+Expected: FAIL — vypíše seznam 16 souborů.
+
+- [ ] **Step 3: Nahraď `<main>` v každé stránce**
+
+Ve všech souborech ze seznamu nahraď otevírací `<main …>` za `<div …>` a odpovídající `</main>` za `</div>`. Zároveň **zahoď `role="main"`** (na `<div>` by z něj byl znovu druhý orientační bod, a na `<main>` byl stejně redundantní). Třídy zůstávají beze změny.
+
+Tři soubory potřebují víc než záměnu tagu:
+
+1. **`BlogPostDetail.tsx:133`** má na `<main>` atribut `data-prerender-ready="true"`. Ten **musí zůstat** na náhradním `<div>`, jinak prerender u článků vyprší na `waitForSelector` a build spadne.
+2. **`TravelGuides.tsx:618`** a **`TravelInspiration.tsx:123`** mají `aria-label`. Na `<div>` by pojmenování zmizelo do prázdna, protože `div` žádnou roli nemá. Použij `<section aria-label="…">` — pojmenovaná `section` je landmark `region`, takže popisek zůstane funkční:
+
+```tsx
+<section className="py-16 px-5 max-w-7xl mx-auto" aria-label="Seznam cestovních průvodců" style={{ overflowAnchor: 'none' }}>
+```
+
+3. **`OrderConfirmation.tsx`** má tři výskyty (řádky 146, 164, 427) ve třech samostatných komponentách — projdi všechny.
+
+- [ ] **Step 4: Aktualizuj komentář ve `FAQ.test.tsx`**
+
+Test sám projde beze změny: `screen.getAllByRole('main')` vrátí nově jediný prvek a `mains[mains.length - 1]` je Layoutův `<main>`, uvnitř kterého FAQ je a Navigation není. Komentář na řádcích 6-10 ale po opravě lže — přepiš ho:
+
+```tsx
+// FAQ je obalený Layoutem, který renderuje Navigation -> CartButton (potřebuje CartProvider).
+// Dotazujeme se jen v rámci <main>, protože Navigation obsahuje vlastní
+// mobile-menu-button s aria-controls (jiný a11y pattern, inert místo hidden) — bez scope
+// by .find() vždy vrátil tlačítko mobilního menu, ne FAQ accordion.
+```
+
+a uvnitř testu:
+
+```tsx
+    // Layout renderuje <main id="main-content"> a Navigation je mimo něj.
+    const main = screen.getByRole('main');
+```
+
+- [ ] **Step 5: Run tests to verify they pass**
+
+```bash
+npm run test:run && npm run type-check && npm run lint
+```
+Expected: PASS. Kdyby padal `FAQ.test.tsx`, znamená to, že v některé stránce zůstal druhý `main`.
+
+- [ ] **Step 6: Ověř prerender článků**
+
+```bash
+set -a; . .env.local; set +a; npm run build
+```
+Expected: build projde. Kdyby vypršel na routě `/inspirace/<slug>`, spadl `data-prerender-ready` z `BlogPostDetail`.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add src/pages
+git commit -m "fix(a11y): stop pages nesting a second main landmark
+
+Layout already renders <main id=\"main-content\">, and sixteen pages rendered
+their own inside it. That is two main landmarks in one document, which the
+spec forbids, and it made the skip-link land above the page content rather
+than at it. Pages that carried an aria-label become labelled sections so the
+name still has a role to attach to."
+```
+
+---
+
+### Task 13: Ověření celku
 
 **Files:** žádné změny — jen ověření.
 
@@ -1964,7 +2635,40 @@ npm run test:run && npm run type-check && npm run lint
 
 Expected: vše PASS.
 
-- [ ] **Step 2: Změř dopad na výšku sekce**
+- [ ] **Step 2: Build s prerenderem a kontrola vygenerovaného HTML**
+
+Prerender vyžaduje proměnné prostředí v prostředí (Vite si je bere z `.env.local` sám, Node skripty ne). Pracovní adresář **musí** být adresář frontendu — jinak vite servíruje `dist` druhého repa a stránka jen visí na `Loading…`:
+
+```bash
+cd /Users/janparma/Desktop/Projekty/cesty-bez-mapy
+set -a; . .env.local; set +a; npm run build
+```
+
+Pak nad výstupem produktu, který recenzi má:
+
+```bash
+SLUG=<slug produktu s recenzí>
+grep -c "Recenze —" "dist/cestovni-pruvodci/$SLUG/recenze/index.html"
+grep -o 'rel="canonical" href="[^"]*"' "dist/cestovni-pruvodci/$SLUG/recenze/index.html"
+grep -c 'offers' "dist/cestovni-pruvodci/$SLUG/recenze/index.html"
+grep -o '"ratingValue":"[^"]*"' "dist/cestovni-pruvodci/$SLUG/recenze/index.html"
+grep -c 'name="robots"' "dist/cestovni-pruvodci/$SLUG/recenze/index.html"
+```
+
+Expected: nadpis přítomen; **právě jeden** canonical mířící na `…/$SLUG/recenze`; **žádné** `offers` (0); `ratingValue` s jedním desetinným místem a shodné s číslem v souhrnu na stránce; **žádný** `robots` (0).
+
+A nad produktem **bez** recenzí:
+
+```bash
+EMPTY=<slug produktu bez recenzí>
+grep -o 'name="robots" content="[^"]*"' "dist/cestovni-pruvodci/$EMPTY/recenze/index.html"
+grep -c 'application/ld+json' "dist/cestovni-pruvodci/$EMPTY/recenze/index.html"
+grep -c "$EMPTY/recenze" dist/sitemap.xml
+```
+
+Expected: `noindex`; **žádné** JSON-LD (0) — `Product` bez `review`/`aggregateRating`/`offers` je neplatný; a **žádný** výskyt v sitemapě (0).
+
+- [ ] **Step 3: Změř dopad na výšku sekce**
 
 Ověř slibované číslo v prohlížeči nad produkčním buildem. Ulož si skript do adresáře pro dočasné soubory (ne do repa) a spusť ho **z adresáře frontendu**:
 
@@ -1978,7 +2682,7 @@ const base = server.resolvedUrls.local[0].replace(/\/$/, '');
 const browser = await chromium.launch();
 for (const [label, viewport] of [['mobil', { width: 390, height: 844 }], ['desktop', { width: 1440, height: 900 }]]) {
   const page = await browser.newPage({ viewport });
-  await page.goto(`${base}/cestovni-pruvodci/italie-roadtrip`, { waitUntil: 'load' });
+  await page.goto(`${base}/cestovni-pruvodci/<slug>`, { waitUntil: 'load' });
   await page.waitForSelector('section[aria-label="Recenze produktu"]');
   const height = await page.evaluate(() =>
     Math.round(document.querySelector('section[aria-label="Recenze produktu"]').getBoundingClientRect().height));
@@ -1989,21 +2693,60 @@ await browser.close();
 await server.close();
 ```
 
-Expected: s jednou recenzí v databázi zůstane sekce kolem 615 px na obou; se třemi recenzemi má na mobilu vyjít ~1 341 px a na desktopu ~615 px (jeden řádek).
+Expected: s jednou recenzí v databázi zůstane sekce kolem 615 px na obou; se třemi recenzemi má na mobilu vyjít ~1 341 px a na desktopu ~615 px (jeden řádek). Výchozím stavem pro porovnání je **dnešních 2 430 px na mobilu** při šesti kartách.
 
-- [ ] **Step 3: Projdi stránku očima**
+- [ ] **Step 4: Projdi stránku očima**
 
-Otevři `/cestovni-pruvodci/italie-roadtrip/recenze` a zkontroluj: nadpis, souhrn hodnocení **bez** odkazu, disclosure, plný text recenze bez ořezu, odkaz zpět na průvodce. Na detailu produktu zkontroluj souhrn pod nadpisem jako odkaz a tři karty vedle sebe na desktopu.
+Otevři `/cestovni-pruvodci/<slug>/recenze` a zkontroluj: nadpis, souhrn hodnocení **bez** odkazu, disclosure, plný text recenze bez ořezu, odkaz zpět na průvodce. Vlož do recenze v testovacích datech dlouhou URL bez mezer a ověř, že se zalomí a nezmizí za okrajem karty.
 
-- [ ] **Step 4: Rich Results Test ručně**
+Klávesnicí: tabuj na stránkování, přepni stranu a ověř, že fokus skončí na nadpisu a je **vidět** (`focus-visible` prstenec). Pak otevři `/…/recenze/strana/2` přímo z adresního řádku a ověř, že fokus **nikam neskočí**.
 
-Nemá veřejné API, takže tenhle krok nejde zautomatizovat. Vezmi vyrenderované HTML stránky recenzí, vlož ho do <https://search.google.com/test/rich-results> (záložka „Code") a potvrď, že `Product` bez `offers` projde — `offers` je v dokumentaci uvedené jen jako doporučené, ne povinné. Chybějící `offers` se smí objevit jako doporučení, ne jako chyba.
+Na detailu produktu zkontroluj souhrn pod nadpisem jako odkaz a tři karty vedle sebe na desktopu.
 
-- [ ] **Step 5: Commit (jen pokud kroky odhalily opravu)**
+- [ ] **Step 5: Rich Results Test ručně**
 
-Pokud kroky 1–4 nic neodhalily, není co commitovat.
+Nemá veřejné API, takže tenhle krok nejde zautomatizovat. Vezmi vyrenderované HTML stránky recenzí, vlož ho do <https://search.google.com/test/rich-results> (záložka „Code") a potvrď, že `Product` bez `offers` projde. `offers` se smí objevit jako **doporučení**, ne jako chyba — v tabulce vlastností je vedené jako Recommended.
+
+- [ ] **Step 6: Smoke na Vercel preview — hloubka cest**
+
+**Tenhle krok nejde přeskočit.** Vercel dokumentace potvrzuje, že se filesystem uplatní před rewrity, ale o adresářových indexech u `cleanUrls` mlčí. V tomhle projektu je mechanismus prokázaný jen do hloubky 2 (`/cestovni-pruvodci/:slug`); routy recenzí jdou do hloubky 3 a 4, a to je tu **nové a neověřené**.
+
+Nasaď preview a ověř, že se servíruje prerenderovaný soubor, ne SPA skořápka:
+
+```bash
+curl -sS -u "<basic-auth>" "https://<preview>/cestovni-pruvodci/<slug>/recenze" | grep -c "Recenze —"
+curl -sS -u "<basic-auth>" "https://<preview>/cestovni-pruvodci/<slug>/recenze/strana/2" | grep -c "Recenze —"
+```
+
+Expected: obojí ≥ 1. Kdyby vyšla 0, dostáváš `index.html` přes rewrite a prerender se neuplatňuje — zastav se a řeš to, celý SEO přínos stojí na tomhle.
+
+Pozor: web i admin jsou za předlaunchovým Basic auth (realm „cesty-bez-mapy"), takže `curl` potřebuje `-u`.
+
+- [ ] **Step 7: Nasazení migrace — jen s výslovným svolením**
+
+Migrace z Tasku 11 mění produkční databázi. **Neprováděj bez potvrzení uživatele.**
+
+```bash
+supabase db push
+```
+
+Pak ověř, že trigger existuje a že schválení recenze skutečně spustí deploy:
+
+```bash
+supabase test db
+```
+
+a v Supabase dashboardu schval jednu čekající recenzi (nebo ji odschval a znovu schval) a v Vercelu zkontroluj, že se do minuty rozjel nový build.
+
+- [ ] **Step 8: Commit (jen pokud kroky odhalily opravu)**
+
+Pokud kroky 1–7 nic neodhalily, není co commitovat.
 
 ---
+
+## Co ověřit až při launchi
+
+`vercel.json:23` posílá na **všechny** odpovědi `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet` (předlaunchová ochrana). Dokud tam ta hlavička je, canonical, `robots` meta ani JSON-LD z téhle práce v produkci nic neovlivní — hlavička je přebije. Po jejím odstranění při launchi projdi Search Console: report „Product snippets" nesmí hlásit chyby a stránky recenzí se musí objevit v indexu.
 
 ## Poznámky mimo rozsah
 
@@ -2013,3 +2756,6 @@ Tyto věci plán **záměrně neřeší**, jsou zapsané ve specu a patří do s
 2. `fetchReviewStats` v `src/lib/reviews.ts:52` stahuje všechna hodnocení bez limitu.
 3. `src/pages/Reviews.tsx:24` má `<Layout ready>` napevno, takže prerender nečeká na recenze.
 4. Složený index `(product_id, created_at DESC)` — až počet recenzí poroste.
+5. `fetchApprovedReviews` posílá `count: 'exact'` i tam, kde `total` nikdo nepoužívá (stránka recenzí počítá strany z `review_count`). Exact COUNT nad `reviews` při každém načtení strany je při dnešním objemu bez dopadu, ale je to zároveň jediná příčina odpovědí 416. Odstranit by šlo jen rozdělením funkce, protože globální `/recenze` `total` potřebuje.
+6. `productReviewsPath()` skládá cestu natvrdo, zatímco `ROUTES.PRODUCT_REVIEWS` drží tentýž tvar jako pattern — dvě verze pravdy pro jednu cestu. Sjednotit by chtělo pomocnou funkci nad `ROUTES`, což je zásah do všech rout, ne jen recenzí.
+7. `reviewBody` v JSON-LD detailu nese plný text, který karta vizuálně ořezává `line-clamp-6`. Text v DOMu je, takže o skrytý obsah nejde, ale je to další důvod, proč `review` markup lépe sedí na stránce s plným zněním.
