@@ -179,7 +179,7 @@ na:
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npm run test:run -- src/components/ui/ReviewCard.test.tsx`
-Expected: PASS, 5 testů.
+Expected: PASS, 6 testů.
 
 - [ ] **Step 5: Ověř, že nic jiného nespadlo**
 
@@ -481,7 +481,7 @@ export default ProductRatingSummary;
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npm run test:run -- src/components/reviews/ProductRatingSummary.test.tsx`
-Expected: PASS, 5 testů.
+Expected: PASS, 6 testů.
 
 - [ ] **Step 5: Commit**
 
@@ -819,8 +819,9 @@ describe('buildProductReviewsMeta', () => {
 
   it('bez recenzí nese noindex a JSON-LD VYNECHÁ ÚPLNĚ', () => {
     // Google: „You must include one of the following properties: review,
-    // aggregateRating, offers." Product bez všech tří je neplatný markup a
-    // Search Console ho hlásí jako chybu — proto radši žádný.
+    // aggregateRating, offers." Product bez všech tří není způsobilý pro rich
+    // result; u příbuzného případu Google mluví o warningu v Rich Results Testu.
+    // Radši tedy žádný markup než markup, který nemůže nic získat.
     const meta = buildProductReviewsMeta(
       { ...REVIEWS_PRODUCT, average_rating: 0, review_count: 0 },
       { page: 1, reviews: [] },
@@ -891,8 +892,8 @@ Na konec souboru přidej:
 /**
  * JSON-LD pro stránku recenzí. Google tenhle typ stránky nazývá „product snippet"
  * (na rozdíl od „merchant listing" na detailu produktu). `offers` je v jeho tabulce
- * vlastností uvedené jako **Recommended, ne Required**, a Google u příkladu
- * „Product review page" ukazuje i minimální variantu bez něj. Vynecháváme ho záměrně:
+ * vlastností uvedené jako **Recommended, ne Required**, a Googlův vlastní příklad
+ * „Product review page" ho neobsahuje. Vynecháváme ho záměrně:
  * koupit se tu nedá a stránka tak nekonkuruje detailu produktu o roli prodejní stránky.
  *
  * Pozor: `Product` musí nést **aspoň jedno** z `review` / `aggregateRating` / `offers`.
@@ -1599,6 +1600,19 @@ describe('ProductReviewsPage', () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 })));
   });
 
+  it('přesměrování z neplatné strany fokus NEsebere', async () => {
+    // Regrese: guard nesmí viset na `location.key`. Po přesměrování je klíč náhodný
+    // (ne 'default'), takže by fokus skočil uživateli, který přišel z Googlu.
+    fetchProductForReviewsMock.mockResolvedValue(product);
+    fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
+    renderAt('/cestovni-pruvodci/italie/recenze/strana/99');
+    await waitFor(() =>
+      expect(screen.getByTestId('pathname')).toHaveTextContent('/cestovni-pruvodci/italie/recenze/strana/2'),
+    );
+    const heading = await screen.findByRole('heading', { level: 1 });
+    expect(document.activeElement).not.toBe(heading);
+  });
+
   it('přímý vstup na stranu 2 fokus NEsebere', async () => {
     // Regrese: guard nesmí viset na tom, že se `page` po načtení dat změní z 1 na 2 —
     // to nastane i při příchodu z Googlu nebo ze záložky a uživateli by to bez varování
@@ -1680,7 +1694,7 @@ Vytvoř `src/pages/ProductReviewsPage.tsx`:
 
 ```tsx
 import { useState, useEffect, useRef } from 'react';
-import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigationType, useParams } from 'react-router-dom';
 import * as Sentry from '@sentry/react';
 import Layout from '../components/layout/Layout';
 import SeoTags from '../components/common/SeoTags';
@@ -1697,7 +1711,7 @@ import NotFound from './NotFound';
 
 const ProductReviewsPage = () => {
   const { slug, strana } = useParams();
-  const location = useLocation();
+  const navigationType = useNavigationType();
   const [product, setProduct] = useState<ProductForReviews | null>(null);
   const [reviews, setReviews] = useState<PublicReview[]>([]);
   const [page, setPage] = useState(1);
@@ -1708,13 +1722,19 @@ const ProductReviewsPage = () => {
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
-    // Fokus přesouváme jen po skutečné navigaci uvnitř aplikace. React Router dává
-    // mountovací lokaci klíč 'default', takže přímý vstup na /strana/2 (z Googlu, ze
-    // záložky, ze sitemapy) fokus nesebere. Nešlo by to poznat podle změny `page`:
-    // ta se z 1 na 2 vyšplhá i při přímém vstupu, až doběhne načtení dat.
-    if (location.key === 'default') return;
+    // Fokus přesouváme jen po skutečném kliknutí uvnitř aplikace, tedy po `PUSH`.
+    // `POP` = mount, reload i tlačítko zpět; `REPLACE` = naše vlastní přesměrování
+    // na kanonickou stranu. V obou případech si uživatel stránku právě otevřel a
+    // sebrat mu fokus doprostřed by bylo překvapení.
+    //
+    // NEPOUŽÍVAT `location.key === 'default'`: klíč je 'default' jen na mountu
+    // kanonické adresy. Po přesměrování z /strana/99 je náhodný a po F5 přežije
+    // v `history.state`, takže by guard v obou případech neplatil (ověřeno spuštěním).
+    // Stejně tak nejde vyjít ze změny `page` — ta se z 1 na 2 vyšplhá i při přímém
+    // vstupu na /strana/2, jakmile doběhne načtení dat.
+    if (navigationType !== 'PUSH') return;
     headingRef.current?.focus();
-  }, [page, location.key]);
+  }, [page, navigationType]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1781,19 +1801,15 @@ const ProductReviewsPage = () => {
   // nebo mu ubudou recenze mezi načtením seznamu rout a návštěvou stránky). Hlasitý
   // pád je lepší než tiše nasazená 404 nebo přesměrování na platné adrese.
   if (notFound) return <NotFound />;
-  if (redirectTo) {
-    return (
-      <>
-        {/* `replace`, aby se neplatná adresa nezanesla do historie. Pozor: je to
-            history.replaceState, ne `window.location` — Googlebot to nevidí jako
-            přesměrování, ale jako obsah pod PŮVODNÍ adresou. Tyhle adresy proto
-            nikde neodkazujeme, nedáváme do sitemapy, a pro jistotu jim rovnou
-            řekneme, ať se neindexují. (React 19 značku zvedne do <head>.) */}
-        <meta name="robots" content="noindex" />
-        <Navigate to={redirectTo} replace />
-      </>
-    );
-  }
+  // `replace`, aby se neplatná adresa nezanesla do historie prohlížeče. Pozor: je to
+  // history.replaceState, ne `window.location` — Googlebot to nevidí jako přesměrování,
+  // ale jako obsah pod PŮVODNÍ adresou. Proto tyhle adresy nikde neodkazujeme ani
+  // nedáváme do sitemapy; kanonickou stranu pak označí `canonical` cílové stránky.
+  //
+  // Nemá smysl sem přidávat <meta name="robots" content="noindex">: React 19 by ji
+  // sice zvedl do <head>, ale `Navigate` komponentu hned odmountuje a značka zmizí
+  // dřív, než ji renderující crawler stihne vidět (ověřeno spuštěním).
+  if (redirectTo) return <Navigate to={redirectTo} replace />;
 
   const count = product?.review_count ?? 0;
   const totalPages = Math.ceil(count / REVIEWS_PAGE_SIZE);
@@ -1904,7 +1920,7 @@ const ProductReviewsPage = lazy(() => import('./pages/ProductReviewsPage'));
 - [ ] **Step 6: Run tests to verify they pass**
 
 Run: `npm run test:run -- src/pages/ProductReviewsPage.test.tsx src/constants/reviews.test.ts`
-Expected: PASS — 13 testů stránky a 6 testů konstant. Žádný test nesmí do konzole vypsat React error stack; kdyby ano, chybí `CartProvider`.
+Expected: PASS — 14 testů stránky a 6 testů konstant. Žádný test nesmí do konzole vypsat React error stack; kdyby ano, chybí `CartProvider`.
 
 - [ ] **Step 7: Ověř typy a lint**
 
@@ -2362,12 +2378,17 @@ Bez tohohle tasku je SEO záměr celé práce v produkci nefunkční, a to dvěm
 
 **2. Živá stránka odkazuje na strany, které nejsou předgenerované.** `ReviewsPagination` počítá `totalPages` z čerstvého `review_count` ze Supabase, ne z buildu. Jakmile počet schválených recenzí překročí násobek `REVIEWS_PAGE_SIZE`, objeví se v DOMu `<a href>` na stranu, pro kterou statické HTML neexistuje.
 
-Druhá půlka tasku je levná systémová pojistka. Dokud je v šabloně natvrdo `canonical` na homepage, dostane **každá** neprerenderovaná adresa canonical na homepage a klientský kód ho pak přepíše — a přepisovat canonical přítomný ve zdroji Google zakazuje. Dokumentace nabízí přesně tuhle cestu: *„If you can't set the canonical URL in the HTML source code, leave it out and only set it with JavaScript."*
+**3. Šablona rozesílá canonical homepage na cizí adresy.** `vercel.json` má rewrite `/(.*) → /` a prerender mapuje `/` na `dist/index.html`. Je to tedy **jeden a týž soubor**: prerenderovaná homepage i SPA fallback. Canonical zapsaný v šabloně proto dostane každá neprerenderovaná adresa — a jakmile na ní klientský kód vykreslí `SeoTags`, canonical se přepíše, což Google zakazuje. Dnes se to neprojevuje, protože žádná neprerenderovaná routa `SeoTags` nerenderuje; **stránka recenzí nad stropem prerenderu bude první, která ano.**
+
+Řešíme to **rozdělením skořápky** (rozhodnutí uživatele 2026-08-07): rewrite povede na vlastní soubor bez canonicalu, homepage si canonical vykreslí sama. Obě role se tím oddělí natrvalo a pro všechny routy, ne jen pro recenze. Google tenhle vzorec výslovně předepisuje: *„If you can't set the canonical URL in the HTML source code, leave it out and only set it with JavaScript."*
 
 **Files:**
 - Create: `supabase/migrations/<timestamp>_add_reviews_deploy_hook.sql`
 - Modify: `supabase/tests/database/04_reviews.test.sql`
 - Modify: `index.html:17`
+- Modify: `src/pages/Home.tsx`
+- Modify: `vercel.json` (rewrite `destination`)
+- Modify: `scripts/prerender.mjs` (kopie skořápky)
 - Create: `src/utils/sourceCanonical.test.ts`
 
 **Interfaces:**
@@ -2379,8 +2400,8 @@ Druhá půlka tasku je levná systémová pojistka. Dokud je v šabloně natvrdo
 Do `supabase/tests/database/04_reviews.test.sql` přidej dvě aserce a zvyš číslo v `plan(...)` na začátku souboru o 2:
 
 ```sql
-select has_function('public', 'notify_vercel_reviews_change', 'deploy-hook funkce pro recenze existuje');
-select has_trigger('public', 'reviews', 'trg_reviews_deploy_hook', 'reviews mají deploy-hook trigger');
+select has_function('public'::name, 'notify_vercel_reviews_change'::name, 'deploy-hook funkce pro recenze existuje');
+select has_trigger('public'::name, 'reviews'::name, 'trg_reviews_deploy_hook'::name, 'reviews mají deploy-hook trigger');
 ```
 
 A vytvoř `src/utils/sourceCanonical.test.ts` — strážce proti návratu canonicalu do šablony:
@@ -2389,15 +2410,25 @@ A vytvoř `src/utils/sourceCanonical.test.ts` — strážce proti návratu canon
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 
-describe('index.html', () => {
-  it('nenese natvrdo zapsaný canonical', () => {
+describe('rozdělení skořápky a homepage', () => {
+  it('index.html nenese natvrdo zapsaný canonical', () => {
     // Google: „make sure that JavaScript doesn't change the canonical link element.
     // If you can't set the canonical URL in the HTML source code, leave it out and
-    // only set it with JavaScript." Šablona je sdílená všemi routami, takže canonical
-    // v ní by na každé neprerenderované adrese ukazoval na homepage — a SeoTags by ho
-    // pak přepisoval, což je přesně ten zakázaný vzorec.
-    const html = readFileSync('index.html', 'utf8');
-    expect(html).not.toMatch(/rel="canonical"/);
+    // only set it with JavaScript." Šablona slouží i jako SPA skořápka, takže
+    // canonical v ní by na každé neprerenderované adrese ukazoval na homepage —
+    // a SeoTags by ho pak přepisoval, což je přesně ten zakázaný vzorec.
+    expect(readFileSync('index.html', 'utf8')).not.toMatch(/rel="canonical"/);
+  });
+
+  it('homepage si canonical vykresluje sama', () => {
+    // Když ho sebereme šabloně, musí ho někdo dodat — jinak nejdůležitější
+    // stránka webu zůstane bez canonicalu úplně.
+    expect(readFileSync('src/pages/Home.tsx', 'utf8')).toMatch(/rel="canonical"/);
+  });
+
+  it('rewrite míří na skořápku, ne na homepage', () => {
+    const vercel = JSON.parse(readFileSync('vercel.json', 'utf8'));
+    expect(vercel.rewrites).toEqual([{ source: '/(.*)', destination: '/app-shell' }]);
   });
 });
 ```
@@ -2411,9 +2442,13 @@ npm run test:run -- src/utils/sourceCanonical.test.ts
 Expected: FAIL — `index.html` canonical zatím obsahuje.
 
 ```bash
+open -a Docker            # bez běžícího Dockeru padne `supabase start` i `db reset`
+supabase start
 supabase db reset && supabase test db
 ```
 Expected: FAIL na obou nových ascercích — funkce ani trigger neexistují.
+
+Pozor na hranici toho, co pgTAP ověří: **lokální `vault.secrets` je prázdný**, takže `hook_url is null` a větev s `net.http_post` se nikdy nevykoná. Zelená sada dokazuje existenci funkce a triggeru, **ne** že deploy hook opravdu odejde. To se ověří až v Tasku 13.
 
 - [ ] **Step 3: Napiš migraci**
 
@@ -2441,9 +2476,14 @@ declare
 begin
   -- Only approved rows are public, so only transitions into or out of
   -- 'approved' can change what the prerendered pages contain.
+  -- `is distinct from` je nutné: `UPDATE OF status` firuje, kdykoli je sloupec
+  -- v SET listu, i když se hodnota nemění. Admin formulář (ReviewEdit transform)
+  -- posílá `status` při KAŽDÉM uložení, takže bez téhle podmínky by i pouhá
+  -- úprava interní poznámky spustila produkční build.
   is_relevant :=
        (TG_OP = 'INSERT' and NEW.status = 'approved')
-    or (TG_OP = 'UPDATE' and (NEW.status = 'approved' or OLD.status = 'approved'))
+    or (TG_OP = 'UPDATE' and OLD.status is distinct from NEW.status
+        and (NEW.status = 'approved' or OLD.status = 'approved'))
     or (TG_OP = 'DELETE' and OLD.status = 'approved');
   if not is_relevant then
     return coalesce(NEW, OLD);
@@ -2476,37 +2516,94 @@ create trigger "trg_reviews_deploy_hook"
 
 Pojmenování drží `supabase/CONVENTIONS.md`: trigger `trg_<tab>_<purpose>`, funkce `snake_case` verb_noun, povinné `set search_path = ''` a plně kvalifikované reference. Všechno tohle mechanicky vynucuje pgTAP guard `00_naming_conventions.test.sql`.
 
-- [ ] **Step 4: Odstraň canonical ze šablony**
+`CONVENTIONS.md` žádá regenerovat typy při každé změně schématu (`npm run gen:types`). Tady je to no-op — funkce vracející `trigger` se do generovaných typů neemituje — ale spusť to a commitni případný diff, ať konvence platí bez výjimek.
 
-V `index.html` smaž řádek 17:
+- [ ] **Step 4: Rozděl skořápku od homepage**
+
+Čtyři soubory, každý jeden krok. Pořadí nezáleží, ale musí být hotové všechny — po samotném smazání řádku 17 by homepage zůstala bez canonicalu úplně (`Home.tsx` má 15 řádků a `SeoTags` **nerenderuje**, viz komentář v `src/constants/publicRoutes.ts:8-9`).
+
+**1.** V `index.html` smaž řádek 17:
 
 ```html
     <link rel="canonical" href="https://www.cestybezmapy.cz/" />
 ```
 
-Prerenderované stránky si canonical vkládají samy přes `SeoTags`, takže o nic nepřicházejí. Homepage ho dostane taky — `Home` renderuje `SeoTags` jako každá jiná stránka.
+**2.** V `src/pages/Home.tsx` doplň canonical, který šabloně sebereme. React 19 značku zvedne do `<head>`, takže se dostane i do prerenderovaného `dist/index.html`:
+
+```tsx
+import { SITE_URL } from '../utils/blogSeo';
+import Navigation from '../components/layout/Navigation';
+import Hero from '../components/common/Hero';
+
+const Home = () => {
+  return (
+    <div className="min-h-screen bg-white" data-prerender-ready="true">
+      {/* Canonical patří sem, ne do index.html: ta šablona slouží i jako SPA
+          skořápka, takže by canonical homepage dostala každá adresa, která
+          projde rewritem. Zbytek meta (title, description, og:*) zůstává
+          v index.html — Home schválně nepoužívá SeoTags. */}
+      <link rel="canonical" href={`${SITE_URL}/`} />
+      <Navigation />
+      <Hero />
+    </div>
+  );
+};
+```
+
+**3.** Ve `vercel.json` přesměruj rewrite na samostatnou skořápku:
+
+```json
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/app-shell"
+    }
+  ],
+```
+
+**4.** V `scripts/prerender.mjs` ulož čistou skořápku **dřív**, než ji prerender homepage přepíše. Na začátek `run()`, před smyčku přes routy:
+
+```js
+  // `/` se prerenderuje do dist/index.html, takže by se skořápka jinak ztratila.
+  // Kopírujeme ji stranou, aby rewrite `/(.*) → /app-shell` servíroval HTML
+  // BEZ canonicalu — a klientský SeoTags si ho pak smí nastavit sám.
+  await fs.copyFile(
+    path.posix.join(distDir, 'index.html'),
+    path.posix.join(distDir, 'app-shell.html'),
+  );
+```
 
 - [ ] **Step 5: Run tests to verify they pass**
 
 ```bash
-npm run test:run -- src/utils/sourceCanonical.test.ts
+npm run test:run && npm run type-check
 supabase db reset && supabase test db
 ```
-Expected: PASS. `supabase test db` musí projít **celý**, včetně naming guardu — kdyby si stěžoval na `search_path` nebo prefix triggeru, je chyba v migraci, ne v guardu.
+Expected: PASS. Plnou sadu spouštíme proto, že `index.html` je sdílená šablona všech rout.
+`supabase test db` musí projít **celý**, včetně naming guardu — kdyby si stěžoval na `search_path` nebo prefix triggeru, je chyba v migraci, ne v guardu.
 
-- [ ] **Step 6: Ověř, že prerender pořád vkládá canonical**
+- [ ] **Step 6: Ověř rozdělení nad reálným buildem**
 
 ```bash
+cd /Users/janparma/Desktop/Projekty/cesty-bez-mapy
 set -a; . .env.local; set +a; npm run build
-grep -o 'rel="canonical" href="[^"]*"' dist/index.html
+echo "-- homepage --";  grep -o 'rel="canonical" href="[^"]*"' dist/index.html
+echo "-- skořápka --";  grep -c 'rel="canonical"' dist/app-shell.html
+echo "-- produkt  --";  grep -o 'rel="canonical" href="[^"]*"' dist/cestovni-pruvodci/*/index.html | head -3
 ```
-Expected: právě jeden canonical mířící na `https://www.cestybezmapy.cz/`. Kdyby jich bylo víc nebo žádný, zastav se — React 19 meta/link per routu nededuplikuje a duplicitní canonical je horší než žádný.
+
+Expected:
+- `dist/index.html` — **právě jeden** canonical na `https://www.cestybezmapy.cz/`. Víc než jeden znamená problém: React 19 meta/link per routu nededuplikuje a duplicitní canonical je horší než žádný.
+- `dist/app-shell.html` — **nula** (`grep -c` vrátí `0`).
+- detail produktu — jeden canonical na sebe sama, beze změny.
+
+Ověření, že rewrite skořápku opravdu servíruje, patří až na preview deploy (Task 13 Step 6) — lokálně to nejde, `vercel.json` se v `vite preview` neuplatňuje.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add supabase/migrations index.html src/utils/sourceCanonical.test.ts supabase/tests/database/04_reviews.test.sql
-git commit -m "fix(seo): rebuild on review changes, drop the template canonical
+git add supabase/migrations index.html src/pages/Home.tsx vercel.json scripts/prerender.mjs src/utils/sourceCanonical.test.ts supabase/tests/database/04_reviews.test.sql
+git commit -m "fix(seo): rebuild on review changes, split the SPA shell from the homepage
 
 Reviews pages are prerendered, so a product with no approved reviews ships a
 noindex in its source HTML and the page count is baked in at build time. Both
@@ -2514,10 +2611,11 @@ went stale as soon as a review was approved, and nothing triggered a rebuild:
 only blog_posts had a deploy hook. A stale noindex is not recoverable
 client-side either, because Google may skip rendering when it sees one.
 
-Dropping the hardcoded canonical from index.html removes the matching hazard
-for every unprerendered URL, not just reviews: the template pointed them all
-at the homepage and SeoTags then rewrote it, which is the one thing Google's
-canonicalisation guidance tells you not to do."
+index.html was doing two jobs at once: the prerendered homepage and the SPA
+shell every rewritten URL falls back to. One canonical cannot be right for
+both, so the shell now lives in its own file carrying none at all, which is
+exactly the arrangement Google's guidance asks for when the source cannot
+hold the right value. The homepage renders its own instead."
 ```
 
 **Nasazení migrace na produkci není součástí tohohle tasku** — děje se až v Tasku 13 a jen s výslovným svolením.
@@ -2526,14 +2624,22 @@ canonicalisation guidance tells you not to do."
 
 ### Task 12: Repo-wide oprava vnořeného `<main>`
 
-`Layout.tsx:86` renderuje `<main id="main-content">`. Šestnáct stránek uvnitř něj renderuje **vlastní** `<main>` (celkem 18 elementů — `OrderConfirmation` má tři návratové větve). WHATWG to zakazuje dvakrát: hierarchická korektnost i „a document must not have more than one main element that does not have the hidden attribute". Prakticky: čtečka nabídne dvě „hlavní oblasti" a skip-link `href="#main-content"` míří na ten vnější, takže uživatele vysadí nad obsahem stránky.
+`Layout.tsx:86` renderuje `<main id="main-content">`. Uvnitř něj vzniká **osmnáct** druhých hlavních oblastí, ve dvou různých podobách:
+
+- **16 stránek** renderuje vlastní `<main>` (18 elementů — `OrderConfirmation` má tři návratové větve),
+- **2 stránky** (`MyStory`, `Collaboration`) renderují `<section role="main">`, což je pro čtečku totéž. Grep na `<main` je nenajde, takže se na ně snadno zapomene — a ověřeno spuštěním, obě dnes hlásí dva `main` landmarky.
+
+WHATWG to zakazuje dvakrát: hierarchická korektnost i „a document must not have more than one main element that does not have the hidden attribute". Prakticky: čtečka nabídne dvě „hlavní oblasti" a skip-link `href="#main-content"` míří na ten vnější, takže uživatele vysadí nad obsahem stránky.
 
 Task 8 tuhle chybu u nové stránky nezavádí; tenhle task uklidí zbytek.
 
 **Files:**
 - Modify: `src/pages/ReviewSubmit.tsx:170`, `Stahnout.tsx:109`, `SalzburgItinerary.tsx:127`, `TravelInspiration.tsx:123`, `Checkout.tsx:202`, `Contact.tsx:174`, `OrderConfirmation.tsx:146,164,427`, `CustomItineraryPreview.tsx:254`, `Privacy.tsx:12`, `BlogPostDetail.tsx:133`, `CustomItineraryDetail.tsx:100`, `CustomItineraryForm.tsx:1165`, `TravelGuides.tsx:618`, `Reviews.tsx:36`, `ProductDetail.tsx:340`, `FAQ.tsx:209`
+- Modify: `src/pages/MyStory.tsx:28`, `src/pages/Collaboration.tsx:169` — jen smazat řádek `role="main"`; `aria-labelledby` zůstává, takže `<section>` je dál pojmenovaný landmark `region`
 - Modify: `src/pages/FAQ.test.tsx:6-10`
 - Create: `src/pages/layoutLandmarks.test.ts`
+
+Čísla řádků platí k výchozímu stavu. `ProductDetail.tsx` se posune, protože ho mění Task 9 — hledej podle tagu, ne podle čísla.
 
 **Interfaces:**
 - Consumes: nic
@@ -2551,9 +2657,11 @@ describe('orientační body stránek', () => {
   it('žádná stránka nerenderuje vlastní <main> — Layout ho už má', () => {
     // Layout.tsx renderuje <main id="main-content">. Druhý <main> uvnitř něj je
     // nevalidní HTML, dá čtečce dvě „hlavní oblasti" a skip-link pak míří nad obsah.
+    // Hledáme obě podoby: `<main>` i `role="main"` na jiném prvku. Samotné
+    // `includes('<main')` by minulo `<section role="main">` v MyStory a Collaboration.
     const offenders = readdirSync('src/pages')
       .filter((file) => file.endsWith('.tsx') && !file.includes('.test.'))
-      .filter((file) => readFileSync(`src/pages/${file}`, 'utf8').includes('<main'));
+      .filter((file) => /<main|role=["']main["']/.test(readFileSync(`src/pages/${file}`, 'utf8')));
     expect(offenders).toEqual([]);
   });
 });
@@ -2562,7 +2670,7 @@ describe('orientační body stránek', () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `npm run test:run -- src/pages/layoutLandmarks.test.ts`
-Expected: FAIL — vypíše seznam 16 souborů.
+Expected: FAIL — vypíše seznam 18 souborů (16 s `<main>`, 2 s `role="main"`).
 
 - [ ] **Step 3: Nahraď `<main>` v každé stránce**
 
@@ -2578,6 +2686,8 @@ Tři soubory potřebují víc než záměnu tagu:
 ```
 
 3. **`OrderConfirmation.tsx`** má tři výskyty (řádky 146, 164, 427) ve třech samostatných komponentách — projdi všechny.
+
+A dva soubory **nemají `<main>` vůbec**, jen `role="main"` na `<section>`: `MyStory.tsx:28` a `Collaboration.tsx:169`. Tam smaž pouze ten jeden atribut a nech `<section aria-labelledby=…>` být.
 
 - [ ] **Step 4: Aktualizuj komentář ve `FAQ.test.tsx`**
 
@@ -2617,11 +2727,13 @@ Expected: build projde. Kdyby vypršel na routě `/inspirace/<slug>`, spadl `dat
 git add src/pages
 git commit -m "fix(a11y): stop pages nesting a second main landmark
 
-Layout already renders <main id=\"main-content\">, and sixteen pages rendered
-their own inside it. That is two main landmarks in one document, which the
-spec forbids, and it made the skip-link land above the page content rather
-than at it. Pages that carried an aria-label become labelled sections so the
-name still has a role to attach to."
+Layout already renders <main id=\"main-content\">, and eighteen pages put a
+second one inside it: sixteen with their own <main>, two with role=\"main\" on
+a section, which a grep for the tag alone would miss. That is two main
+landmarks in one document, which the spec forbids, and it made the skip-link
+land above the page content rather than at it. Pages that carried an
+aria-label become labelled sections so the name still has a role to attach
+to."
 ```
 
 ---
@@ -2713,7 +2825,11 @@ Nemá veřejné API, takže tenhle krok nejde zautomatizovat. Vezmi vyrenderovan
 
 - [ ] **Step 6: Smoke na Vercel preview — hloubka cest**
 
-**Tenhle krok nejde přeskočit.** Vercel dokumentace potvrzuje, že se filesystem uplatní před rewrity, ale o adresářových indexech u `cleanUrls` mlčí. V tomhle projektu je mechanismus prokázaný jen do hloubky 2 (`/cestovni-pruvodci/:slug`); routy recenzí jdou do hloubky 3 a 4, a to je tu **nové a neověřené**.
+**Tenhle krok nejde přeskočit** a ověřuje dvě nové věci naráz.
+
+*(a) Hloubka cest.* Vercel dokumentace potvrzuje, že se filesystem uplatní před rewrity („precedence is given to the filesystem prior to rewrites being applied"), ale o adresářových indexech u `cleanUrls` **mlčí na jakékoli hloubce**. V tomhle projektu je mechanismus prokázaný jen do hloubky 2 (`/cestovni-pruvodci/:slug`); stránka recenzí je hloubka 3 a `…/recenze/strana/2/index.html` dokonce **5**.
+
+*(b) Rozdělená skořápka.* Změna `destination` ve `vercel.json` se lokálně ověřit nedá — `vite preview` konfiguraci Vercelu neuplatňuje.
 
 Nasaď preview a ověř, že se servíruje prerenderovaný soubor, ne SPA skořápka:
 
@@ -2722,7 +2838,18 @@ curl -sS -u "<basic-auth>" "https://<preview>/cestovni-pruvodci/<slug>/recenze" 
 curl -sS -u "<basic-auth>" "https://<preview>/cestovni-pruvodci/<slug>/recenze/strana/2" | grep -c "Recenze —"
 ```
 
-Expected: obojí ≥ 1. Kdyby vyšla 0, dostáváš `index.html` přes rewrite a prerender se neuplatňuje — zastav se a řeš to, celý SEO přínos stojí na tomhle.
+Expected: obojí ≥ 1. Kdyby vyšla 0, dostáváš skořápku přes rewrite a prerender se neuplatňuje — zastav se a řeš to, celý SEO přínos stojí na tomhle.
+
+Pak ověř samotné rozdělení skořápky:
+
+```bash
+# neexistující adresa musí spadnout na skořápku BEZ canonicalu
+curl -sS -u "<basic-auth>" "https://<preview>/tahle-adresa-neexistuje" | grep -c 'rel="canonical"'
+# homepage naopak canonical mít musí
+curl -sS -u "<basic-auth>" "https://<preview>/" | grep -o 'rel="canonical" href="[^"]*"'
+```
+
+Expected: první příkaz vrátí **0**, druhý **jeden** canonical na `https://www.cestybezmapy.cz/`. Kdyby neexistující adresa canonical nesla, rewrite pořád míří na homepage a rozdělení se neuplatnilo.
 
 Pozor: web i admin jsou za předlaunchovým Basic auth (realm „cesty-bez-mapy"), takže `curl` potřebuje `-u`.
 
@@ -2734,10 +2861,11 @@ Migrace z Tasku 11 mění produkční databázi. **Neprováděj bez potvrzení u
 supabase db push
 ```
 
-Pak ověř, že trigger existuje a že schválení recenze skutečně spustí deploy:
+Pak ověř, že trigger existuje **na produkci** — `supabase test db` bez `--db-url` se připojuje
+na lokální databázi a o produkčním stavu neřekne nic:
 
 ```bash
-supabase test db
+supabase test db --db-url "$PROD_DB_URL"
 ```
 
 a v Supabase dashboardu schval jednu čekající recenzi (nebo ji odschval a znovu schval) a v Vercelu zkontroluj, že se do minuty rozjel nový build.
@@ -2750,7 +2878,11 @@ Pokud kroky 1–7 nic neodhalily, není co commitovat.
 
 ## Co ověřit až při launchi
 
-`vercel.json:23` posílá na **všechny** odpovědi `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet` (předlaunchová ochrana). Dokud tam ta hlavička je, canonical, `robots` meta ani JSON-LD z téhle práce v produkci nic neovlivní — hlavička je přebije. Po jejím odstranění při launchi projdi Search Console: report „Product snippets" nesmí hlásit chyby a stránky recenzí se musí objevit v indexu.
+**1. Předlaunchová hlavička.** `vercel.json:23` posílá na všechny odpovědi `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet`. Dokud tam je, canonical, `robots` meta ani JSON-LD z téhle práce **pro Google** nic neovlivní. Po jejím odstranění projdi Search Console: report „Product snippets" nesmí hlásit chyby a stránky recenzí se musí objevit v indexu.
+
+**2. Seznam se tou hlavičkou neřídí.** SeznamBot `X-Robots-Tag` ignoruje a stáhne celou URL; pro něj je `<meta name="robots">` v HTML jediný funkční mechanismus. Dnes web chrání jen Basic auth. Prakticky to znamená, že zastaralý prerenderovaný `noindex` by poškodil i Seznam — což je další důvod pro deploy hook z Tasku 11.
+
+**3. `robots.txt` musí zakázat skořápku.** `public/robots.txt` je dnes plošné `Disallow: /`. Až se při launchi otevře, přidej `Disallow: /app-shell` — jinak zůstane veřejně dostupná prázdná stránka bez canonicalu, na kterou sice nikdo neodkazuje, ale která nemá co dělat v indexu.
 
 ## Poznámky mimo rozsah
 

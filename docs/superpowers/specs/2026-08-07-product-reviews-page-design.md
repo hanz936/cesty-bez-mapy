@@ -2,7 +2,8 @@
 
 **Datum:** 2026-08-07
 **Repo:** `cesty-bez-mapy` (frontend). Admin ani databáze se nemění.
-**Stav:** ověřeno nezávislým agentem (Opus 5) proti živým dokumentacím 2026-08-07; nálezy zapracovány.
+**Stav:** ověřeno třemi koly nezávislých auditů (Opus 5) proti živým dokumentacím; nálezy zapracovány.
+**Repo (upřesnění):** frontend, plus **jedna** databázová migrace (deploy-hook trigger na `reviews`).
 
 ## Problém
 
@@ -39,20 +40,31 @@ a stránkováním v cestě; na detailu produktu zůstane klikatelný souhrn hodn
 
 Zdroje ověřeny 2026-08-07; data uvedená u zdrojů jsou jejich poslední aktualizace.
 
-Spec prošel **dvěma** koly nezávislého ověření. První (Firecrawl + Context7) před sepsáním plánu,
-druhé 2026-08-07 nad hotovým plánem třemi Opus auditory — ti měli k dispozici Supabase docs MCP
-a přímé čtení primárních zdrojů, protože Context7 ani Firecrawl v té session nebyly dostupné.
-Druhé kolo opravilo citaci u `offers` (níže) a přidalo čtyři rozhodnutí označená **[2. kolo]**.
+Spec prošel **třemi** koly nezávislého ověření:
+
+1. Před sepsáním plánu (Firecrawl + Context7).
+2. Nad hotovým plánem, tři Opus auditoři. Přidalo rozhodnutí označená **[2. kolo]** a odhalilo
+   sedm chyb, které by implementaci zastavily.
+3. Nad přepsaným plánem, tři Opus auditoři s Context7 (HTTP API) a Firecrawl CLI. Zaměřené hlavně
+   na to, co ve druhém kole **vzniklo nově a nikdo to nekontroloval**. Přidalo rozhodnutí
+   označená **[3. kolo]**.
+
+Třetí kolo mimo jiné **vrátilo zpět opravu z druhého kola**, která byla sama chybná: tvrzení, že
+Googlův příklad „Product review page" obsahuje `offers`. Ověřeno strojově — neobsahuje, druhý
+auditor si ho spletl se sekcí *Shopping aggregator page*. Poučení pro čtenáře: i „oprava po
+ověření" může být chybná, dokud není doložená strojově, ne převyprávěná.
 
 | Rozhodnutí | Zdroj |
 |---|---|
-| Stránka recenzí nese `Product` + `aggregateRating` + `review[]`, **bez `offers`** | Google, *Product snippet* (2025-12-10) — v tabulce vlastností je `offers` vedené jako *Recommended*, ne *Required*. **Pozor na dřívější nepřesnost v tomto specu:** příklad „Product review page“ ukazuje dvě varianty a ta první `offers` obsahuje; nosným argumentem je tabulka Required/Recommended, ne příklad |
+| Stránka recenzí nese `Product` + `aggregateRating` + `review[]`, **bez `offers`** | Google, *Product snippet* (2025-12-10) — `offers` je v tabulce vlastností vedené jako *Recommended*, ne *Required*. Příklad „Product review page“ `offers` **neobsahuje** v žádném ze tří kódování (JSON-LD, RDFa, Microdata); ověřeno strojově 2026-08-07 — v celé sekci není jediný výskyt řetězce „offer“. Jediné příklady s `offers` patří sekci *Shopping aggregator page*, což je jiný případ užití |
 | `Product` musí nést **aspoň jedno** z `review` / `aggregateRating` / `offers` → produkt bez recenzí nedostane JSON-LD vůbec **[2. kolo]** | Google, *Product snippet* (2025-12-10): „You must include one of the following properties: review, aggregateRating, offers“ |
 | Na detailu produktu se `review[]` zkrátí na 3 zobrazené | Google, *Structured data general guidelines* (2026-07-10): „include all of the reviews that are **visible** to people on the page“; „**Don't** mark up content that is not visible“ |
 | `aggregateRating` smí na detailu zůstat jen se **zobrazeným** průměrem | Google, *Review snippet* (2026-07-24): „If you use `AggregateRating`, users should be able to see that aggregate rating on the page“ |
 | Zobrazený průměr a `ratingValue` musí být **totéž číslo** → jedna sdílená zaokrouhlovací funkce **[2. kolo]** | DB drží `round(avg, 2)` (`20260711130000_add_reviews_system.sql:88`), tedy např. `4.67`, zatímco souhrn zobrazuje `4,7`. Google, *Structured data general guidelines* (2026-07-10): „Don't mark up content that is not visible to readers of the page“ |
 | Aktuální strana stránkování **zůstává odkazem** s `aria-current="page"` **[2. kolo]** | W3C Design System, *Pagination*: „it is fully linked so users of Assistive Technology can find which is the currently active link“. Rozhodl uživatel 2026-08-07 |
-| `robots` je jen `noindex`, bez `follow` **[2. kolo]** | Google, *Robots meta tag* (2026-03-24) — `follow` není mezi platnými pravidly; následování odkazů je výchozí chování |
+| `robots` je jen `noindex`, bez `follow` **[2. kolo]** | Google, *Robots meta tag* (2026-03-24) — `follow` není mezi platnými pravidly; následování odkazů je výchozí chování. Seznam `follow` uvádí, ale jako **výchozí hodnotu**, takže vynechání nic nemění |
+| SPA skořápka se oddělí od homepage do `dist/app-shell.html`; rewrite míří na ni **[3. kolo]** | `dist/index.html` dnes slouží jako prerenderovaná homepage **i** jako cíl rewritu `/(.*) → /`. Jeden canonical nemůže být správný pro obojí. Google, *Consolidate duplicate URLs* (2026-07-10): „If you can't set the canonical URL in the HTML source code, leave it out and only set it with JavaScript." Rozhodl uživatel 2026-08-07 |
+| Fokus po změně strany se řídí `useNavigationType() === 'PUSH'` **[3. kolo]** | Původní guard na `location.key === 'default'` **selhával**: po přesměrování z neplatné strany je klíč náhodný a po F5 přežije v `history.state`. Ověřeno spuštěním — mount i reload jsou `POP`, interní přesměrování `REPLACE`, jen klik je `PUSH` |
 | Omezení self-serving recenzí se nás **netýká** | Google, *Review snippet* (2026-07-24) — omezení je výslovně jen pro `LocalBusiness` a ostatní typy `Organization`; `Product` v tom výčtu není |
 | Stránkování přes `<a href>`, ne tlačítko | Google, *Pagination* (2025-12-10): „crawlers don't ‚click‘ buttons“ |
 | Každá strana má **vlastní** canonical | Google, *Pagination* (2025-12-10): „Don't use the first page of a paginated sequence as the canonical page“ |
@@ -235,15 +247,22 @@ způsobilými pro review snippet vůbec není.
 - Stránkování: `<nav aria-label="Stránkování recenzí">`, aktuální strana je **odkaz** s
   `aria-current="page"` **[2. kolo]**. Sekvence delší než 7 stran se uprostřed zkracuje výpustkou.
 - Stránka **nerenderuje vlastní `<main>`** — `Layout.tsx:86` ho už má a druhý orientační bod je
-  nevalidní HTML i špatný cíl pro skip-link. Uživatel rozhodl 2026-08-07 sjednotit i zbylých
-  16 stránek, které tuhle chybu mají **[2. kolo]**.
+  nevalidní HTML i špatný cíl pro skip-link. Uživatel rozhodl 2026-08-07 sjednotit i zbylé
+  stránky **[2. kolo]**. Je jich **18**, ne 16: šestnáct má vlastní `<main>`, další dvě
+  (`MyStory`, `Collaboration`) mají `role="main"` na `<section>`, což grep na `<main` nenajde
+  **[3. kolo]**.
 - **Každý odkaz stránkování má vlastní `aria-label`** — „Strana 2“, „Předchozí strana“,
   „Další strana“. Holé číslo „2“ jako název odkazu nestačí.
 - Po přechodu na jinou stranu se fokus přesune na nadpis seznamu (`tabIndex={-1}`), a to
-  **jen po skutečné navigaci v aplikaci** — poznáno podle `location.key`, ne podle změny čísla
-  strany. Číslo strany totiž vyskočí z 1 na 2 i při přímém příchodu na `/strana/2` z Googlu,
-  a fokus by uživatele vysadil doprostřed právě otevřené stránky **[2. kolo]**. Prstenec fokusu
-  zůstává viditelný (`focus-visible`).
+  **jen po skutečném kliknutí uvnitř aplikace** — poznáno podle `useNavigationType() === 'PUSH'`
+  **[3. kolo]**. Nejde vyjít ze změny čísla strany (to vyskočí z 1 na 2 i při přímém příchodu
+  na `/strana/2` z Googlu) ani z `location.key` (ten je `'default'` jen na mountu kanonické
+  adresy — po přesměrování z neplatné strany je náhodný a po F5 přežije v `history.state`).
+  Prstenec fokusu zůstává viditelný (`focus-visible`); ověřeno v Chromiu i WebKitu, že se
+  při programovém `.focus()` skutečně vykreslí.
+- Stránka **nepřidává `noindex` do přesměrovací větve** — React 19 by značku sice zvedl do
+  `<head>`, ale `Navigate` komponentu hned odmountuje a značka zmizí dřív, než ji renderující
+  crawler uvidí. Ochranu obstará `canonical` cílové strany **[3. kolo]**.
 - Oprava překryvu odznaku „Ověřeno nákupem“ s dekorativním kolečkem — **na všech šířkách**,
   ne pod breakpointem.
 
@@ -306,21 +325,28 @@ jednou reálnou adresou stránky recenzí a potvrdit, že `Product` bez `offers`
 **2. Hloubka cest na Vercelu [2. kolo].** Vercel dokumentace potvrzuje, že se filesystem uplatní
 před rewrity („precedence is given to the filesystem prior to rewrites being applied“), ale
 o adresářových indexech u `cleanUrls` mlčí. V tomhle projektu je mechanismus prokázaný jen do
-hloubky 2 (`/cestovni-pruvodci/:slug`); routy recenzí jdou do hloubky 3 a 4. Nutný smoke na
-preview deploy — kdyby se vracela SPA skořápka místo prerenderovaného souboru, padá celý SEO přínos.
+hloubky 2 (`/cestovni-pruvodci/:slug`); routy recenzí jdou do hloubky 3 (`…/recenze/index.html`) a **5**
+(`…/recenze/strana/2/index.html`). Nutný smoke na preview deploy — kdyby se vracela SPA skořápka místo prerenderovaného souboru, padá celý SEO přínos.
 
 **3. Předlaunchová hlavička [2. kolo].** `vercel.json:23` posílá na všechny odpovědi
 `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet`. Dokud tam je, canonical, `robots` ani
-JSON-LD z téhle práce v produkci nic neovlivní. Skutečné ověření v Search Console je tedy až
+JSON-LD z téhle práce **pro Google** nic neovlivní. Skutečné ověření v Search Console je tedy až
 po jejím odstranění při launchi.
+
+**Pozor: pro Seznam to neplatí.** SeznamBot se `X-Robots-Tag` **neřídí** — „*v případě, že ji na
+svém webu použijete, robot ji bude ignorovat a stáhne vždy celou URL*". Dnes web chrání jen Basic
+auth (401), ne ta hlavička. Pro Seznam je `<meta name="robots">` v HTML **jediný funkční
+mechanismus**, což zvyšuje cenu Tasku 11: zastaralý prerenderovaný `noindex` poškodí i Seznam.
+Zdroj: [Seznam, Meta tag robots](https://o-seznam.cz/napoveda/vyhledavani/seznambot/meta-tag-robots/).
 
 ## Mimo rozsah
 
 Nalezeno cestou, neřeší se v této práci:
 
 1. **`NotFound` nemá `robots` meta.** `src/pages/NotFound.tsx` (62 řádků) neobsahuje žádné
-   `noindex`. Dnes to maskuje předlaunchová hlavička `X-Robots-Tag: noindex` ve `vercel.json`,
-   ta ale při spuštění zmizí a všechny neexistující routy se stanou měkkými 404. Podle Googlu
+   `noindex`. U Googlu to dnes maskuje předlaunchová hlavička `X-Robots-Tag: noindex` ve
+   `vercel.json` (u Seznamu nemaskuje nic — ten hlavičku ignoruje), ta ale při spuštění zmizí
+   a všechny neexistující routy se stanou měkkými 404. Podle Googlu
    (*JavaScript SEO basics*, 2026-03-04) je řešením `noindex` na chybové stránce. Po této práci
    bude `SeoTags` `robots` už umět, takže půjde o jednořádkovou opravu.
 2. **Globální `/recenze` stahuje všechna hodnocení.** `fetchReviewStats` v `src/lib/reviews.ts:52`
