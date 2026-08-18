@@ -27,8 +27,10 @@ const REVIEW = {
 describe('ReviewsSection', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('formatReviewDate renders Czech month + year', () => {
-    expect(formatReviewDate('2026-07-01T10:00:00.000Z')).toBe('červenec 2026');
+  it('formatReviewDate renders a full Czech date', () => {
+    // Datum musí odpovídat `datePublished` v JSON-LD (2026-07-01), jinak markujeme
+    // přesnější údaj, než jaký je na stránce vidět.
+    expect(formatReviewDate('2026-07-01T10:00:00.000Z')).toBe('1. července 2026');
   });
 
   it('shows honest empty state with zero reviews', async () => {

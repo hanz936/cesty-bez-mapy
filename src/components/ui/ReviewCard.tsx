@@ -6,10 +6,15 @@ interface ReviewCardProps {
   text: string;
   /** Název recenzovaného produktu; null když produkt už není veřejně dostupný */
   productTitle: string | null;
-  /** Formátované datum, např. "červenec 2026" */
+  /** Formátované datum, např. "1. července 2026" */
   date: string;
   /** true = recenze z ověřeného nákupu (u nás vždy — sběr je token-only) */
   verified: boolean;
+  /**
+   * `teaser` = ukázka na detailu produktu (ořez s výpustkou).
+   * `full` = plné znění na stránce recenzí.
+   */
+  variant?: 'teaser' | 'full';
   className?: string;
 }
 
@@ -20,6 +25,7 @@ const ReviewCard = memo(({
   productTitle,
   date,
   verified,
+  variant = 'teaser',
   className = ''
 }: ReviewCardProps) => {
   // Generate stars based on rating - more elegant, smaller
@@ -52,7 +58,7 @@ const ReviewCard = memo(({
   };
 
   return (
-    <div className={`bg-white rounded-3xl p-8 lg:p-10 transition-all duration-500 border border-gray-100 group relative overflow-hidden backdrop-blur-sm h-[400px] flex flex-col ${className}`.trim()}>
+    <div className={`bg-white rounded-3xl p-8 lg:p-10 transition-all duration-500 border border-gray-100 group relative overflow-hidden backdrop-blur-sm flex flex-col ${className}`.trim()}>
 
       {/* Elegant gradient border */}
       <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-gray-50/30 via-transparent to-gray-50/30 pointer-events-none"></div>
@@ -68,7 +74,7 @@ const ReviewCard = memo(({
       </div>
 
       {/* Header with subtle rating */}
-      <div className="flex items-center justify-start mb-6 flex-shrink-0">
+      <div className="relative z-10 flex items-center justify-start mb-6 flex-shrink-0 pr-12">
         <div className="flex items-center gap-1.5">
           {renderStars(rating)}
           <span className="ml-2 text-xs font-medium text-gray-500 tracking-wide">{rating}</span>
@@ -84,8 +90,16 @@ const ReviewCard = memo(({
       </div>
 
       {/* Review text - fixed height with scroll */}
-      <div className="mb-8 flex-grow overflow-hidden h-32">
-        <p className="text-gray-700 leading-relaxed text-base italic font-light tracking-wide line-clamp-6">
+      <div className="mb-8 flex-grow">
+        <p
+          className={`text-gray-700 leading-relaxed text-base italic font-light tracking-wide ${
+            // `wrap-break-word` je povinné: karta má v základní třídě `overflow-hidden`,
+            // takže nezalomitelný token (typicky URL v recenzi) by přetekl a tiše se
+            // ustřihl — přesně to, co má `full` odstranit. Formulář povoluje 2 000 znaků.
+            // (`wrap-break-word` je v Tailwindu 4 kanonický tvar; starší alias hlásí LSP.)
+            variant === 'teaser' ? 'line-clamp-6' : 'whitespace-pre-line wrap-break-word'
+          }`}
+        >
           "{text}"
         </p>
       </div>
