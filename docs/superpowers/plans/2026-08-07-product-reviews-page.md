@@ -22,6 +22,9 @@ Protože jsou stránky recenzí předgenerované, doplňuje práci ještě datab
 - **`REVIEWS_DISCLOSURE` musí být na každé stránce, kde recenze zobrazujeme.** Povinnost dle § 5a odst. 5 zákona č. 634/1992 Sb. ČOI k tomu žádá informaci „přímo tam, kde jsou spotřebitelské recenze zveřejněné"; požadavek na viditelnost bez rolování neexistuje.
 - **Číselné konstanty mají JEDEN zdroj pravdy: `src/constants/reviews.ts`.** `REVIEWS_PAGE_SIZE = 10`, `PRODUCT_REVIEWS_LIMIT = 3`, `MAX_PRERENDERED_REVIEW_PAGES`. Node skripty ten soubor importují přímo s příponou `.ts` — `prerender.mjs:4` a `sitemap.mjs:3` už dnes takhle importují `../src/constants/publicRoutes.ts` a Node 24 (`engines: node 24.x`) TypeScript odstrojí nativně. Konstanta se **nikde nekopíruje**.
 - **Zaokrouhlení hodnocení má taky jeden zdroj.** DB ukládá `round(avg, 2)` (může být `4.67`), ale zobrazujeme jedno desetinné místo. Viditelný text a `ratingValue` v JSON-LD **musí nést tutéž hodnotu** — Google zakazuje markup obsahu, který na stránce není.
+- **Totéž platí pro datum recenze [4. kolo].** `datePublished` v JSON-LD nese přesné datum, takže ho musí nést i karta. Proto `formatReviewDate` nově vypisuje den (Task 1).
+- **Cokoli, co JSON-LD tvrdí, musí být na té konkrétní stránce vidět [4. kolo].** Netýká se to jen `ratingValue`: stránka recenzí proto vykresluje i perex produktu a náhledový obrázek, protože je posílá v `description` a `image`.
+- **Oba `Product` uzly popisují tentýž produkt [4. kolo].** Detail i stránka recenzí musí mít shodné `name` (přes sdílený helper) a shodné `@id` mířící na detail produktu — jinak je Google nemá jak spárovat.
 - **Chyba se nikdy nevydává za prázdno.** Selhání načtení → vlastní hláška; nula recenzí → prázdný stav.
 - **Sentry:** `Sentry.captureException(err, { tags: { area: 'reviews', component: '<Jméno>' } })`.
 - Testy se spouští `npm run test:run`, typová kontrola `npm run type-check`, lint `npm run lint`.
@@ -35,12 +38,15 @@ Karta má dnes textový box s pevnou výškou `h-32` (128 px) a na odstavci `lin
 Zároveň má karta v základní třídě `h-[400px]`. Pozor na časté nedorozumění: **dnešní volající tím postižení nejsou.** V přeloženém CSS je `.h-full` až za `.h-\[400px\]` (byte-offsety 34020 > 33922 v `dist/assets/index-*.css`), stejná specificita, takže při shodě vyhrává `h-full` — a `ReviewsSection.tsx:107` i `ProductReviews.tsx:128` ho předávají. Odstranění `h-[400px]` je tedy pro stávající mřížky **beze změny**. Nutné je proto, že nová stránka je jeden sloupec a `h-full` nepředává — tam by 400 px plný text ořízlo.
 
 **Files:**
-- Modify: `src/components/ui/ReviewCard.tsx`
+- Modify: `src/components/ui/ReviewCard.tsx` (včetně JSDoc na řádku 9)
 - Create: `src/components/ui/ReviewCard.test.tsx`
+- Modify: `src/components/reviews/formatReviewDate.ts` — datum nově s dnem **[4. kolo]**
+- Modify: `src/components/reviews/ReviewsSection.test.tsx:30-31` — stávající test na starý formát
 
 **Interfaces:**
 - Consumes: nic
 - Produces: `ReviewCardProps` s novou vlastností `variant?: 'teaser' | 'full'` (výchozí `'teaser'`). Používají Task 8 (`variant="full"`) a Task 9 (`variant="teaser"`).
+- Produces také: `formatReviewDate` beze změny signatury, ale s jiným výstupem (`'1. července 2026'` místo `'červenec 2026'`). Dědí to `ReviewsSection`, `ProductReviews` i Task 8.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -181,15 +187,66 @@ na:
 Run: `npm run test:run -- src/components/ui/ReviewCard.test.tsx`
 Expected: PASS, 6 testů.
 
-- [ ] **Step 5: Ověř, že nic jiného nespadlo**
+- [ ] **Step 5: Sjednoť datum na kartě s `datePublished` v JSON-LD [4. kolo]**
+
+Karta dnes ukazuje „červenec 2026", ale do JSON-LD jde `datePublished: '2026-07-01'`. Je to tentýž
+druh rozporu jako u `ratingValue` — markup nese přesnější údaj, než je na stránce vidět. Uživatel
+rozhodl 2026-08-18 sladit to zobrazením přesného data.
+
+Nejdřív uprav **stávající** test v `src/components/reviews/ReviewsSection.test.tsx:30-31` — z:
+
+```tsx
+  it('formatReviewDate renders Czech month + year', () => {
+    expect(formatReviewDate('2026-07-01T10:00:00.000Z')).toBe('červenec 2026');
+```
+
+na:
+
+```tsx
+  it('formatReviewDate renders a full Czech date', () => {
+    // Datum musí odpovídat `datePublished` v JSON-LD (2026-07-01), jinak markujeme
+    // přesnější údaj, než jaký je na stránce vidět.
+    expect(formatReviewDate('2026-07-01T10:00:00.000Z')).toBe('1. července 2026');
+```
+
+Pak `src/components/reviews/formatReviewDate.ts` — z:
+
+```ts
+  return new Intl.DateTimeFormat('cs-CZ', { month: 'long', year: 'numeric' }).format(new Date(iso));
+```
+
+na:
+
+```ts
+  return new Intl.DateTimeFormat('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' }).format(
+    new Date(iso),
+  );
+```
+
+A oprav JSDoc v `src/components/ui/ReviewCard.tsx:9` — z:
+
+```tsx
+  /** Formátované datum, např. "červenec 2026" */
+```
+
+na:
+
+```tsx
+  /** Formátované datum, např. "1. července 2026" */
+```
+
+Pozor: změna se propíše i do globální `/recenze` a do sekce na detailu produktu — obě používají
+tentýž helper. To je záměr, ne vedlejší škoda.
+
+- [ ] **Step 6: Ověř, že nic jiného nespadlo**
 
 Run: `npm run test:run && npm run type-check`
-Expected: PASS. `ReviewsSection` i `ProductReviews` předávají `className="h-full …"`, takže odstranění `h-[400px]` jejich mřížky nerozbije — výšku dál řídí `h-full` + roztažení řádku mřížky.
+Expected: PASS. `ReviewsSection` i `ProductReviews` předávají `className="h-full …"`, takže odstranění `h-[400px]` jejich mřížky nerozbije — výšku dál řídí `h-full` + roztažení řádku mřížky. Jediný test, který na formát data sahal, jsi opravil ve Step 5 (ověřeno grepem, že jiný neexistuje).
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src/components/ui/ReviewCard.tsx src/components/ui/ReviewCard.test.tsx
+git add src/components/ui/ReviewCard.tsx src/components/ui/ReviewCard.test.tsx src/components/reviews/formatReviewDate.ts src/components/reviews/ReviewsSection.test.tsx
 git commit -m "fix(reviews): let review text clamp with a visible ellipsis
 
 The text box was pinned to h-32 (128px) while the paragraph asked for
@@ -199,7 +256,12 @@ variant that renders the whole review, and stop the base class forcing
 400px on callers that do not pass h-full.
 
 Also lift the verified badge above the decorative quote circle, which
-overlapped it at every width, not just on mobile."
+overlapped it at every width, not just on mobile.
+
+Review dates now show the day as well. The card said 'červenec 2026'
+while the JSON-LD carried datePublished 2026-07-01, which marks up a more
+precise value than the page ever shows — the same class of mismatch the
+rounding helper exists to prevent."
 ```
 
 ---
@@ -341,6 +403,15 @@ describe('ProductRatingSummary', () => {
     rerender(<MemoryRouter><ProductRatingSummary average={5} count={9} /></MemoryRouter>);
     expect(screen.getByText(/9 recenzí/)).toBeInTheDocument();
   });
+
+  it('bez href je souhrn srozumitelný i bez hvězdiček', () => {
+    // Hvězdičky jsou aria-hidden a `·` taky, takže bez skrytých fragmentů by
+    // odečítač přečetl jen „5,0 12 recenzí“ — bez informace, že jde o hodnocení
+    // z pěti. Varianta s href tenhle problém nemá, tam význam nese aria-label.
+    renderIn(<ProductRatingSummary average={5} count={12} />);
+    expect(screen.getByText('Hodnocení')).toBeInTheDocument();
+    expect(screen.getByText('z 5,')).toBeInTheDocument();
+  });
 });
 ```
 
@@ -451,10 +522,17 @@ const ProductRatingSummary = ({ average, count, href, className = '' }: ProductR
 
   const formattedAverage = formatRatingCs(average);
   const label = `${count} ${reviewCountLabel(count)}`;
+  // Skryté fragmenty dávají větě smysl i tam, kde souhrn není odkaz (hvězdičky
+  // i oddělovač jsou aria-hidden). Prokládáme je místo jednoho souhrnného
+  // `sr-only` textu schválně: jinak by se počet recenzí objevil v DOMu dvakrát
+  // a `getByText` by hlásil víc shod. U varianty s href je aria-label na odkazu
+  // přebije, takže se nic nezdvojí.
   const body = (
     <>
       <Stars average={average} />
+      <span className="sr-only">Hodnocení </span>
       <span className="font-semibold text-gray-900">{formattedAverage}</span>
+      <span className="sr-only"> z 5,</span>
       <span className="text-gray-500" aria-hidden="true">·</span>
       <span className="text-gray-600">{label}</span>
     </>
@@ -478,10 +556,10 @@ const ProductRatingSummary = ({ average, count, href, className = '' }: ProductR
 export default ProductRatingSummary;
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: Run tests to verify they pass**
 
-Run: `npm run test:run -- src/components/reviews/ProductRatingSummary.test.tsx`
-Expected: PASS, 6 testů.
+Run: `npm run test:run -- src/components/reviews/ProductRatingSummary.test.tsx src/utils/rating.test.ts`
+Expected: PASS — 7 testů komponenty a 2 testy `rating`. **Obojí, ne jen komponentu:** `rating.test.ts` vzniká ve Step 3 a bez tohohle běhu by se commitoval neověřený, přestože ho spec jmenovitě žádá.
 
 - [ ] **Step 5: Commit**
 
@@ -723,8 +801,16 @@ timestamps collide, so add id as a tiebreaker."
     },
     siteUrl?: string,
   ): ProductReviewsMeta;
+
+  /** Cesta stránky recenzí; strana 1 je bez segmentu `/strana`. */
+  export function productReviewsPath(slug: string, page?: number): string;
+  /** Jméno produktu tak, jak ho uživatel vidí (`detail_title` s fallbackem). */
+  export function productDisplayName(product: { detail_title: string | null; title: string }): string;
+  /** Sdílené `@id` pro oba `Product` uzly. */
+  export function productJsonLdId(slug: string, siteUrl?: string): string;
   ```
-  Používá Task 8.
+  `buildProductReviewsMeta` a `productReviewsPath` používá Task 8, `productReviewsPath` navíc Task 9.
+  `productDisplayName` i `productJsonLdId` volá už `buildProductMeta` v tomhle tasku.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -793,10 +879,49 @@ describe('buildProductReviewsMeta', () => {
     expect(meta.jsonLd?.name).toBe('Roadtrip po Itálii na 20 dní');
   });
 
+  it('oba Product uzly nesou shodné @id i name', () => {
+    // Detail a stránka recenzí vydají každý svůj `Product`. Bez sdíleného
+    // identifikátoru a se dvěma různými jmény je Google nemá jak spárovat.
+    // Test drží obě funkce u sebe, aby se nemohly rozejít.
+    const reviewsMeta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 2, reviews: reviewsFixture }, 'https://x.cz');
+    // Pole vypisujeme ručně, ne spreadem: `ProductMetaProduct` nezná `id`,
+    // `average_rating` ani `review_count`, které fixtura navíc nese.
+    const detailMeta = buildProductMeta(
+      {
+        detail_title: REVIEWS_PRODUCT.detail_title,
+        title: REVIEWS_PRODUCT.title,
+        hero_subtitle: REVIEWS_PRODUCT.hero_subtitle,
+        slug: REVIEWS_PRODUCT.slug,
+        image_url: REVIEWS_PRODUCT.image_url,
+        price: 699,
+      },
+      { rating: { average: 4.5, count: 12 }, reviews: reviewsFixture },
+      'https://x.cz',
+    );
+    // `@id` míří na detail a NEMĚNÍ se se stranou stránkování.
+    expect(reviewsMeta.jsonLd?.['@id']).toBe('https://x.cz/cestovni-pruvodci/italie-roadtrip#product');
+    expect(detailMeta.jsonLd['@id']).toBe(reviewsMeta.jsonLd?.['@id']);
+    expect(detailMeta.jsonLd.name).toBe(reviewsMeta.jsonLd?.name);
+    // Regrese: dřív tu bylo interní `title`, které se na detailu nikde nezobrazuje.
+    expect(detailMeta.jsonLd.name).toBe('Roadtrip po Itálii na 20 dní');
+  });
+
   it('description popisuje produkt, ne stránku', () => {
     const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: reviewsFixture }, 'https://x.cz');
     expect(meta.jsonLd?.description).toBe('Kompletně naplánovaná cesta');
     // Meta description je něco jiného než Product.description.
+    expect(meta.description).toMatch(/Recenze od ověřených zákazníků/);
+  });
+
+  it('bez perexu se description do JSON-LD vůbec nedostane', () => {
+    // Fallback na meta description by markoval větu, která na stránce není.
+    // Task 8 vykresluje perex jen když existuje — markup to musí kopírovat.
+    const meta = buildProductReviewsMeta(
+      { ...REVIEWS_PRODUCT, hero_subtitle: null },
+      { page: 1, reviews: reviewsFixture },
+      'https://x.cz',
+    );
+    expect(meta.jsonLd).not.toHaveProperty('description');
     expect(meta.description).toMatch(/Recenze od ověřených zákazníků/);
   });
 
@@ -864,6 +989,53 @@ na:
       ratingValue: ratingValueJsonLd(options.rating.average),
 ```
 
+**Sjednoť `name` a doplň sdílené `@id` [4. kolo].** Dnes má detail v JSON-LD `name: product.title`
+(řádek 81), zatímco stránka recenzí by měla `detail_title` — dva `Product` uzly pro tentýž produkt
+s různým jménem a bez jakéhokoli pojítka. Navíc `product.title` se na detailu **nikde nezobrazuje**
+(`ProductDetail.tsx:360` vypisuje `detail_title`, `title` je jen v `alt` obrázku), takže je to
+i markup neviditelného obsahu. Nad `buildProductMeta` přidej dva helpery:
+
+```ts
+/**
+ * Jméno produktu tak, jak ho uživatel VIDÍ — `detail_title` je to, co vypisuje
+ * `<h1>` na detailu i nadpis stránky recenzí. Sdílené schválně: oba `Product`
+ * uzly musí mít shodné `name`, jinak je Google nemá jak spárovat, a `product.title`
+ * je interní pojmenování, které se nikde nevykresluje.
+ */
+export function productDisplayName(product: { detail_title: string | null; title: string }): string {
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string detail_title must fall through to fallback
+  return product.detail_title?.trim() || product.title;
+}
+
+/**
+ * Stabilní identita produktu napříč stránkami. Detail i stránka recenzí vydávají
+ * `Product` uzel; bez shodného `@id` je Google vidí jako dva různé produkty.
+ * Míří na detail, protože ten je kanonickou stránkou produktu.
+ */
+export function productJsonLdId(slug: string, siteUrl: string = SITE_URL): string {
+  return `${siteUrl}/cestovni-pruvodci/${slug}#product`;
+}
+```
+
+V `buildProductMeta` pak nahraď řádek 81 — z:
+
+```ts
+    name: product.title,
+```
+
+na:
+
+```ts
+    '@id': productJsonLdId(product.slug, siteUrl),
+    name: productDisplayName(product),
+```
+
+a do rozhraní `ProductJsonLd` přidej hned za `'@type': string;`:
+
+```ts
+  '@id': string;
+```
+
 Nad `buildProductMeta` vytáhni sdílené mapování `Review` (aby nevznikly dvě verze pravdy) — přidej:
 
 ```ts
@@ -903,8 +1075,11 @@ Na konec souboru přidej:
 export interface ProductReviewsJsonLd {
   '@context': string;
   '@type': 'Product';
+  /** Shodné s uzlem na detailu produktu — jinak jsou to pro Google dva různé produkty. */
+  '@id': string;
   name: string;
-  description: string;
+  /** Perex produktu. Chybí, když ho produkt nemá — stránka by ho pak nevykreslila. */
+  description?: string;
   image: string[];
   aggregateRating?: AggregateRatingJsonLd;
   review?: ReviewJsonLd[];
@@ -935,8 +1110,8 @@ export function buildProductReviewsMeta(
   },
   siteUrl: string = SITE_URL,
 ): ProductReviewsMeta {
-  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string title must fall through to fallback
-  const productTitle = product.detail_title?.trim() || product.title;
+  // Tentýž helper jako buildProductMeta → obě stránky pošlou shodné `name`.
+  const productTitle = productDisplayName(product);
   const count = product.review_count ?? 0;
   const suffix = options.page > 1 ? ` (strana ${options.page})` : '';
   const title = `Recenze — ${productTitle}${suffix}`;
@@ -953,11 +1128,14 @@ export function buildProductReviewsMeta(
     jsonLd = {
       '@context': 'https://schema.org',
       '@type': 'Product',
-      // `name` i `description` musí odpovídat tomu, co je na stránce vidět:
-      // nadpis nese `productTitle`, perex produktu je `hero_subtitle`.
+      // Shodné s uzlem na detailu produktu — bez toho Google nemá jak poznat,
+      // že obě stránky mluví o tomtéž produktu.
+      '@id': productJsonLdId(product.slug, siteUrl),
+      // `name`, `description` i `image` musí odpovídat tomu, co je na stránce
+      // VIDĚT: nadpis nese `productTitle`, perex je `hero_subtitle` a náhledový
+      // obrázek je `image_url` — Task 8 všechny tři vykresluje. Kdyby je stránka
+      // přestala zobrazovat, musí zmizet i odsud.
       name: productTitle,
-      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string subtitle must fall through
-      description: product.hero_subtitle?.trim() || description,
       image: [image],
       aggregateRating: {
         '@type': 'AggregateRating',
@@ -966,6 +1144,13 @@ export function buildProductReviewsMeta(
         reviewCount: count,
       },
     };
+    // `description` jen když perex existuje. NEPOUŽÍVAT jako fallback `description`
+    // z meta tagu: ta věta je marketingový text pro výsledky vyhledávání a na
+    // stránce nikde není — markovali bychom obsah, který uživatel nevidí.
+    const perex = product.hero_subtitle?.trim();
+    if (perex) {
+      jsonLd.description = perex;
+    }
     if (options.reviews.length > 0) {
       jsonLd.review = toReviewJsonLd(options.reviews);
     }
@@ -1636,6 +1821,43 @@ describe('ProductReviewsPage', () => {
       ),
     );
   });
+
+  it('vykreslí perex a obrázek, protože je posílá do JSON-LD', async () => {
+    // Google zakazuje markovat obsah, který na stránce není. `description`
+    // a `image` v JSON-LD proto musí mít na stránce protějšek.
+    fetchProductForReviewsMock.mockResolvedValue({ ...product, image_url: 'https://cdn.example/i.jpg' });
+    fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
+    renderAt('/cestovni-pruvodci/italie/recenze');
+    await waitFor(() => expect(screen.getByText('20 dní')).toBeInTheDocument());
+    expect(screen.getByRole('img', { name: /Průvodce Roadtrip po Itálii/ })).toHaveAttribute(
+      'src',
+      'https://cdn.example/i.jpg',
+    );
+  });
+
+  it('signalizuje prerenderu hotovo až po načtení dat', async () => {
+    // Na tomhle markeru stojí celý prerender: `waitForSelector` na něj čeká
+    // a build tvrdě spadne, když nepřijde. Zároveň nesmí přijít předčasně,
+    // jinak by se uložilo statické HTML s načítacím stavem.
+    fetchProductForReviewsMock.mockResolvedValue(product);
+    fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
+    const { container } = renderAt('/cestovni-pruvodci/italie/recenze');
+    expect(container.querySelector('[data-prerender-ready="true"]')).toBeNull();
+    await waitFor(() =>
+      expect(container.querySelector('[data-prerender-ready="true"]')).not.toBeNull(),
+    );
+  });
+
+  it('při selhání načtení prerender-ready NEnastaví', async () => {
+    // Záměr: build má spadnout hlasitě. Bez toho by výpadek Supabase během
+    // prerenderu tiše nasadil HTML s textem „Recenze se nepodařilo načíst“,
+    // které má <h1> i dost bajtů, takže by prošlo i validací.
+    fetchProductForReviewsMock.mockResolvedValue(product);
+    fetchApprovedReviewsMock.mockRejectedValue(new Error('boom'));
+    const { container } = renderAt('/cestovni-pruvodci/italie/recenze');
+    await waitFor(() => expect(screen.getByText(/nepodařilo načíst/)).toBeInTheDocument());
+    expect(container.querySelector('[data-prerender-ready="true"]')).toBeNull();
+  });
 });
 ```
 
@@ -1694,7 +1916,7 @@ Vytvoř `src/pages/ProductReviewsPage.tsx`:
 
 ```tsx
 import { useState, useEffect, useRef } from 'react';
-import { Link, Navigate, useNavigationType, useParams } from 'react-router-dom';
+import { Link, Navigate, NavigationType, useNavigationType, useParams } from 'react-router-dom';
 import * as Sentry from '@sentry/react';
 import Layout from '../components/layout/Layout';
 import SeoTags from '../components/common/SeoTags';
@@ -1720,19 +1942,39 @@ const ProductReviewsPage = () => {
   const [notFound, setNotFound] = useState(false);
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
-    // Fokus přesouváme jen po skutečném kliknutí uvnitř aplikace, tedy po `PUSH`.
-    // `POP` = mount, reload i tlačítko zpět; `REPLACE` = naše vlastní přesměrování
-    // na kanonickou stranu. V obou případech si uživatel stránku právě otevřel a
-    // sebrat mu fokus doprostřed by bylo překvapení.
+    // Fokus přesouváme jen po skutečném přepnutí strany UVNITŘ téhle stránky.
+    // Obě podmínky jsou nutné, každá chytá jiný případ:
+    //
+    // 1. Ne při prvním renderu. Příchod z detailu produktu je totiž taky `PUSH`,
+    //    jenže efekt běží dřív, než doběhne `fetchProductForReviews` — odečítač by
+    //    oznámil useknuté „Recenze —“ a doplnění názvu už by neoznámil. Navíc by
+    //    fokus přeskočil odkaz „Zpět na průvodce“, který je v DOMu NAD nadpisem,
+    //    takže by se k němu dopředným tabováním nešlo dostat. (Ověřeno spuštěním.)
+    // 2. Jen `PUSH`. `POP` = mount, reload i tlačítko zpět; `REPLACE` = naše
+    //    vlastní přesměrování na kanonickou stranu. V obou případech si uživatel
+    //    stránku právě otevřel a sebrat mu fokus doprostřed by bylo překvapení.
+    //
+    // Komponenta se mezi `/recenze` a `/recenze/strana/2` NEODMONTOVÁVÁ (obě routy
+    // renderují tentýž typ, React je odsesouhlasí na stejné pozici), takže si
+    // `isFirstRender` mezi stranami udrží hodnotu — ověřeno spuštěním.
     //
     // NEPOUŽÍVAT `location.key === 'default'`: klíč je 'default' jen na mountu
     // kanonické adresy. Po přesměrování z /strana/99 je náhodný a po F5 přežije
     // v `history.state`, takže by guard v obou případech neplatil (ověřeno spuštěním).
     // Stejně tak nejde vyjít ze změny `page` — ta se z 1 na 2 vyšplhá i při přímém
     // vstupu na /strana/2, jakmile doběhne načtení dat.
-    if (navigationType !== 'PUSH') return;
+    //
+    // `NavigationType.Push`, ne řetězec `'PUSH'`: `useNavigationType()` vrací enum
+    // `Action` (re-exportovaný jako `NavigationType`) a porovnání s literálem shodí
+    // lint na `@typescript-eslint/no-unsafe-enum-comparison` — Step 7 lint vyžaduje.
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (navigationType !== NavigationType.Push) return;
     headingRef.current?.focus();
   }, [page, navigationType]);
 
@@ -1812,6 +2054,13 @@ const ProductReviewsPage = () => {
   if (redirectTo) return <Navigate to={redirectTo} replace />;
 
   const count = product?.review_count ?? 0;
+  // Stránkování NEOŘEZÁVÁME na `MAX_PRERENDERED_REVIEW_PAGES` [4. kolo]. Strop je
+  // jen limit prerenderu, ne limit produktu — kdybychom o něj zkrátili odkazy,
+  // uživatel by se nad 200 recenzemi na hlubší strany vůbec nedostal. Nad stropem
+  // tedy vzniknou odkazy na strany bez statického HTML; crawler tam dostane
+  // skořápku a obsah uvidí až po vykonání JavaScriptu. Je to vědomý kompromis
+  // ve prospěch uživatele. Prerender na překročení stropu upozorní v logu
+  // (Task 10), takže se strop dá včas zvednout.
   const totalPages = Math.ceil(count / REVIEWS_PAGE_SIZE);
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string detail_title must fall through, stejně jako v buildProductReviewsMeta
   const productTitle = product ? product.detail_title?.trim() || product.title : '';
@@ -1833,23 +2082,53 @@ const ProductReviewsPage = () => {
     // i dost bajtů, takže by prošlo i validací. Takhle build spadne a je to vidět.
     <Layout ready={!loading && !!product && !error}>
       {meta && <SeoTags meta={meta} />}
-      {/* `div`, ne `main` — Layout už `<main id="main-content">` renderuje a druhý
-          orientační bod je nevalidní HTML i matoucí cíl pro skip-link. */}
+      {/* Obyčejný `div`, ne hlavní oblast — Layout element `main#main-content`
+          renderuje sám a druhý orientační bod je nevalidní HTML i matoucí cíl
+          pro skip-link.
+
+          POZOR: v tomhle komentáři nesmí padnout doslovný zápis toho tagu
+          s lomenou závorkou. Strážný test z Tasku 12 hledá v `src/pages`
+          řetězec „main" s lomenou závorkou před ním a odchytil by si vlastní
+          komentář — pak by nikdy nezezelenal a implementátor by v souboru
+          marně hledal druhou hlavní oblast, která tu není. */}
       <div className="max-w-4xl mx-auto px-5 py-16">
         <Link to={`/cestovni-pruvodci/${slug}`} className="text-green-800 underline underline-offset-4">
           ← Zpět na průvodce
         </Link>
 
+        {/* `focus:ring`, ne `focus-visible:ring`: po programovém `.focus()` se
+            v Chromiu `:focus-visible` neuplatní, pokud uživatel ovládá stránku
+            myší (změřeno v Chromiu i WebKitu). Prstenec by tak chyběl přesně
+            tomu, kdo nejmíň čeká, že mu fokus někam skočí. Nadpis není běžně
+            fokusovatelný, takže se prstenec nikde jinde neobjeví. */}
         <h1
           ref={headingRef}
           tabIndex={-1}
-          className="text-3xl sm:text-4xl font-bold text-green-800 mt-6 mb-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-800 focus-visible:ring-offset-2 rounded"
+          className="text-3xl sm:text-4xl font-bold text-green-800 mt-6 mb-4 focus:outline-none focus:ring-2 focus:ring-green-800 focus:ring-offset-2 rounded"
         >
           Recenze — {productTitle}
         </h1>
 
         {product && count > 0 && (
           <ProductRatingSummary average={product.average_rating ?? 0} count={count} className="mb-4" />
+        )}
+
+        {/* Perex a náhledový obrázek nejsou dekorace: JSON-LD je posílá
+            v `description` a `image`, a Google zakazuje markovat obsah, který
+            na stránce vidět není. Kdyby odsud zmizely, musí zmizet i
+            z `buildProductReviewsMeta` — a naopak. Obrázek bereme z `meta.ogImage`
+            schválně: je to tentýž výraz, který jde do markupu, včetně
+            placeholderu pro produkt bez vlastního obrázku. */}
+        {product?.hero_subtitle?.trim() && (
+          <p className="text-lg text-gray-700 mb-6">{product.hero_subtitle}</p>
+        )}
+        {meta && (
+          <img
+            src={meta.ogImage}
+            alt={`Průvodce ${productTitle}`}
+            className="w-full max-h-64 object-cover rounded-2xl mb-8"
+            loading="lazy"
+          />
         )}
 
         {/* `gray-600` (7,56:1), ne `gray-500` (4,84:1) — AA sice projde obojí,
@@ -1920,7 +2199,7 @@ const ProductReviewsPage = lazy(() => import('./pages/ProductReviewsPage'));
 - [ ] **Step 6: Run tests to verify they pass**
 
 Run: `npm run test:run -- src/pages/ProductReviewsPage.test.tsx src/constants/reviews.test.ts`
-Expected: PASS — 14 testů stránky a 6 testů konstant. Žádný test nesmí do konzole vypsat React error stack; kdyby ano, chybí `CartProvider`.
+Expected: PASS — 18 testů stránky a 6 testů konstant. Žádný test nesmí do konzole vypsat React error stack; kdyby ano, chybí `CartProvider`.
 
 - [ ] **Step 7: Ověř typy a lint**
 
@@ -1954,7 +2233,7 @@ Dnes je limit na dvou místech: `PRODUCT_REVIEWS_LIMIT = 6` v `ProductReviews.ts
 
 **Files:**
 - Modify: `src/components/reviews/ProductReviews.tsx:12,80,118,132-138`
-- Modify: `src/pages/ProductDetail.tsx:54,111,335,357-362`
+- Modify: `src/pages/ProductDetail.tsx:54,111,358-362` (řádek 335 se **nemění** — zaokrouhlení `ratingValue` řeší Task 5 v `productSeo.ts`)
 - Modify: `src/components/reviews/ProductReviews.test.tsx`
 - Modify: `src/pages/ProductDetail.seo.test.tsx`
 
@@ -2087,7 +2366,7 @@ Uprav komentář na řádku 54, ať už nelže:
   // jako `preloaded` do ProductReviews, aby si sekce nemusela dělat vlastní duplicitní fetch.
 ```
 
-Pod `<h1>` v „Title Section" (řádky 357-362) přidej souhrn hodnocení:
+Pod `<h1>` v „Title Section" (řádky **358-362**; 357 je komentář `{/* Title Section */}`, ten **zůstává**) přidej souhrn hodnocení:
 
 ```tsx
             <div className="text-center mb-6 pb-5 border-b border-gray-200">
@@ -2139,7 +2418,7 @@ Neprerenderovaná adresa dostane přes Vercel rewrite `index.html`, tedy prázdn
 **Files:**
 - Modify: `scripts/contentSlugs.mjs:24-26`
 - Modify: `scripts/prerender.mjs:11-16`
-- Modify: `scripts/sitemap.mjs:33-42`
+- Modify: `scripts/sitemap.mjs:33-37` (sestavení `paths` v `run()`; řádky 38-42 jsou `buildSitemap`/zápis souboru a **nemění se**)
 - Modify: `scripts/prerender.test.js`
 - Modify: `scripts/sitemap.test.js`
 
@@ -2276,6 +2555,14 @@ export function collectRoutes(blogPosts, productSlugs = []) {
     products.push(`/cestovni-pruvodci/${product.slug}/recenze`);
     const totalPages = Math.ceil((product.review_count ?? 0) / REVIEWS_PAGE_SIZE);
     const lastPage = Math.min(totalPages, MAX_PRERENDERED_REVIEW_PAGES);
+    if (totalPages > MAX_PRERENDERED_REVIEW_PAGES) {
+      // Stránkování na stránce odkazy neořezává (jinak by se uživatel na hlubší
+      // strany nedostal), takže od téhle chvíle existují crawlovatelné odkazy
+      // na strany bez statického HTML. Není to tichá vada — je to signál strop zvednout.
+      console.warn(
+        `⚠ ${product.slug}: ${totalPages} stran recenzí, prerenderuje se jen ${MAX_PRERENDERED_REVIEW_PAGES}. Zvaž zvýšení MAX_PRERENDERED_REVIEW_PAGES.`,
+      );
+    }
     for (let page = 2; page <= lastPage; page++) {
       products.push(`/cestovni-pruvodci/${product.slug}/recenze/strana/${page}`);
     }
@@ -2347,10 +2634,12 @@ Expected: build projde a v logu jsou řádky `✓ prerendered /cestovni-pruvodci
 grep -c "Recenze —" dist/cestovni-pruvodci/italie-roadtrip/recenze/index.html
 grep -o 'rel="canonical" href="[^"]*"' dist/cestovni-pruvodci/italie-roadtrip/recenze/index.html
 grep -o '"@type":"Product"' dist/cestovni-pruvodci/italie-roadtrip/recenze/index.html
-grep -c 'offers' dist/cestovni-pruvodci/italie-roadtrip/recenze/index.html
+grep -c '"offers"' dist/cestovni-pruvodci/italie-roadtrip/recenze/index.html
 ```
 
-Expected: nadpis přítomen; canonical míří na `…/italie-roadtrip/recenze` (ne na homepage a ne na detail); JSON-LD typu `Product`; **žádné `offers`** (poslední příkaz vrátí 0).
+Expected: nadpis přítomen; canonical míří na `…/italie-roadtrip/recenze` (ne na homepage a ne na detail); JSON-LD typu `Product`; **žádné `"offers"`** (poslední příkaz vrátí 0).
+
+Hledá se klíč `"offers"` **s uvozovkami**, ne slovo „offers" kdekoli v HTML — to by mohlo přijít i odjinud. `italie-roadtrip` je reálný produkční slug s jednou schválenou recenzí, takže soubor bude existovat; hlubší strany tenhle krok neřeší, na ty je Task 13.
 
 Pozor: `npm run build` spouštěj z adresáře frontendu. Když je pracovní adresář jiný, vite servíruje cizí `dist`.
 
@@ -2384,11 +2673,11 @@ Bez tohohle tasku je SEO záměr celé práce v produkci nefunkční, a to dvěm
 
 **Files:**
 - Create: `supabase/migrations/<timestamp>_add_reviews_deploy_hook.sql`
-- Modify: `supabase/tests/database/04_reviews.test.sql`
-- Modify: `index.html:17`
+- Modify: `supabase/tests/database/04_reviews.test.sql` (`plan(39)` → `plan(41)` + 2 aserce do bloku „── Struktura ──")
+- Modify: `index.html:6-17` — celý blok meta homepage, ne jen canonical **[4. kolo]**
 - Modify: `src/pages/Home.tsx`
-- Modify: `vercel.json` (rewrite `destination`)
-- Modify: `scripts/prerender.mjs` (kopie skořápky)
+- Modify: `vercel.json` — rewrite `destination` **a** nová hlavička `X-Robots-Tag` pro `/app-shell` **[4. kolo]**
+- Modify: `scripts/prerender.mjs` (odložení skořápky)
 - Create: `src/utils/sourceCanonical.test.ts`
 
 **Interfaces:**
@@ -2397,38 +2686,58 @@ Bez tohohle tasku je SEO záměr celé práce v produkci nefunkční, a to dvěm
 
 - [ ] **Step 1: Write the failing tests**
 
-Do `supabase/tests/database/04_reviews.test.sql` přidej dvě aserce a zvyš číslo v `plan(...)` na začátku souboru o 2:
+Do `supabase/tests/database/04_reviews.test.sql` přidej dvě aserce. **Patří do bloku „── Struktura ──" (řádky 5-8), ne na konec souboru** — na řádku 212 je `finish()` a na 213 `ROLLBACK;`, takže aserce připojené za ně by se nevykonaly a pgTAP by hlásil „planned 41 but ran 39". Zároveň zvyš `plan(39)` na řádku 2 na **`plan(41)`**:
 
 ```sql
 select has_function('public'::name, 'notify_vercel_reviews_change'::name, 'deploy-hook funkce pro recenze existuje');
 select has_trigger('public'::name, 'reviews'::name, 'trg_reviews_deploy_hook'::name, 'reviews mají deploy-hook trigger');
 ```
 
-A vytvoř `src/utils/sourceCanonical.test.ts` — strážce proti návratu canonicalu do šablony:
+A vytvoř `src/utils/sourceCanonical.test.ts` — strážce proti návratu meta homepage do šablony:
 
 ```ts
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 
 describe('rozdělení skořápky a homepage', () => {
-  it('index.html nenese natvrdo zapsaný canonical', () => {
+  const template = () => readFileSync('index.html', 'utf8');
+
+  it('index.html nenese natvrdo zapsanou meta homepage', () => {
     // Google: „make sure that JavaScript doesn't change the canonical link element.
     // If you can't set the canonical URL in the HTML source code, leave it out and
     // only set it with JavaScript." Šablona slouží i jako SPA skořápka, takže
-    // canonical v ní by na každé neprerenderované adrese ukazoval na homepage —
-    // a SeoTags by ho pak přepisoval, což je přesně ten zakázaný vzorec.
-    expect(readFileSync('index.html', 'utf8')).not.toMatch(/rel="canonical"/);
+    // cokoli v ní dostane každá neprerenderovaná adresa — a klientský kód by to
+    // pak přepisoval, což je přesně ten zakázaný vzorec.
+    expect(template()).not.toMatch(/rel="canonical"/);
+    expect(template()).not.toMatch(/<title>/);
+    expect(template()).not.toMatch(/name="description"/);
+    expect(template()).not.toMatch(/property="og:/);
+    expect(template()).not.toMatch(/name="twitter:/);
   });
 
-  it('homepage si canonical vykresluje sama', () => {
-    // Když ho sebereme šabloně, musí ho někdo dodat — jinak nejdůležitější
-    // stránka webu zůstane bez canonicalu úplně.
-    expect(readFileSync('src/pages/Home.tsx', 'utf8')).toMatch(/rel="canonical"/);
+  it('homepage si meta vykresluje sama', () => {
+    // Když ji sebereme šabloně, musí ji někdo dodat — jinak nejdůležitější
+    // stránka webu zůstane bez titulku i bez canonicalu úplně.
+    const home = readFileSync('src/pages/Home.tsx', 'utf8');
+    expect(home).toMatch(/rel="canonical"/);
+    expect(home).toMatch(/<title>/);
+    expect(home).toMatch(/name="description"/);
+    expect(home).toMatch(/property="og:url"/);
   });
 
   it('rewrite míří na skořápku, ne na homepage', () => {
     const vercel = JSON.parse(readFileSync('vercel.json', 'utf8'));
     expect(vercel.rewrites).toEqual([{ source: '/(.*)', destination: '/app-shell' }]);
+  });
+
+  it('skořápka je vyloučená z indexu hlavičkou, ne až robots.txt', () => {
+    // `Disallow` v robots.txt nestačí: „a page that's disallowed in robots.txt can
+    // still be indexed if linked to from other sites." Hlavička scoped na /app-shell
+    // se díky pořadí routingu na Vercelu (Headers → File System → Rewrites) uplatní
+    // jen na přímý požadavek, ne na adresy, které na skořápku spadnou rewritem.
+    const vercel = JSON.parse(readFileSync('vercel.json', 'utf8'));
+    const shellRule = vercel.headers.find((h: { source: string }) => h.source === '/app-shell');
+    expect(shellRule?.headers).toContainEqual({ key: 'X-Robots-Tag', value: 'noindex' });
   });
 });
 ```
@@ -2509,10 +2818,21 @@ alter function "public"."notify_vercel_reviews_change"() owner to "postgres";
 revoke all on function "public"."notify_vercel_reviews_change"() from public, "anon", "authenticated";
 grant all on function "public"."notify_vercel_reviews_change"() to "service_role";
 
+-- Pozn. k pořadí: PostgreSQL spouští AFTER triggery na téže tabulce abecedně, takže
+-- trg_reviews_deploy_hook jde PŘED trg_reviews_refresh_product_rating a v okamžiku
+-- jeho běhu je products.review_count ještě neaktualizovaný. Nevadí to: net.http_post
+-- request jen zařadí do fronty a odesílá se až po commitu, kdy je agregát hotový.
 create trigger "trg_reviews_deploy_hook"
   after insert or delete or update of "status" on "public"."reviews"
   for each row execute function "public"."notify_vercel_reviews_change"();
 ```
+
+Ověřeno spuštěním nad lokálním PostgreSQL 17.6 (produkce má 17.6.1.037, tedy tutéž major verzi),
+že jeden booleovský výraz sahající na `OLD` i `NEW` je bezpečný ve všech třech operacích: `OLD` je
+v INSERT triggeru **null-record**, ne nepřiřazený record, takže `OLD.status` vrátí `NULL` a nic
+nespadne. Prošly všechny scénáře — INSERT jako `pending` i rovnou `approved`, UPDATE se změnou
+statusu, UPDATE se statusem v SET listu bez změny hodnoty (správně nespustí build), UPDATE bez
+statusu (trigger vůbec nefiruje) i DELETE.
 
 Pojmenování drží `supabase/CONVENTIONS.md`: trigger `trg_<tab>_<purpose>`, funkce `snake_case` verb_noun, povinné `set search_path = ''` a plně kvalifikované reference. Všechno tohle mechanicky vynucuje pgTAP guard `00_naming_conventions.test.sql`.
 
@@ -2520,34 +2840,79 @@ Pojmenování drží `supabase/CONVENTIONS.md`: trigger `trg_<tab>_<purpose>`, f
 
 - [ ] **Step 4: Rozděl skořápku od homepage**
 
-Čtyři soubory, každý jeden krok. Pořadí nezáleží, ale musí být hotové všechny — po samotném smazání řádku 17 by homepage zůstala bez canonicalu úplně (`Home.tsx` má 15 řádků a `SeoTags` **nerenderuje**, viz komentář v `src/constants/publicRoutes.ts:8-9`).
+Čtyři soubory, každý jeden krok. Pořadí nezáleží, ale musí být hotové všechny — po samotném vyprázdnění šablony by homepage zůstala bez meta úplně (`Home.tsx` má 15 řádků a `SeoTags` **nerenderuje**, viz komentář v `src/constants/publicRoutes.ts:8-9`).
 
-**1.** V `index.html` smaž řádek 17:
+**Nestěhuje se jen canonical [4. kolo].** Argument „jeden canonical nemůže být správný pro
+prerenderovanou homepage i pro SPA skořápku" platí úplně stejně pro `title`, `description`
+a `og:*`. Kdyby v šabloně zůstaly, nesla by je dál každá neprerenderovaná adresa — a `keepLast()`
+v `prerender.mjs:96-98` ošetřuje `meta[name]`, `meta[property]` a `link[rel=canonical]`, ale
+`<title>` **ne**, takže by v HTML zůstaly dva. Stěhuje se proto celý blok.
+
+**1.** V `index.html` smaž **řádky 6-17** — celý blok meta homepage od `<title>` po `canonical`:
 
 ```html
+    <title>Cesty (bez) mapy - Cestovní itineráře a inspirace na cesty</title>
+    <meta name="description" content="Místo, kde najdeš inspiraci, itineráře i tipy na místa, která se do běžných průvodců nevešla. Přidej se a nech se vést světem." />
+    <meta property="og:title" content="Cesty (bez) mapy - Cestovní itineráře a inspirace na cesty" />
+    <meta property="og:description" content="Místo, kde najdeš inspiraci, itineráře i tipy na místa, která se do běžných průvodců nevešla. Přidej se a nech se vést světem." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.cestybezmapy.cz/" />
+    <meta property="og:image" content="https://www.cestybezmapy.cz/images/logo.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Cesty (bez) mapy - Cestovní itineráře a inspirace na cesty" />
+    <meta name="twitter:description" content="Místo, kde najdeš inspiraci, itineráře i tipy na místa, která se do běžných průvodců nevešla." />
+    <meta name="twitter:image" content="https://www.cestybezmapy.cz/images/logo.png" />
     <link rel="canonical" href="https://www.cestybezmapy.cz/" />
 ```
 
-**2.** V `src/pages/Home.tsx` doplň canonical, který šabloně sebereme. React 19 značku zvedne do `<head>`, takže se dostane i do prerenderovaného `dist/index.html`:
+V `<head>` zůstane jen `charset`, `viewport`, `icon` a `apple-touch-icon` — tedy věci, které
+platí pro každou adresu stejně.
+
+**2.** V `src/pages/Home.tsx` doplň meta, kterou šabloně bereme. React 19 značky zvedne do `<head>` — ověřeno spuštěním nad nainstalovanou 19.2.6 — takže se dostanou i do prerenderovaného `dist/index.html`. **Tohle je celý obsah souboru**, včetně `displayName` a `export default`, které dnes na konci má:
 
 ```tsx
 import { SITE_URL } from '../utils/blogSeo';
 import Navigation from '../components/layout/Navigation';
 import Hero from '../components/common/Hero';
 
+const TITLE = 'Cesty (bez) mapy - Cestovní itineráře a inspirace na cesty';
+const DESCRIPTION =
+  'Místo, kde najdeš inspiraci, itineráře i tipy na místa, která se do běžných průvodců nevešla. Přidej se a nech se vést světem.';
+
 const Home = () => {
   return (
     <div className="min-h-screen bg-white" data-prerender-ready="true">
-      {/* Canonical patří sem, ne do index.html: ta šablona slouží i jako SPA
-          skořápka, takže by canonical homepage dostala každá adresa, která
-          projde rewritem. Zbytek meta (title, description, og:*) zůstává
-          v index.html — Home schválně nepoužívá SeoTags. */}
+      {/* Meta homepage patří sem, ne do index.html: ta šablona slouží i jako SPA
+          skořápka, takže by ji dostala každá adresa, která projde rewritem.
+          React 19 tyhle značky zvedne do <head> sám.
+
+          Home schválně nepoužívá SeoTags — ta komponenta staví na per-route meta
+          objektu (`ProductMeta` a spol.), zatímco homepage má vlastní ručně psané
+          texty a žádný takový objekt pro ni neexistuje. */}
+      <title>{TITLE}</title>
+      <meta name="description" content={DESCRIPTION} />
+      <meta property="og:title" content={TITLE} />
+      <meta property="og:description" content={DESCRIPTION} />
+      <meta property="og:type" content="website" />
+      <meta property="og:url" content={`${SITE_URL}/`} />
+      <meta property="og:image" content={`${SITE_URL}/images/logo.png`} />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={TITLE} />
+      <meta
+        name="twitter:description"
+        content="Místo, kde najdeš inspiraci, itineráře i tipy na místa, která se do běžných průvodců nevešla."
+      />
+      <meta name="twitter:image" content={`${SITE_URL}/images/logo.png`} />
       <link rel="canonical" href={`${SITE_URL}/`} />
       <Navigation />
       <Hero />
     </div>
   );
 };
+
+Home.displayName = 'Home';
+
+export default Home;
 ```
 
 **3.** Ve `vercel.json` přesměruj rewrite na samostatnou skořápku:
@@ -2561,16 +2926,52 @@ const Home = () => {
   ],
 ```
 
+Tvar bez přípony je správně: Vercel dokumentuje, že „if `cleanUrls` is set to `true`, do not
+include the file extension in the source or destination path".
+
+A do pole `headers` přidej **jako první položku**, před stávající blok pro `/(.*)`:
+
+```json
+    {
+      "source": "/app-shell",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex" }]
+    },
+```
+
+Proč hlavička, a ne až `Disallow` v `robots.txt` při launchi (rozhodnutí uživatele 2026-08-18):
+`/app-shell` je veřejná adresa vracející 200 a prázdnou stránku. Google k `robots.txt` výslovně
+píše, že *„a page that's disallowed in robots.txt can still be indexed if linked to from other
+sites"* a jako správné řešení uvádí právě `noindex`. Hlavička navíc funguje okamžitě a nespoléhá
+na to, že si na ni někdo při launchi vzpomene. Scoping je bezpečný: Vercel zpracovává **Headers
+před** File System Routes i Rewrites, takže se pravidlo uplatní jen na přímý požadavek na
+`/app-shell`, ne na adresy, které na skořápku teprve spadnou rewritem.
+
 **4.** V `scripts/prerender.mjs` ulož čistou skořápku **dřív**, než ji prerender homepage přepíše. Na začátek `run()`, před smyčku přes routy:
 
 ```js
   // `/` se prerenderuje do dist/index.html, takže by se skořápka jinak ztratila.
-  // Kopírujeme ji stranou, aby rewrite `/(.*) → /app-shell` servíroval HTML
-  // BEZ canonicalu — a klientský SeoTags si ho pak smí nastavit sám.
-  await fs.copyFile(
-    path.posix.join(distDir, 'index.html'),
-    path.posix.join(distDir, 'app-shell.html'),
-  );
+  // Odkládáme ji stranou, aby rewrite `/(.*) → /app-shell` servíroval HTML BEZ
+  // meta homepage — klientský kód si ji pak smí nastavit sám.
+  //
+  // `DIST`, ne `distDir`: `distDir` je jen název parametru `outputPathForRoute`
+  // a ve `run()` neexistuje. (Doslovná kopie s `distDir` shodí build na
+  // ReferenceError — ověřeno spuštěním.)
+  //
+  // Titulek doplňujeme, protože ho šablona po Step 4.1 už nemá: bez něj by
+  // prohlížeč na neprerenderovaných adresách ukazoval v záložce holou URL,
+  // dokud nedoběhne React.
+  const template = await fs.readFile(path.posix.join(DIST, 'index.html'), 'utf8');
+  if (template.includes('rel="canonical"')) {
+    // V tuhle chvíli má být dist/index.html čerstvý výstup `vite build`, tedy bez
+    // canonicalu. Když ho obsahuje, běží prerender nad UŽ prerenderovanou homepage
+    // (typicky opakované `npm run build:novite`, které samo `vite build` nespouští)
+    // a do skořápky by se uložila homepage — přesně stav, který tenhle krok ruší.
+    throw new Error(
+      'dist/index.html už je prerenderovaný — spusť `vite build` před prerenderem, jinak by app-shell.html dostal meta homepage.',
+    );
+  }
+  const shell = template.replace('</head>', '  <title>Cesty (bez) mapy</title>\n  </head>');
+  await fs.writeFile(path.posix.join(DIST, 'app-shell.html'), shell);
 ```
 
 - [ ] **Step 5: Run tests to verify they pass**
@@ -2587,14 +2988,19 @@ Expected: PASS. Plnou sadu spouštíme proto, že `index.html` je sdílená šab
 ```bash
 cd /Users/janparma/Desktop/Projekty/cesty-bez-mapy
 set -a; . .env.local; set +a; npm run build
-echo "-- homepage --";  grep -o 'rel="canonical" href="[^"]*"' dist/index.html
-echo "-- skořápka --";  grep -c 'rel="canonical"' dist/app-shell.html
-echo "-- produkt  --";  grep -o 'rel="canonical" href="[^"]*"' dist/cestovni-pruvodci/*/index.html | head -3
+echo "-- homepage canonical --"; grep -c 'rel="canonical"' dist/index.html
+echo "-- homepage cíl       --"; grep -o 'rel="canonical" href="[^"]*"' dist/index.html
+echo "-- homepage title     --"; grep -c '<title>' dist/index.html
+echo "-- homepage og:url    --"; grep -c 'property="og:url"' dist/index.html
+echo "-- skořápka canonical --"; grep -c 'rel="canonical"' dist/app-shell.html
+echo "-- skořápka og        --"; grep -c 'property="og:' dist/app-shell.html
+echo "-- skořápka title     --"; grep -c '<title>' dist/app-shell.html
+echo "-- produkt            --"; grep -o 'rel="canonical" href="[^"]*"' dist/cestovni-pruvodci/*/index.html | head -3
 ```
 
 Expected:
-- `dist/index.html` — **právě jeden** canonical na `https://www.cestybezmapy.cz/`. Víc než jeden znamená problém: React 19 meta/link per routu nededuplikuje a duplicitní canonical je horší než žádný.
-- `dist/app-shell.html` — **nula** (`grep -c` vrátí `0`).
+- `dist/index.html` — **právě jeden** canonical na `https://www.cestybezmapy.cz/`, **právě jeden** `<title>` a **jeden** `og:url`. Víc než jeden je problém: React 19 meta/link per routu nededuplikuje, a `keepLast()` v `prerender.mjs` sice `meta` a `canonical` uklidí, ale `<title>` **ne**. Dvojka u titulku znamená, že v `index.html` zůstal ten původní.
+- `dist/app-shell.html` — canonical **0**, `og:` **0**, `<title>` **1** (ten neutrální, který skript dopisuje).
 - detail produktu — jeden canonical na sebe sama, beze změny.
 
 Ověření, že rewrite skořápku opravdu servíruje, patří až na preview deploy (Task 13 Step 6) — lokálně to nejde, `vercel.json` se v `vite preview` neuplatňuje.
@@ -2636,7 +3042,7 @@ Task 8 tuhle chybu u nové stránky nezavádí; tenhle task uklidí zbytek.
 **Files:**
 - Modify: `src/pages/ReviewSubmit.tsx:170`, `Stahnout.tsx:109`, `SalzburgItinerary.tsx:127`, `TravelInspiration.tsx:123`, `Checkout.tsx:202`, `Contact.tsx:174`, `OrderConfirmation.tsx:146,164,427`, `CustomItineraryPreview.tsx:254`, `Privacy.tsx:12`, `BlogPostDetail.tsx:133`, `CustomItineraryDetail.tsx:100`, `CustomItineraryForm.tsx:1165`, `TravelGuides.tsx:618`, `Reviews.tsx:36`, `ProductDetail.tsx:340`, `FAQ.tsx:209`
 - Modify: `src/pages/MyStory.tsx:28`, `src/pages/Collaboration.tsx:169` — jen smazat řádek `role="main"`; `aria-labelledby` zůstává, takže `<section>` je dál pojmenovaný landmark `region`
-- Modify: `src/pages/FAQ.test.tsx:6-10`
+- Modify: `src/pages/FAQ.test.tsx:7-10,18-21` (řádek 6 je prázdný)
 - Create: `src/pages/layoutLandmarks.test.ts`
 
 Čísla řádků platí k výchozímu stavu. `ProductDetail.tsx` se posune, protože ho mění Task 9 — hledej podle tagu, ne podle čísla.
@@ -2670,7 +3076,9 @@ describe('orientační body stránek', () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `npm run test:run -- src/pages/layoutLandmarks.test.ts`
-Expected: FAIL — vypíše seznam 18 souborů (16 s `<main>`, 2 s `role="main"`).
+Expected: FAIL — vypíše seznam **18** souborů (16 s `<main>`, 2 s `role="main"`).
+
+Kdyby jich bylo 19 a navíc byl v seznamu `ProductReviewsPage.tsx`, znamená to, že v něm zůstal z Tasku 8 komentář s doslovným zápisem toho tagu. Ta stránka žádnou druhou hlavní oblast nerenderuje — hledej v komentáři, ne v JSX **[4. kolo]**.
 
 - [ ] **Step 3: Nahraď `<main>` v každé stránce**
 
@@ -2689,21 +3097,45 @@ Tři soubory potřebují víc než záměnu tagu:
 
 A dva soubory **nemají `<main>` vůbec**, jen `role="main"` na `<section>`: `MyStory.tsx:28` a `Collaboration.tsx:169`. Tam smaž pouze ten jeden atribut a nech `<section aria-labelledby=…>` být.
 
-- [ ] **Step 4: Aktualizuj komentář ve `FAQ.test.tsx`**
+- [ ] **Step 4: Srovnej `FAQ.test.tsx` s novou skutečností**
 
-Test sám projde beze změny: `screen.getAllByRole('main')` vrátí nově jediný prvek a `mains[mains.length - 1]` je Layoutův `<main>`, uvnitř kterého FAQ je a Navigation není. Komentář na řádcích 6-10 ale po opravě lže — přepiš ho:
+**Aserce testu se nemění a prošly by i beze změny** — `screen.getAllByRole('main')` vrátí nově
+jediný prvek a `mains[mains.length - 1]` je právě on. Co se mění, jsou dva komentáře, které po
+opravě lžou, a teď už zbytečné braní „posledního z několika". Obojí jsou doslovné náhrady.
+
+Nejdřív komentář nad `describe` (řádky 7-10) — z:
 
 ```tsx
 // FAQ je obalený Layoutem, který renderuje Navigation -> CartButton (potřebuje CartProvider).
-// Dotazujeme se jen v rámci <main>, protože Navigation obsahuje vlastní
+// Dotazujeme se jen v rámci <main role="main">, protože Navigation obsahuje vlastní
 // mobile-menu-button s aria-controls (jiný a11y pattern, inert místo hidden) — bez scope
 // by .find() vždy vrátil tlačítko mobilního menu, ne FAQ accordion.
 ```
 
-a uvnitř testu:
+na:
 
 ```tsx
-    // Layout renderuje <main id="main-content"> a Navigation je mimo něj.
+// FAQ je obalený Layoutem, který renderuje Navigation -> CartButton (potřebuje CartProvider).
+// Dotazujeme se jen v rámci hlavní oblasti, kterou renderuje Layout, protože Navigation
+// obsahuje vlastní mobile-menu-button s aria-controls (jiný a11y pattern, inert místo
+// hidden) — bez scope by .find() vždy vrátil tlačítko mobilního menu, ne FAQ accordion.
+```
+
+Pak uvnitř testu (řádky 18-21) — z:
+
+```tsx
+    // Layout renderuje vlastní <main id="main-content"> a FAQ uvnitř něj svůj <main role="main">
+    // (nested) — vezmeme ten vnitřní/poslední, abychom nezachytili Navigation mimo něj.
+    const mains = screen.getAllByRole('main');
+    const main = mains[mains.length - 1];
+```
+
+na:
+
+```tsx
+    // Layout renderuje jedinou hlavní oblast (id="main-content") a Navigation je mimo ni.
+    // Dřív jich bylo víc, protože FAQ renderovalo vlastní — proto se tu braly všechny
+    // a používala se poslední.
     const main = screen.getByRole('main');
 ```
 
@@ -2742,6 +3174,25 @@ to."
 
 **Files:** žádné změny — jen ověření.
 
+**Předpoklad: testovací data [4. kolo].** Většina kroků níž je nad produkční databází, jak
+vypadá dnes, **neproveditelná** — jediný produkt s recenzí (`italie-roadtrip`) má recenzi jednu,
+takže `collectRoutes` vyrobí `ceil(1/10) = 1` stranu, `/recenze/strana/2` vůbec nevznikne
+a `ReviewsPagination` se při `totalPages <= 1` nevykreslí. Padlo by tím ověření hloubky cest,
+stránkování i změřená výška sekce.
+
+Před spuštěním tasku proto musí existovat:
+
+| Role | Slug | Podmínka |
+|---|---|---|
+| Produkt s víc stranami | `test-toskansko` | **≥ 11 schválených** recenzí (2 strany) |
+| Produkt bez recenzí | `test-korsika` | 0 schválených recenzí, `is_active = true` |
+
+Obojí naseeduje uživatel (resp. Claude na jeho pokyn) **mimo tenhle plán**, protože jde o zápis
+do produkční databáze. Oba slugy jsou existující testovací produkty určené ke smazání před
+spuštěním webu — nezanáší se tím recenze k reálnému produktu. Kdyby se slugy lišily, uprav si
+proměnné `SLUG` a `EMPTY` níž, ale **nenechávej v příkazech zástupné symboly**: `SLUG=<něco>`
+je v bashi přesměrování a skončí syntaktickou chybou.
+
 - [ ] **Step 1: Celá sada testů, typy, lint**
 
 ```bash
@@ -2763,26 +3214,44 @@ set -a; . .env.local; set +a; npm run build
 Pak nad výstupem produktu, který recenzi má:
 
 ```bash
-SLUG=<slug produktu s recenzí>
+SLUG='test-toskansko'
 grep -c "Recenze —" "dist/cestovni-pruvodci/$SLUG/recenze/index.html"
 grep -o 'rel="canonical" href="[^"]*"' "dist/cestovni-pruvodci/$SLUG/recenze/index.html"
-grep -c 'offers' "dist/cestovni-pruvodci/$SLUG/recenze/index.html"
+grep -c '"offers"' "dist/cestovni-pruvodci/$SLUG/recenze/index.html"
 grep -o '"ratingValue":"[^"]*"' "dist/cestovni-pruvodci/$SLUG/recenze/index.html"
 grep -c 'name="robots"' "dist/cestovni-pruvodci/$SLUG/recenze/index.html"
+grep -o '"@id":"[^"]*"' "dist/cestovni-pruvodci/$SLUG/recenze/index.html"
+# druhá strana musí existovat jako vlastní soubor
+test -f "dist/cestovni-pruvodci/$SLUG/recenze/strana/2/index.html" && echo "strana 2 OK"
+grep -o 'rel="canonical" href="[^"]*"' "dist/cestovni-pruvodci/$SLUG/recenze/strana/2/index.html"
 ```
 
-Expected: nadpis přítomen; **právě jeden** canonical mířící na `…/$SLUG/recenze`; **žádné** `offers` (0); `ratingValue` s jedním desetinným místem a shodné s číslem v souhrnu na stránce; **žádný** `robots` (0).
+Expected: nadpis přítomen; **právě jeden** canonical mířící na `…/$SLUG/recenze`; **žádné**
+`"offers"` (0); `ratingValue` s jedním desetinným místem a shodné s číslem v souhrnu na stránce;
+**žádný** `robots` (0); `@id` mířící na **detail** produktu (`…/cestovni-pruvodci/$SLUG#product`),
+tedy shodné s uzlem na detailu; soubor strany 2 existuje a jeho canonical míří **sám na sebe**,
+ne na stranu 1.
+
+Pozor na `grep -c '"offers"'` s uvozovkami uvnitř: hledáme klíč v JSON-LD, ne slovo kdekoli
+v HTML.
 
 A nad produktem **bez** recenzí:
 
 ```bash
-EMPTY=<slug produktu bez recenzí>
+EMPTY='test-korsika'
 grep -o 'name="robots" content="[^"]*"' "dist/cestovni-pruvodci/$EMPTY/recenze/index.html"
-grep -c 'application/ld+json' "dist/cestovni-pruvodci/$EMPTY/recenze/index.html"
+grep -c '"@type":"Product"' "dist/cestovni-pruvodci/$EMPTY/recenze/index.html"
+grep -c '"@type":"Organization"' "dist/cestovni-pruvodci/$EMPTY/recenze/index.html"
 grep -c "$EMPTY/recenze" dist/sitemap.xml
 ```
 
-Expected: `noindex`; **žádné** JSON-LD (0) — `Product` bez `review`/`aggregateRating`/`offers` je neplatný; a **žádný** výskyt v sitemapě (0).
+Expected: `noindex`; **žádný** `Product` uzel (0) — `Product` bez `review`/`aggregateRating`/`offers`
+je neplatný; **jeden** `Organization` uzel (1); a **žádný** výskyt v sitemapě (0).
+
+**Nekontroluj `grep -c 'application/ld+json'` a nečekej nulu [4. kolo].** `Footer.tsx:251` vydává
+`Organization` JSON-LD na **každé** stránce webu, takže by ten příkaz vrátil 1 vždycky a vypadalo
+by to jako chyba implementace. Testuje se nepřítomnost `Product` uzlu, ne nepřítomnost JSON-LD
+jako takového.
 
 - [ ] **Step 3: Změř dopad na výšku sekce**
 
@@ -2798,7 +3267,7 @@ const base = server.resolvedUrls.local[0].replace(/\/$/, '');
 const browser = await chromium.launch();
 for (const [label, viewport] of [['mobil', { width: 390, height: 844 }], ['desktop', { width: 1440, height: 900 }]]) {
   const page = await browser.newPage({ viewport });
-  await page.goto(`${base}/cestovni-pruvodci/<slug>`, { waitUntil: 'load' });
+  await page.goto(`${base}/cestovni-pruvodci/test-toskansko`, { waitUntil: 'load' });
   await page.waitForSelector('section[aria-label="Recenze produktu"]');
   const height = await page.evaluate(() =>
     Math.round(document.querySelector('section[aria-label="Recenze produktu"]').getBoundingClientRect().height));
@@ -2809,13 +3278,20 @@ await browser.close();
 await server.close();
 ```
 
-Expected: s jednou recenzí v databázi zůstane sekce kolem 615 px na obou; se třemi recenzemi má na mobilu vyjít ~1 341 px a na desktopu ~615 px (jeden řádek). Výchozím stavem pro porovnání je **dnešních 2 430 px na mobilu** při šesti kartách.
+Expected: se třemi a víc recenzemi (což `test-toskansko` po naseedování má) vyjde na mobilu ~1 341 px a na desktopu ~615 px, protože tři karty vyplní jeden řádek beze zbytku. Výchozím stavem pro porovnání je **dnešních 2 430 px na mobilu** při šesti kartách. U produktu s jedinou recenzí by sekce měřila kolem 615 px na obou a číslo by nic nedokazovalo — proto se měří nad naseedovaným produktem **[4. kolo]**.
 
 - [ ] **Step 4: Projdi stránku očima**
 
-Otevři `/cestovni-pruvodci/<slug>/recenze` a zkontroluj: nadpis, souhrn hodnocení **bez** odkazu, disclosure, plný text recenze bez ořezu, odkaz zpět na průvodce. Vlož do recenze v testovacích datech dlouhou URL bez mezer a ověř, že se zalomí a nezmizí za okrajem karty.
+Otevři `/cestovni-pruvodci/test-toskansko/recenze` a zkontroluj: nadpis, souhrn hodnocení **bez** odkazu, **perex produktu a náhledový obrázek** (musí tam být — JSON-LD je posílá), disclosure, plný text recenze bez ořezu, datum s dnem, odkaz zpět na průvodce. Vlož do recenze v testovacích datech dlouhou URL bez mezer a ověř, že se zalomí a nezmizí za okrajem karty.
 
-Klávesnicí: tabuj na stránkování, přepni stranu a ověř, že fokus skončí na nadpisu a je **vidět** (`focus-visible` prstenec). Pak otevři `/…/recenze/strana/2` přímo z adresního řádku a ověř, že fokus **nikam neskočí**.
+Fokus — čtyři situace, každá jiná **[4. kolo]**:
+
+1. **Příchod z detailu produktu** (klik na souhrn hodnocení): fokus **nesmí** skočit na nadpis. Byl by to `PUSH`, ale je to první render — guard na `isFirstRender` to má chytit.
+2. **Přepnutí strany** klikem ve stránkování: fokus **skončí na nadpisu** a prstenec je **vidět**. Zkontroluj to i **myší**, nejen klávesnicí — proto se používá `focus:ring`, ne `focus-visible:ring`.
+3. **Přímý vstup** na `/…/recenze/strana/2` z adresního řádku: fokus **nikam neskočí**.
+4. **Přesměrování** z `/…/recenze/strana/99`: skončíš na poslední platné straně a fokus **nikam neskočí**.
+
+Pozor na Safari: `Tab` na odkazy nesahá, dokud není v systému zapnutý „Full Keyboard Access" (macOS ho má ve výchozím stavu vypnutý). Klávesovou část ověř v Chrome, nebo si to nastavení zapni — jinak to vypadá jako chyba stránky.
 
 Na detailu produktu zkontroluj souhrn pod nadpisem jako odkaz a tři karty vedle sebe na desktopu.
 
@@ -2831,25 +3307,39 @@ Nemá veřejné API, takže tenhle krok nejde zautomatizovat. Vezmi vyrenderovan
 
 *(b) Rozdělená skořápka.* Změna `destination` ve `vercel.json` se lokálně ověřit nedá — `vite preview` konfiguraci Vercelu neuplatňuje.
 
+**Tenhle krok NEPROVÁDÍ implementující subagent [4. kolo].** Nemá přístup k nasazení ani
+k přihlašovacím údajům. Preview nasazuje a smoke provádí orchestrátor (Claude v hlavní session)
+přes Vercel CLI; uživatel rozhodl 2026-08-18. Subagent tenhle krok jen nahlásí jako čekající.
+
 Nasaď preview a ověř, že se servíruje prerenderovaný soubor, ne SPA skořápka:
 
 ```bash
-curl -sS -u "<basic-auth>" "https://<preview>/cestovni-pruvodci/<slug>/recenze" | grep -c "Recenze —"
-curl -sS -u "<basic-auth>" "https://<preview>/cestovni-pruvodci/<slug>/recenze/strana/2" | grep -c "Recenze —"
+PREVIEW='https://<url z vercel deploy>'
+AUTH='<uživatel:heslo pro předlaunchový Basic auth>'
+SLUG='test-toskansko'
+
+curl -sS -u "$AUTH" "$PREVIEW/cestovni-pruvodci/$SLUG/recenze" | grep -c "Recenze —"
+curl -sS -u "$AUTH" "$PREVIEW/cestovni-pruvodci/$SLUG/recenze/strana/2" | grep -c "Recenze —"
 ```
 
-Expected: obojí ≥ 1. Kdyby vyšla 0, dostáváš skořápku přes rewrite a prerender se neuplatňuje — zastav se a řeš to, celý SEO přínos stojí na tomhle.
+Expected: obojí ≥ 1. Kdyby vyšla 0, dostáváš skořápku přes rewrite a prerender se neuplatňuje — zastav se a řeš to, celý SEO přínos stojí na tomhle. Druhý příkaz je hloubka **5** a je jediný způsob, jak ji ověřit; proto musí mít `$SLUG` aspoň 11 schválených recenzí.
 
 Pak ověř samotné rozdělení skořápky:
 
 ```bash
-# neexistující adresa musí spadnout na skořápku BEZ canonicalu
-curl -sS -u "<basic-auth>" "https://<preview>/tahle-adresa-neexistuje" | grep -c 'rel="canonical"'
-# homepage naopak canonical mít musí
-curl -sS -u "<basic-auth>" "https://<preview>/" | grep -o 'rel="canonical" href="[^"]*"'
+# neexistující adresa musí spadnout na skořápku BEZ meta homepage
+curl -sS -u "$AUTH" "$PREVIEW/tahle-adresa-neexistuje" | grep -c 'rel="canonical"'
+curl -sS -u "$AUTH" "$PREVIEW/tahle-adresa-neexistuje" | grep -c 'property="og:'
+# homepage naopak canonical i og mít musí
+curl -sS -u "$AUTH" "$PREVIEW/" | grep -o 'rel="canonical" href="[^"]*"'
+curl -sS -u "$AUTH" "$PREVIEW/" | grep -c 'property="og:url"'
+# skořápka sama musí nést noindex hlavičku
+curl -sSI -u "$AUTH" "$PREVIEW/app-shell" | grep -i 'x-robots-tag'
 ```
 
-Expected: první příkaz vrátí **0**, druhý **jeden** canonical na `https://www.cestybezmapy.cz/`. Kdyby neexistující adresa canonical nesla, rewrite pořád míří na homepage a rozdělení se neuplatnilo.
+Expected: první dva příkazy vrátí **0**, třetí **jeden** canonical na `https://www.cestybezmapy.cz/`, čtvrtý **1**. Kdyby neexistující adresa canonical nesla, rewrite pořád míří na homepage a rozdělení se neuplatnilo.
+
+Poslední příkaz je ošemetný: `vercel.json` posílá `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet` na **všechny** odpovědi (předlaunchová ochrana), takže hlavička tam bude tak jako tak. Ověřuj, že se **na `/app-shell` neztratila** — a skutečné potvrzení, že scoped pravidlo funguje samostatně, přijde až po launchi, kdy plošná hlavička zmizí. Zapiš si to do launch checklistu.
 
 Pozor: web i admin jsou za předlaunchovým Basic auth (realm „cesty-bez-mapy"), takže `curl` potřebuje `-u`.
 
@@ -2861,14 +3351,27 @@ Migrace z Tasku 11 mění produkční databázi. **Neprováděj bez potvrzení u
 supabase db push
 ```
 
-Pak ověř, že trigger existuje **na produkci** — `supabase test db` bez `--db-url` se připojuje
-na lokální databázi a o produkčním stavu neřekne nic:
+Pak ověř, že trigger existuje **na produkci**. `supabase test db` bez `--db-url` se připojuje
+na lokální databázi a o produkčním stavu neřekne nic — ale **nepouštěj proti produkci ani celou
+pgTAP sadu [4. kolo]**: `04_reviews.test.sql` používá absolutní počty řádků napříč tabulkou
+(`count(*) = 1`, `= 5`), takže by proti produkčním datům červenala bez ohledu na migraci
+a vypadalo by to jako selhání nasazení. Ověřeno spuštěním: naseedovaná data shodila přesně
+testy 20, 25, 26 a 28.
 
-```bash
-supabase test db --db-url "$PROD_DB_URL"
+Místo toho cílený dotaz na produkční schéma (jen čtení):
+
+```sql
+select tgname from pg_trigger
+ where tgrelid = 'public.reviews'::regclass and not tgisinternal;
+
+select proname from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+ where n.nspname = 'public' and proname = 'notify_vercel_reviews_change';
 ```
 
-a v Supabase dashboardu schval jednu čekající recenzi (nebo ji odschval a znovu schval) a v Vercelu zkontroluj, že se do minuty rozjel nový build.
+Expected: `trg_reviews_deploy_hook` je v prvním výpisu, `notify_vercel_reviews_change` ve druhém.
+
+Nakonec v Supabase dashboardu schval jednu čekající recenzi (nebo ji odschval a znovu schval) a v Vercelu zkontroluj, že se do minuty rozjel nový build. **Tohle je jediné ověření, že deploy hook opravdu odejde** — lokální pgTAP to dokázat nemůže, protože `vault.secrets` je prázdný a větev s `net.http_post` se nikdy nevykoná.
 
 - [ ] **Step 8: Commit (jen pokud kroky odhalily opravu)**
 
@@ -2882,7 +3385,24 @@ Pokud kroky 1–7 nic neodhalily, není co commitovat.
 
 **2. Seznam se tou hlavičkou neřídí.** SeznamBot `X-Robots-Tag` ignoruje a stáhne celou URL; pro něj je `<meta name="robots">` v HTML jediný funkční mechanismus. Dnes web chrání jen Basic auth. Prakticky to znamená, že zastaralý prerenderovaný `noindex` by poškodil i Seznam — což je další důvod pro deploy hook z Tasku 11.
 
-**3. `robots.txt` musí zakázat skořápku.** `public/robots.txt` je dnes plošné `Disallow: /`. Až se při launchi otevře, přidej `Disallow: /app-shell` — jinak zůstane veřejně dostupná prázdná stránka bez canonicalu, na kterou sice nikdo neodkazuje, ale která nemá co dělat v indexu.
+**3. Skořápku chrání hlavička, ne `robots.txt` [4. kolo].** `/app-shell` je veřejná adresa
+vracející 200 a prázdnou stránku. Task 11 pro ni zavádí scoped `X-Robots-Tag: noindex`
+ve `vercel.json`. Až se při launchi odstraní plošná předlaunchová hlavička, **ověř, že to
+scoped pravidlo zůstalo a funguje samostatně**:
+
+```bash
+curl -sSI "https://www.cestybezmapy.cz/app-shell" | grep -i 'x-robots-tag'   # → noindex
+curl -sSI "https://www.cestybezmapy.cz/kontakt"   | grep -i 'x-robots-tag'   # → nic
+```
+
+Druhý příkaz je důležitý: kdyby hlavička odcházela i na běžné stránky, znamenalo by to,
+že se pravidlo neaplikovalo scoped, a vyindexoval by se celý web.
+
+**Do `robots.txt` `Disallow: /app-shell` nepřidávej.** Zakázaný crawl by robotovi zabránil
+přečíst si `noindex` — Google k tomu píše, že *„a page that's disallowed in robots.txt can
+still be indexed if linked to from other sites"*, takže by ochrana byla slabší, ne silnější.
+U Seznamu platí totéž výslovně: *„Pokud zakážete stahování v souboru robots.txt, SeznamBot
+si informaci o zákazu indexování již nepřečte."*
 
 ## Poznámky mimo rozsah
 

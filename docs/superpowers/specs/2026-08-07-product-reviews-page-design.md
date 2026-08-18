@@ -40,7 +40,7 @@ a stránkováním v cestě; na detailu produktu zůstane klikatelný souhrn hodn
 
 Zdroje ověřeny 2026-08-07; data uvedená u zdrojů jsou jejich poslední aktualizace.
 
-Spec prošel **třemi** koly nezávislého ověření:
+Spec prošel **čtyřmi** koly nezávislého ověření:
 
 1. Před sepsáním plánu (Firecrawl + Context7).
 2. Nad hotovým plánem, tři Opus auditoři. Přidalo rozhodnutí označená **[2. kolo]** a odhalilo
@@ -48,11 +48,22 @@ Spec prošel **třemi** koly nezávislého ověření:
 3. Nad přepsaným plánem, tři Opus auditoři s Context7 (HTTP API) a Firecrawl CLI. Zaměřené hlavně
    na to, co ve druhém kole **vzniklo nově a nikdo to nekontroloval**. Přidalo rozhodnutí
    označená **[3. kolo]**.
+4. 2026-08-18, čtyři Opus auditoři (SEO/hosting, React+testy, DB+skripty, konzistence). Metodicky
+   nejsilnější kolo: dva auditoři plán **skutečně naimplementovali** a spustili na něm jeho vlastní
+   testy, třetí testoval migraci nad živým PostgreSQL 17. Přidalo rozhodnutí označená **[4. kolo]**
+   a našlo **28 nálezů, z toho čtyři blokující**.
 
 Třetí kolo mimo jiné **vrátilo zpět opravu z druhého kola**, která byla sama chybná: tvrzení, že
 Googlův příklad „Product review page" obsahuje `offers`. Ověřeno strojově — neobsahuje, druhý
 auditor si ho spletl se sekcí *Shopping aggregator page*. Poučení pro čtenáře: i „oprava po
-ověření" může být chybná, dokud není doložená strojově, ne převyprávěná.
+ověření" může být chybná, dokud není doložená strojově, ne převyprávěná. Čtvrté kolo tenhle závěr
+nezávisle potvrdilo (přepočtem výskytů řetězce v sekci) a zároveň ověřilo **všech 15 doložených
+citací** v tabulce níž jako pravdivé.
+
+Čtvrté kolo ukázalo, kde po třech kolech chyby opravdu zůstávají: **ne v citacích, ale v kódu
+kroků a v tom, co plán ze správných citací nedovodil.** Nejtypičtější nález: JSON-LD posílalo
+`description` a `image`, které stránka nikde nevykreslovala — porušení přesně toho pravidla,
+kterým plán argumentuje na třech jiných místech.
 
 | Rozhodnutí | Zdroj |
 |---|---|
@@ -64,7 +75,13 @@ ověření" může být chybná, dokud není doložená strojově, ne převyprá
 | Aktuální strana stránkování **zůstává odkazem** s `aria-current="page"` **[2. kolo]** | W3C Design System, *Pagination*: „it is fully linked so users of Assistive Technology can find which is the currently active link“. Rozhodl uživatel 2026-08-07 |
 | `robots` je jen `noindex`, bez `follow` **[2. kolo]** | Google, *Robots meta tag* (2026-03-24) — `follow` není mezi platnými pravidly; následování odkazů je výchozí chování. Seznam `follow` uvádí, ale jako **výchozí hodnotu**, takže vynechání nic nemění |
 | SPA skořápka se oddělí od homepage do `dist/app-shell.html`; rewrite míří na ni **[3. kolo]** | `dist/index.html` dnes slouží jako prerenderovaná homepage **i** jako cíl rewritu `/(.*) → /`. Jeden canonical nemůže být správný pro obojí. Google, *Consolidate duplicate URLs* (2026-07-10): „If you can't set the canonical URL in the HTML source code, leave it out and only set it with JavaScript." Rozhodl uživatel 2026-08-07 |
-| Fokus po změně strany se řídí `useNavigationType() === 'PUSH'` **[3. kolo]** | Původní guard na `location.key === 'default'` **selhával**: po přesměrování z neplatné strany je klíč náhodný a po F5 přežije v `history.state`. Ověřeno spuštěním — mount i reload jsou `POP`, interní přesměrování `REPLACE`, jen klik je `PUSH` |
+| Do `Home.tsx` se stěhuje **celá** meta homepage, ne jen canonical **[4. kolo]** | Argument o skořápce platí stejně pro `title`, `description` i `og:*` — jinak je dál dostane každá neprerenderovaná adresa. Navíc `keepLast()` v `prerender.mjs:96-98` ošetřuje `meta[name]`, `meta[property]` a `link[rel=canonical]`, ale **ne `<title>`**; ověřeno spuštěním, že v `<head>` pak zůstanou dva. react.dev, `<title>`: „Only render a single `<title>` at a time to avoid undefined behavior." Rozhodl uživatel 2026-08-18 |
+| `/app-shell` chrání `X-Robots-Tag: noindex` ve `vercel.json`, **ne** `Disallow` v `robots.txt` **[4. kolo]** | Google, *Robots intro* (2025-12-10): „A page that's disallowed in robots.txt can still be indexed if linked to from other sites… use the `noindex` meta tag or response header." Seznam totéž výslovně: zakázaný crawl znamená, že si robot `noindex` nepřečte. Scoping je bezpečný — Vercel zpracovává Headers **před** File System Routes i Rewrites (`vercel.com/docs/routing#routing-order`), takže pravidlo platí jen na přímý požadavek. Rozhodl uživatel 2026-08-18 |
+| Stránka recenzí **vykresluje perex produktu a náhledový obrázek** **[4. kolo]** | JSON-LD je posílá v `description` a `image`, ale stránka je nezobrazovala — porušení téhož pravidla, kterým spec argumentuje u `ratingValue`. Google, *Structured data general guidelines* (2026-07-10): „Don't mark up content that is not visible to readers of the page." Uživatel 2026-08-18 zvolil obsah doplnit (druhá možnost byla vypustit ho z markupu) |
+| Oba `Product` uzly nesou shodné `name` a shodné `@id` **[4. kolo]** | Detail měl `name: product.title` (což se nikde nezobrazuje — `ProductDetail.tsx:360` vypisuje `detail_title`), stránka recenzí `detail_title`, a žádný sdílený identifikátor. Dva `Product` uzly na dvou adresách bez pojítka. Googlovo stanovisko k tomuhle případu neexistuje (hledáno cíleně), ale platí „canonical preference is a **hint, not a rule**" — sdílené `@id` je jediný tvrdý signál, který dát můžeme. Rozhodl uživatel 2026-08-18 |
+| Datum na kartě se zobrazuje **včetně dne** **[4. kolo]** | `datePublished` v JSON-LD nese `2026-07-01`, karta ukazovala „červenec 2026". Tatáž třída rozporu jako u `ratingValue`. Uživatel 2026-08-18 zvolil srovnat to zobrazením přesného data (dopad: mění se i globální `/recenze` a sekce na detailu — sdílí tentýž helper) |
+| Fokus po změně strany se řídí `useNavigationType() === NavigationType.Push` **a nesmí padnout při prvním renderu** **[3. kolo, upřesněno 4. kolem]** | Původní guard na `location.key === 'default'` **selhával**: po přesměrování z neplatné strany je klíč náhodný a po F5 přežije v `history.state`. Ověřeno spuštěním — mount i reload jsou `POP`, interní přesměrování `REPLACE`, jen klik je `PUSH`. **4. kolo:** samotné `PUSH` nestačí — příchod z detailu produktu je taky `PUSH` a efekt běží dřív, než doběhne načtení, takže odečítač oznámil useknuté „Recenze —" a fokus přeskočil odkaz „Zpět na průvodce" nad nadpisem (ověřeno spuštěním). Přibyl guard na první render. Porovnání s řetězcem `'PUSH'` navíc shodí lint — `useNavigationType()` vrací enum |
+| Prstenec fokusu je `focus:ring`, ne `focus-visible:ring` **[4. kolo]** | Změřeno v Chromiu i WebKitu: po programovém `.focus()` se `:focus-visible` v Chromiu **neaktivuje**, když uživatel ovládá stránku myší — prstenec by chyběl přesně tomu, kdo nejmíň čeká, že mu fokus někam skočí. Rozhodl uživatel 2026-08-18 |
 | Omezení self-serving recenzí se nás **netýká** | Google, *Review snippet* (2026-07-24) — omezení je výslovně jen pro `LocalBusiness` a ostatní typy `Organization`; `Product` v tom výčtu není |
 | Stránkování přes `<a href>`, ne tlačítko | Google, *Pagination* (2025-12-10): „crawlers don't ‚click‘ buttons“ |
 | Každá strana má **vlastní** canonical | Google, *Pagination* (2025-12-10): „Don't use the first page of a paginated sequence as the canonical page“ |
@@ -85,7 +102,7 @@ Původní návrh používal `?strana=n`. To ale v tomhle projektu naráží: `ve
 strana 1 a Vercel podá prerenderovaný soubor strany 1 — jehož zdrojové HTML nese canonical
 strany 1. JavaScript by ho pak přepsal, což je přesně případ, který Google zakazuje.
 Riziko zvyšuje i to, že React 19 per-route `<meta>`/`<link>` nededupuje (viz komentář
-v `scripts/prerender.mjs:81-83`), takže by mohly vzniknout dva `<link rel="canonical">`.
+v `scripts/prerender.mjs:80-82`), takže by mohly vzniknout dva `<link rel="canonical">`.
 
 Se stránkováním v cestě má každá strana vlastní soubor, a tedy správný canonical, titulek
 i JSON-LD **už ve zdrojovém HTML**. Googlův `?page=n` je v dokumentaci uveden jen jako příklad
@@ -166,8 +183,15 @@ Při současném objemu je `count: 'exact'` bez výhrad v pořádku.
 - `<h1>` s názvem produktu (vyžaduje to `validateHtml` v `scripts/prerender.mjs:102-107`,
   jinak build spadne).
 - Souhrn hodnocení nahoře — tentýž vizuál jako `ProductRatingSummary`, ale **bez odkazu**
-  (stránka by odkazovala sama na sebe).
-- **`REVIEWS_DISCLOSURE`** pod nadpisem, stejně jako na detailu (`ProductReviews.tsx:106`).
+  (stránka by odkazovala sama na sebe). Protože hvězdičky i oddělovač jsou `aria-hidden`,
+  nese varianta bez odkazu význam ve skrytých textových fragmentech, aby odečítač nepřečetl
+  jen holé „5,0 12 recenzí" **[4. kolo]**.
+- **Perex produktu a náhledový obrázek** pod souhrnem **[4. kolo]**. Nejsou tam kvůli vzhledu:
+  JSON-LD je posílá v `description` a `image`, a markovat smíme jen to, co je vidět. Platí to
+  oběma směry — když je stránka přestane zobrazovat, musí zmizet i z markupu. Perex se vykresluje
+  jen když produkt `hero_subtitle` má; jinak `description` z JSON-LD vypadne úplně (fallback na
+  meta description by markoval marketingovou větu, která na stránce nikde není).
+- **`REVIEWS_DISCLOSURE`** pod nadpisem, stejně jako na detailu (`ProductReviews.tsx:104`).
   Zákonná povinnost, ne kosmetika.
 - **10 recenzí na stranu, jeden sloupec, plný text bez ořezu.** Odstavec dostane omezenou
   šířku řádku kvůli čitelnosti — třísloupcová mřížka je pro texty do 2 000 znaků nevhodná.
@@ -211,8 +235,13 @@ import) by se řádek mohl mezi stranami zopakovat nebo přeskočit.
 **Detail produktu** (merchant listing) — `offers` beze změny, `aggregateRating` zůstává
 (nově je průměr i vidět), `review[]` **zkrácené na 3 zobrazené**.
 
-**Stránka recenzí** (product snippet) — `Product` + `name` + `description` +
-`aggregateRating` + `review[]` odpovídající **právě zobrazené straně**. Bez `offers`.
+**Stránka recenzí** (product snippet) — `Product` + `@id` + `name` + `image` +
+`aggregateRating` + `review[]` odpovídající **právě zobrazené straně**, a `description`
+jen když produkt má perex. Bez `offers`.
+
+`@id` je shodné s uzlem na detailu a míří na detail produktu (`…/cestovni-pruvodci/:slug#product`),
+takže obě stránky mluví o prokazatelně témž produktu **[4. kolo]**. `name` prochází sdíleným
+helperem `productDisplayName()`, který používá i detail — dřív měl každý svoje.
 
 V `src/utils/productSeo.ts` přibude samostatná funkce vedle `buildProductMeta`; mapování
 `Review` se sdílí, aby nevznikly dvě verze pravdy.
@@ -254,12 +283,16 @@ způsobilými pro review snippet vůbec není.
 - **Každý odkaz stránkování má vlastní `aria-label`** — „Strana 2“, „Předchozí strana“,
   „Další strana“. Holé číslo „2“ jako název odkazu nestačí.
 - Po přechodu na jinou stranu se fokus přesune na nadpis seznamu (`tabIndex={-1}`), a to
-  **jen po skutečném kliknutí uvnitř aplikace** — poznáno podle `useNavigationType() === 'PUSH'`
-  **[3. kolo]**. Nejde vyjít ze změny čísla strany (to vyskočí z 1 na 2 i při přímém příchodu
-  na `/strana/2` z Googlu) ani z `location.key` (ten je `'default'` jen na mountu kanonické
-  adresy — po přesměrování z neplatné strany je náhodný a po F5 přežije v `history.state`).
-  Prstenec fokusu zůstává viditelný (`focus-visible`); ověřeno v Chromiu i WebKitu, že se
-  při programovém `.focus()` skutečně vykreslí.
+  **jen po skutečném přepnutí strany uvnitř stránky** — poznáno podle `useNavigationType()`
+  a podle toho, že nejde o první render **[3. kolo, upřesněno 4. kolem]**. Nejde vyjít ze změny
+  čísla strany (to vyskočí z 1 na 2 i při přímém příchodu na `/strana/2` z Googlu) ani
+  z `location.key` (ten je `'default'` jen na mountu kanonické adresy — po přesměrování
+  z neplatné strany je náhodný a po F5 přežije v `history.state`). Samotné `PUSH` taky nestačí:
+  příchod z detailu produktu je `PUSH` a efekt běží dřív, než doběhne načtení dat.
+- Prstenec fokusu se kreslí přes `focus:`, **ne `focus-visible:`** **[4. kolo]**. Změřeno
+  v Chromiu i WebKitu: po programovém `.focus()` se `:focus-visible` v Chromiu neaktivuje,
+  pokud uživatel ovládá stránku myší. Dřívější tvrzení specu, že se prstenec vykreslí v obou
+  enginech, bylo chybné.
 - Stránka **nepřidává `noindex` do přesměrovací větve** — React 19 by značku sice zvedl do
   `<head>`, ale `Navigate` komponentu hned odmountuje a značka zmizí dřív, než ji renderující
   crawler uvidí. Ochranu obstará `canonical` cílové strany **[3. kolo]**.
@@ -310,6 +343,14 @@ Odlišné titulky a popisy **jako argument neobstojí** [2. kolo]: Google k pagi
 titles and descriptions for all pages in the sequence.“ Rozlišujeme je pro čitelnost, ne jako
 ochranu proti duplicitě.
 
+**Strany nad stropem prerenderu jsou prolinkované, ale nemají statické HTML [4. kolo].**
+`ReviewsPagination` počítá `totalPages` z živého `review_count`, ne ze stropu
+`MAX_PRERENDERED_REVIEW_PAGES` (20 stran = 200 recenzí). Nad ním tedy vzniknou crawlovatelné
+odkazy na strany, které prerender nevyrobil — crawler tam dostane skořápku a obsah uvidí až po
+vykonání JavaScriptu. Ořezat odkazy stropem by bylo horší: uživatel by se na hlubší strany
+nedostal vůbec. Prerender proto na překročení stropu upozorní v logu, aby se dal včas zvednout.
+Při dnešním objemu (jedna schválená recenze) je to teoretické.
+
 **Strana mimo rozsah se řeší klientským přesměrováním, ne stavem 404.** Google pro měkké 404 v SPA
 dokumentuje dvě cesty — JS redirect na adresu vracející 404, nebo `noindex` přidaný JavaScriptem.
 Volíme přesměrování na nejbližší platnou stranu (rozhodnutí uživatele) doplněné o `noindex`, protože
@@ -324,9 +365,15 @@ jednou reálnou adresou stránky recenzí a potvrdit, že `Product` bez `offers`
 
 **2. Hloubka cest na Vercelu [2. kolo].** Vercel dokumentace potvrzuje, že se filesystem uplatní
 před rewrity („precedence is given to the filesystem prior to rewrites being applied“), ale
-o adresářových indexech u `cleanUrls` mlčí. V tomhle projektu je mechanismus prokázaný jen do
-hloubky 2 (`/cestovni-pruvodci/:slug`); routy recenzí jdou do hloubky 3 (`…/recenze/index.html`) a **5**
-(`…/recenze/strana/2/index.html`). Nutný smoke na preview deploy — kdyby se vracela SPA skořápka místo prerenderovaného souboru, padá celý SEO přínos.
+o adresářových indexech u `cleanUrls` mlčí **na jakékoli hloubce** (ověřeno ve 4. kole průchodem
+referencí `vercel.json`, `docs/routing`, `docs/rewrites` i `docs/headers`). V tomhle projektu je
+mechanismus prokázaný jen do hloubky 2 (`/cestovni-pruvodci/:slug`); routy recenzí jdou do hloubky
+3 (`…/recenze/index.html`) a **5** (`…/recenze/strana/2/index.html`). Nutný smoke na preview
+deploy — kdyby se vracela SPA skořápka místo prerenderovaného souboru, padá celý SEO přínos.
+
+**Předpokládá to testovací data [4. kolo].** Hloubka 5 se dá ověřit jedině nad produktem, který
+má aspoň 11 schválených recenzí — jinak druhá strana vůbec nevznikne a smoke by hlásil falešný
+poplach. Viz předpoklad u Tasku 13.
 
 **3. Předlaunchová hlavička [2. kolo].** `vercel.json:23` posílá na všechny odpovědi
 `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet`. Dokud tam je, canonical, `robots` ani
