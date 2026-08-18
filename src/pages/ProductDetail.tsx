@@ -14,6 +14,7 @@ import { buildProductMeta } from '../utils/productSeo';
 import { fetchApprovedReviews } from '../lib/reviews';
 import type { PublicReview } from '../lib/reviews';
 import ProductReviews from '../components/reviews/ProductReviews';
+import { reviewDateIso } from '../components/reviews/formatReviewDate';
 import type { Tables } from '../types/database.types';
 
 type ProductDetailRow = Pick<
@@ -115,7 +116,7 @@ const ProductDetail = () => {
                 author: r.reviewer_name,
                 rating: r.rating,
                 text: r.review_text,
-                datePublished: r.created_at.slice(0, 10),
+                datePublished: reviewDateIso(r.created_at),
               })));
             }
           } catch (reviewsErr) {

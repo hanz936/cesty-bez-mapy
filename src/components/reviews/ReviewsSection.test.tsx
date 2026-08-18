@@ -12,7 +12,7 @@ const captureExceptionMock = vi.fn<(...args: unknown[]) => unknown>();
 vi.mock('@sentry/react', () => ({ captureException: (...args: unknown[]) => captureExceptionMock(...args) }));
 
 import ReviewsSection from './ReviewsSection';
-import { formatReviewDate } from './formatReviewDate';
+import { formatReviewDate, reviewDateIso } from './formatReviewDate';
 
 const REVIEW = {
   id: 'r1',
@@ -31,6 +31,31 @@ describe('ReviewsSection', () => {
     // Datum musí odpovídat `datePublished` v JSON-LD (2026-07-01), jinak markujeme
     // přesnější údaj, než jaký je na stránce vidět.
     expect(formatReviewDate('2026-07-01T10:00:00.000Z')).toBe('1. července 2026');
+  });
+
+  it('formatReviewDate i reviewDateIso jsou ukotvené na pražskou zónu, ne na runtime zónu', () => {
+    // 22:30 UTC = 0:30 SELČ (UTC+2 v létě) následujícího dne — bez timeZone by karta
+    // a JSON-LD mohly ukázat různý den podle toho, v jaké zóně běží runtime.
+    expect(formatReviewDate('2026-06-30T22:30:00.000Z')).toBe('1. července 2026');
+    // Tohle je test, co by na starém `iso.slice(0, 10)` spadl: UTC dá '2026-06-30',
+    // zatímco pražská půlnoc už je '2026-07-01' — přesně ten posun, co karta vedle neměla.
+    expect(reviewDateIso('2026-06-30T22:30:00.000Z')).toBe('2026-07-01');
+  });
+
+  it('reviewDateIso respektuje zimní čas (UTC+1), není nahardkódovaný posun +2', () => {
+    // 23:30 UTC v lednu = 0:30 SEČ (UTC+1 v zimě) následujícího dne.
+    expect(reviewDateIso('2026-01-15T23:30:00.000Z')).toBe('2026-01-16');
+  });
+
+  it('formatReviewDate a reviewDateIso popisují pro pozdně-večerní UTC čas stejný kalendářní den', () => {
+    const lateEveningUtc = '2026-06-30T22:30:00.000Z';
+    const cardDay = formatReviewDate(lateEveningUtc); // '1. července 2026'
+    const jsonLdDate = reviewDateIso(lateEveningUtc); // '2026-07-01'
+    expect(jsonLdDate).toBe('2026-07-01');
+    expect(cardDay).toBe('1. července 2026');
+    // Obě hodnoty musí popisovat stejný den (1. července), jinak markup a viditelný text nesouhlasí.
+    expect(jsonLdDate.endsWith('-07-01')).toBe(true);
+    expect(cardDay.startsWith('1. ')).toBe(true);
   });
 
   it('shows honest empty state with zero reviews', async () => {
