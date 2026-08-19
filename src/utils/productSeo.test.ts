@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildProductMeta, buildProductReviewsMeta } from './productSeo';
+import { buildProductMeta, buildProductReviewsMeta, productDisplayName, productReviewsPath } from './productSeo';
 
 const product = {
   title: 'Toskánsko průvodce',
@@ -79,6 +79,13 @@ describe('buildProductMeta aggregateRating', () => {
     const meta = buildProductMeta(PRODUCT, { rating: { average: 0, count: 0 }, reviews: [] });
     expect('aggregateRating' in meta.jsonLd).toBe(false);
   });
+
+  it('ratingValue zaokrouhlí dvoumístný DB průměr na jedno desetinné místo', () => {
+    // Schválně NENÍ 4.5 jako jinde v souboru: `String(4.5)` a `ratingValueJsonLd(4.5)`
+    // vrátí totéž, takže by test prošel i beze skutečné opravy zaokrouhlení.
+    const meta = buildProductMeta(PRODUCT, { rating: { average: 4.67, count: 3 }, reviews: [] });
+    expect(meta.jsonLd.aggregateRating?.ratingValue).toBe('4.7');
+  });
 });
 
 // Fixtura se JMENUJE JINAK NEŽ `product` schválně: soubor už `const product`
@@ -98,6 +105,32 @@ const reviewsFixture = [
   { author: 'Jana N.', rating: 5, text: 'Skvělé.', datePublished: '2026-07-01' },
   { author: 'Petr K.', rating: 4, text: 'Dobré.', datePublished: '2026-06-20' },
 ];
+
+describe('productDisplayName', () => {
+  it('detail_title null spadne na title', () => {
+    expect(productDisplayName({ detail_title: null, title: 'Roadtrip po Itálii' })).toBe('Roadtrip po Itálii');
+  });
+
+  it('detail_title jen z mezer spadne na title (`??` by tenhle případ nezachytilo)', () => {
+    expect(productDisplayName({ detail_title: '   ', title: 'Roadtrip po Itálii' })).toBe('Roadtrip po Itálii');
+  });
+});
+
+describe('productReviewsPath', () => {
+  it('strana 1 nemá segment /strana', () => {
+    expect(productReviewsPath('italie-roadtrip', 1)).toBe('/cestovni-pruvodci/italie-roadtrip/recenze');
+  });
+
+  it('strana 3 má segment /strana/3', () => {
+    expect(productReviewsPath('italie-roadtrip', 3)).toBe('/cestovni-pruvodci/italie-roadtrip/recenze/strana/3');
+  });
+
+  it('NaN se chová jako nestránkovaná cesta', () => {
+    // `NaN <= 1` i `NaN > 1` jsou obě false — bez sdíleného predikátu se `productReviewsPath`
+    // a titulek ve `buildProductReviewsMeta` rozejdou (jeden by přidal segment, druhý ne).
+    expect(productReviewsPath('italie-roadtrip', NaN)).toBe('/cestovni-pruvodci/italie-roadtrip/recenze');
+  });
+});
 
 describe('buildProductReviewsMeta', () => {
   it('JSON-LD je Product BEZ offers (stránka není prodejní)', () => {
@@ -217,5 +250,13 @@ describe('buildProductReviewsMeta', () => {
   it('se recenzemi noindex nenastavuje', () => {
     const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: reviewsFixture }, 'https://x.cz');
     expect(meta.robots).toBeUndefined();
+  });
+
+  it('titulek a canonical se shodnou i pro neceločíselnou stranu', () => {
+    // page 2.5 není platná strana — sdílený `isPagedPage` predikát ji musí v obou
+    // místech (canonical i titulek) vyhodnotit stejně jako „nestránkovaná".
+    const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 2.5, reviews: reviewsFixture }, 'https://x.cz');
+    expect(meta.title).toBe('Recenze — Roadtrip po Itálii na 20 dní');
+    expect(meta.canonical).toBe('https://x.cz/cestovni-pruvodci/italie-roadtrip/recenze');
   });
 });

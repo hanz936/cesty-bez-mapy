@@ -102,8 +102,7 @@ export function buildProductMeta(
   options?: ProductMetaReviewOptions,
   siteUrl: string = SITE_URL,
 ): ProductMeta {
-  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string title must fall through to fallback (?? would change behavior)
-  const title = product.detail_title?.trim() || product.title;
+  const title = productDisplayName(product);
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string description must fall through to fallback (?? would change behavior)
   const description = product.hero_subtitle?.trim() || product.detail_title?.trim() || product.title;
   const canonical = `${siteUrl}/cestovni-pruvodci/${product.slug}`;
@@ -175,10 +174,15 @@ export interface ProductReviewsMeta {
   jsonLd?: ProductReviewsJsonLd;
 }
 
+/** Strana je „další" jen pro celé číslo > 1 — cokoli jiného patří na stranu 1. */
+function isPagedPage(page: number): boolean {
+  return Number.isInteger(page) && page > 1;
+}
+
 /** Cesta stránky recenzí produktu (strana 1 je bez segmentu `/strana`). */
 export function productReviewsPath(slug: string, page = 1): string {
   const base = `/cestovni-pruvodci/${slug}/recenze`;
-  return page <= 1 ? base : `${base}/strana/${page}`;
+  return isPagedPage(page) ? `${base}/strana/${page}` : base;
 }
 
 export function buildProductReviewsMeta(
@@ -192,7 +196,7 @@ export function buildProductReviewsMeta(
   // Tentýž helper jako buildProductMeta → obě stránky pošlou shodné `name`.
   const productTitle = productDisplayName(product);
   const count = product.review_count ?? 0;
-  const suffix = options.page > 1 ? ` (strana ${options.page})` : '';
+  const suffix = isPagedPage(options.page) ? ` (strana ${options.page})` : '';
   const title = `Recenze — ${productTitle}${suffix}`;
   const description = count > 0
     ? `Recenze od ověřených zákazníků k průvodci ${productTitle}. Přečti si, co říkají ti, kteří s ním už cestovali.`
