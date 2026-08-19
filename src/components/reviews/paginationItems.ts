@@ -14,7 +14,8 @@ export function paginationItems(currentPage: number, totalPages: number): Pagina
   }
 
   const keep = new Set<number>([1, totalPages, currentPage, currentPage - 1, currentPage + 1]);
-  // Helper does not rely on caller having clamped page to integer — defend against fractional input.
+  // Necelá čísla odfiltrujeme tady, ne až u volajícího: `2.5` by jinak vyrobilo
+  // odkazy „Strana 1.5" s adresou `/strana/1.5`.
   const sorted = [...keep].filter((page) => Number.isInteger(page) && page >= 1 && page <= totalPages).sort((a, b) => a - b);
 
   const items: PaginationItem[] = [];
