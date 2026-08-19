@@ -3,10 +3,11 @@ import type { BlogMeta } from '../../utils/blogSeo';
 import type { ProductMeta, ProductReviewsMeta } from '../../utils/productSeo';
 
 // Structural shape covering PageMeta | BlogMeta | ProductMeta | ProductReviewsMeta (src/utils/{pageSeo,blogSeo,productSeo}.ts):
-// PageMeta has no `jsonLd`; BlogMeta/ProductMeta/ProductReviewsMeta declare it required (not optional). A plain
+// the four differ in how they declare `jsonLd` — PageMeta not at all, BlogMeta/ProductMeta as
+// required, ProductReviewsMeta as optional (a product with no reviews emits none). A plain
 // union of those exported interfaces can't be used here because TS won't allow accessing
 // `.jsonLd` on a union where one member lacks the property at all — this local structural type
-// (jsonLd optional, typed via indexed access so all metas stay assignable)
+// (jsonLd optional, typed via indexed access so all four metas stay assignable)
 // is what they actually satisfy.
 interface SeoTagsMeta {
   title: string;
