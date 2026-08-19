@@ -7,6 +7,7 @@ import type { PublicReview } from '../../lib/reviews';
 import { REVIEWS_DISCLOSURE } from './disclosure';
 import { formatReviewDate } from './formatReviewDate';
 import { ROUTES } from '../../constants';
+import { formatRatingCs } from '../../utils/rating';
 
 const PAGE_SIZE = 9;
 /** Souhrnné statistiky ukazujeme až od 3 schválených recenzí (do té doby by průměr byl zavádějící). */
@@ -128,7 +129,7 @@ const ReviewsSection = ({ className = '' }: ReviewsSectionProps) => {
           {stats && stats.count >= STATS_THRESHOLD && (
             <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8 text-center max-w-2xl mx-auto">
               <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-                <div className="text-3xl font-bold text-green-800 mb-2">{stats.average.toFixed(1).replace('.', ',')}</div>
+                <div className="text-3xl font-bold text-green-800 mb-2">{formatRatingCs(stats.average)}</div>
                 <div className="text-sm text-gray-500 uppercase tracking-wider">Průměrné hodnocení</div>
               </div>
               <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
