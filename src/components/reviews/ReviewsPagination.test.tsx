@@ -67,10 +67,11 @@ describe('ReviewsPagination', () => {
     expect(screen.getByRole('link', { name: 'Předchozí strana' })).toBeInTheDocument();
   });
 
-  it('seznam má list role pro přístupnost', () => {
-    renderAt(2, 3);
-    const list = screen.getByRole('list');
-    expect(list).toBeInTheDocument();
+  it('seznam nese explicitní role="list"', () => {
+    const { container } = renderAt(2, 3);
+    // Ne getByRole('list'): jsdom nenačítá Tailwind Preflight, takže implicitní roli má
+    // <ul> i bez atributu a taková aserce projde vždycky. Ověřujeme proto atribut.
+    expect(container.querySelector('ul')).toHaveAttribute('role', 'list');
   });
 
   it('className se dostane na nav', () => {

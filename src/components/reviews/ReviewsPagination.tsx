@@ -32,8 +32,10 @@ const ReviewsPagination = ({ currentPage, totalPages, buildHref, className = '' 
 
   return (
     <nav aria-label="Stránkování recenzí" className={`flex justify-center ${className}`.trim()}>
-      {/* Tailwind Preflight removes list-style, so Preflight hides this as a list from screen readers unless we restore the role explicitly. */}
-      <ul  className="flex flex-wrap items-center gap-2">
+      {/* `role="list"` schválně: Tailwind Preflight nastavuje `list-style: none` a seznam
+          bez odrážek pak VoiceOver jako seznam neohlásí — doporučuje to dokumentace
+          Tailwindu. U stránkování ta ztráta bolí, „seznam, N položek" říká, kolik je stran. */}
+      <ul role="list" className="flex flex-wrap items-center gap-2">
         {currentPage > 1 && (
           <li>
             <Link to={buildHref(currentPage - 1)} className={linkClass} aria-label="Předchozí strana">
