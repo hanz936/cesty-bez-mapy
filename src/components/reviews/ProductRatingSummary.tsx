@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { formatRatingCs } from '../../utils/rating';
+import { formatRatingCs, roundRating } from '../../utils/rating';
 import { reviewCountLabel } from './reviewCountLabel';
 
 interface ProductRatingSummaryProps {
@@ -28,6 +28,7 @@ const Stars = ({ average }: { average: number }) => (
               fill="currentColor"
               viewBox="0 0 24 24"
               style={{ clipPath: isHalf ? 'inset(0 50% 0 0)' : 'none' }}
+              data-testid={isHalf ? 'half-star' : undefined}
             >
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
             </svg>
@@ -47,17 +48,21 @@ const ProductRatingSummary = ({ average, count, href, className = '' }: ProductR
 
   const formattedAverage = formatRatingCs(average);
   const label = `${count} ${reviewCountLabel(count)}`;
-  // Skryté fragmenty dávají větě smysl i tam, kde souhrn není odkaz (hvězdičky
-  // i oddělovač jsou aria-hidden). Prokládáme je místo jednoho souhrnného
-  // `sr-only` textu schválně: jinak by se počet recenzí objevil v DOMu dvakrát
-  // a `getByText` by hlásil víc shod. U varianty s href je aria-label na odkazu
-  // přebije, takže se nic nezdvojí.
+  // Hvězdičky se kreslí ze ZAOKROUHLENÉ hodnoty, ne ze syrového průměru —
+  // jinak by mohly ukazovat jiný počet plných/půl hvězd, než kolik říká
+  // číslo vedle nich (např. 4.96 → text „5,0", ale hvězdičky by z 4.96
+  // dokreslily 4 plné + 1 půl). `roundRating` je jediné místo, které o
+  // zaokrouhlení rozhoduje.
+  const roundedAverage = roundRating(average);
+  // Skryté fragmenty dávají větě smysl tam, kde souhrn není odkaz (hvězdičky
+  // i oddělovač jsou aria-hidden). Ve variantě s href jsou zbytečné — `aria-label`
+  // na <Link> přebíjí přístupný název celého podstromu, takže by se jen zdvojily.
   const body = (
     <>
-      <Stars average={average} />
-      <span className="sr-only">Hodnocení </span>
+      <Stars average={roundedAverage} />
+      {!href && <span className="sr-only">Hodnocení </span>}
       <span className="font-semibold text-gray-900">{formattedAverage}</span>
-      <span className="sr-only"> z 5,</span>
+      {!href && <span className="sr-only"> z 5,</span>}
       <span className="text-gray-500" aria-hidden="true">·</span>
       <span className="text-gray-600">{label}</span>
     </>

@@ -50,4 +50,13 @@ describe('ProductRatingSummary', () => {
     expect(screen.getByText('Hodnocení')).toBeInTheDocument();
     expect(screen.getByText('z 5,')).toBeInTheDocument();
   });
+
+  it('hvězdičky se kreslí ze zaokrouhlené hodnoty, ne ze syrového průměru', () => {
+    // average=4.96 zaokrouhlí formatRatingCs na „5,0“. Kdyby hvězdičky kreslily
+    // ze syrového průměru, Math.ceil(4.96)=5 a 4.96 % 1 !== 0 by dokreslily
+    // půl hvězdu na páté pozici — text by tvrdil 5,0, hvězdičky by ukazovaly 4,5.
+    renderIn(<ProductRatingSummary average={4.96} count={7} />);
+    expect(screen.getByText(/5,0/)).toBeInTheDocument();
+    expect(screen.queryByTestId('half-star')).not.toBeInTheDocument();
+  });
 });
