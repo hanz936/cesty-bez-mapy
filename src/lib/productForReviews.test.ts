@@ -29,6 +29,11 @@ describe('fetchProductForReviews', () => {
     const product = await fetchProductForReviews('italie');
     expect(product?.id).toBe('p1');
     expect(product?.review_count).toBe(12);
+    // Sloupce hlídáme explicitně: kdyby se seznam rozešel s `ProductForReviews`,
+    // typy to nezachytí — PostgREST vrací, co se ho zeptáme, ne co slibuje interface.
+    expect(selectSpy).toHaveBeenCalledWith(
+      'id, title, detail_title, hero_subtitle, slug, image_url, average_rating, review_count'
+    );
   });
 
   it('vrátí null, když produkt neexistuje (PGRST116)', async () => {
