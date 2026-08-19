@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
 import { Button, Dropdown } from '../components/ui';
+import RatingStars from '../components/ui/RatingStars';
 import SeoTags from '../components/common/SeoTags';
 import { buildPageMeta } from '../utils/pageSeo';
 import { BASE_PATH, ROUTES } from '../constants';
@@ -77,27 +78,7 @@ const GuideCard = ({ guide, onCardClick }: GuideCardProps) => {
           </span>
           {guide.reviewCount > 0 && (
             <div className="flex items-center gap-2">
-              <div className="flex">
-                {[1,2,3,4,5].map(star => {
-                  const isFull = star <= Math.floor(guide.rating);
-                  const isHalf = star === Math.ceil(guide.rating) && guide.rating % 1 !== 0;
-
-                  return (
-                    <div key={star} className="relative">
-                      {/* Background (empty) star */}
-                      <svg className="w-4 h-4 text-gray-200" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                      </svg>
-                      {/* Foreground (filled) star */}
-                      {(isFull || isHalf) && (
-                        <svg className="w-4 h-4 text-yellow-400 absolute top-0 left-0" fill="currentColor" viewBox="0 0 24 24" style={{ clipPath: isHalf ? 'inset(0 50% 0 0)' : 'none' }}>
-                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                        </svg>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <RatingStars rating={guide.rating} filledClassName="text-yellow-400" emptyClassName="text-gray-200" />
               <span className="text-sm text-gray-600 font-medium">{guide.rating} ({guide.reviewCount})</span>
             </div>
           )}

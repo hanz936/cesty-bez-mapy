@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import RatingStars from './RatingStars';
 
 interface ReviewCardProps {
   name: string;
@@ -28,35 +29,6 @@ const ReviewCard = memo(({
   variant = 'teaser',
   className = ''
 }: ReviewCardProps) => {
-  // Generate stars based on rating - more elegant, smaller
-  const renderStars = (rating: number) => {
-    return Array.from({ length: 5 }, (_, index) => {
-      const starNumber = index + 1;
-      const isFull = starNumber <= Math.floor(rating);
-      const isHalf = starNumber === Math.ceil(rating) && rating % 1 !== 0;
-
-      return (
-        <div key={starNumber} className="relative">
-          {/* Background star */}
-          <svg className="w-3.5 h-3.5 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
-          {/* Foreground star */}
-          {(isFull || isHalf) && (
-            <svg
-              className="w-3.5 h-3.5 text-green-800 absolute top-0 left-0"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-              style={{ clipPath: isHalf ? 'inset(0 50% 0 0)' : 'none' }}
-            >
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-            </svg>
-          )}
-        </div>
-      );
-    });
-  };
-
   return (
     <div className={`bg-white rounded-3xl p-8 lg:p-10 transition-all duration-500 border border-gray-100 group relative overflow-hidden backdrop-blur-sm flex flex-col ${className}`.trim()}>
 
@@ -76,7 +48,7 @@ const ReviewCard = memo(({
       {/* Header with subtle rating */}
       <div className="relative z-10 flex items-center justify-start mb-6 flex-shrink-0 pr-12">
         <div className="flex items-center gap-1.5">
-          {renderStars(rating)}
+          <RatingStars rating={rating} size="w-3.5 h-3.5" className="gap-1.5" />
           <span className="ml-2 text-xs font-medium text-gray-500 tracking-wide">{rating}</span>
         </div>
         {verified && (

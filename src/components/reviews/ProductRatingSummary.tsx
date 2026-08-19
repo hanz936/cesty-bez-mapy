@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { formatRatingCs, roundRating } from '../../utils/rating';
 import { reviewCountLabel } from './reviewCountLabel';
+import RatingStars from '../ui/RatingStars';
 
 interface ProductRatingSummaryProps {
   average: number;
@@ -9,35 +10,6 @@ interface ProductRatingSummaryProps {
   href?: string;
   className?: string;
 }
-
-/** Hvězdičky nesou jen dekoraci — význam je v textu vedle nich. */
-const Stars = ({ average }: { average: number }) => (
-  <span className="flex items-center gap-0.5" aria-hidden="true">
-    {Array.from({ length: 5 }, (_, index) => {
-      const starNumber = index + 1;
-      const isFull = starNumber <= Math.floor(average);
-      const isHalf = starNumber === Math.ceil(average) && average % 1 !== 0;
-      return (
-        <span key={starNumber} className="relative inline-flex">
-          <svg className="w-4 h-4 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-          </svg>
-          {(isFull || isHalf) && (
-            <svg
-              className="w-4 h-4 text-green-800 absolute top-0 left-0"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-              style={{ clipPath: isHalf ? 'inset(0 50% 0 0)' : 'none' }}
-              data-testid={isHalf ? 'half-star' : undefined}
-            >
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-            </svg>
-          )}
-        </span>
-      );
-    })}
-  </span>
-);
 
 /**
  * Souhrn hodnocení produktu. Google vyžaduje, aby byl průměr z `aggregateRating`
@@ -59,7 +31,7 @@ const ProductRatingSummary = ({ average, count, href, className = '' }: ProductR
   // na <Link> přebíjí přístupný název celého podstromu, takže by se jen zdvojily.
   const body = (
     <>
-      <Stars average={roundedAverage} />
+      <RatingStars rating={roundedAverage} className="items-center gap-0.5" decorative />
       {!href && <span className="sr-only">Hodnocení </span>}
       <span className="font-semibold text-gray-900">{formattedAverage}</span>
       {!href && <span className="sr-only"> z 5,</span>}

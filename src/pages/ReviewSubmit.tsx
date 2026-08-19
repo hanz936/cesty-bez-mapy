@@ -4,6 +4,7 @@ import Layout from '../components/layout/Layout';
 import { getReviewRequest, submitReview } from '../lib/reviews';
 import type { ReviewRequestContext, ReviewRequestProduct } from '../lib/reviews';
 import { ROUTES } from '../constants';
+import { StarIcon } from '../components/ui/RatingStars';
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_token: 'Odkaz není platný. Zkontroluj, že jsi ho zkopíroval/a celý z e-mailu.',
@@ -64,13 +65,7 @@ const StarPicker = ({ value, onChange, disabled }: { value: number; onChange: (v
           onKeyDown={handleKeyDown}
           className="p-1 disabled:opacity-50"
         >
-          <svg
-            className={`w-8 h-8 ${star <= value ? 'text-green-800' : 'text-gray-300'} transition-colors`}
-            fill="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-          </svg>
+          <StarIcon className={`w-8 h-8 ${star <= value ? 'text-green-800' : 'text-gray-300'} transition-colors`} />
         </button>
       ))}
     </div>
