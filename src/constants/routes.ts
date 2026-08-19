@@ -8,6 +8,8 @@ export const ROUTES = {
   CUSTOM_ITINERARY_DETAIL: '/cestovni-pruvodci/itinerar-na-miru',
   CUSTOM_ITINERARY_FORM: '/cestovni-pruvodci/itinerar-na-miru/dotaznik',
   CUSTOM_ITINERARY_PREVIEW: '/cestovni-pruvodci/itinerar-na-miru/nahled/:id',
+  PRODUCT_REVIEWS: '/cestovni-pruvodci/:slug/recenze',
+  PRODUCT_REVIEWS_PAGED: '/cestovni-pruvodci/:slug/recenze/strana/:strana',
   CHECKOUT: '/cestovni-pruvodci/objednavka',
   ORDER_CONFIRMATION: '/cestovni-pruvodci/objednavka/potvrzeni',
   DOWNLOAD: '/stahnout',

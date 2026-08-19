@@ -20,6 +20,7 @@ const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
 const Stahnout = lazy(() => import('./pages/Stahnout'));
 const ReviewSubmit = lazy(() => import('./pages/ReviewSubmit'));
 const Quiz = lazy(() => import('./pages/Quiz'));
+const ProductReviewsPage = lazy(() => import('./pages/ProductReviewsPage'));
 import FAQ from './pages/FAQ';
 import Reviews from './pages/Reviews';
 import SalzburgItinerary from './pages/SalzburgItinerary';
@@ -106,6 +107,8 @@ function App() {
               <Route path={ROUTES.QUIZ} element={<Quiz />} />
               <Route path={ROUTES.TRAVEL_GUIDES} element={<TravelGuides />} />
               <Route path="/cestovni-pruvodci/:slug" element={<ProductDetail />} />
+              <Route path={ROUTES.PRODUCT_REVIEWS} element={<ProductReviewsPage />} />
+              <Route path={ROUTES.PRODUCT_REVIEWS_PAGED} element={<ProductReviewsPage />} />
               <Route path={ROUTES.SALZBURG_ITINERARY} element={<SalzburgItinerary />} />
               <Route path={ROUTES.CUSTOM_ITINERARY_DETAIL} element={<CustomItineraryDetail />} />
               <Route path={ROUTES.CUSTOM_ITINERARY_FORM} element={<CustomItineraryForm />} />
