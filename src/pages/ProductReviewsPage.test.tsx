@@ -298,6 +298,21 @@ describe('ProductReviewsPage', () => {
     );
   });
 
+  it('produkt bez vlastního obrázku bere placeholder relativní cestou', async () => {
+    // Absolutní URL by u placeholderu mířila na produkční doménu, která je do launche
+    // za Basic auth — obrázek by se v preview vůbec nenačetl. V JSON-LD absolutní
+    // zůstává, tam ji Google potřebuje.
+    fetchProductForReviewsMock.mockResolvedValue(product);
+    fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
+    renderAt('/cestovni-pruvodci/italie/recenze');
+    await waitFor(() =>
+      expect(screen.getByRole('img', { name: /Průvodce Roadtrip po Itálii/ })).toHaveAttribute(
+        'src',
+        '/images/placeholder-guide.jpg',
+      ),
+    );
+  });
+
   it('JSON-LD datePublished počítá pražské datum, ne UTC řez', async () => {
     // 22:30 UTC je v Praze (léto, UTC+2) už 00:30 dalšího dne — `reviewDateIso`
     // s tím počítá, `created_at.slice(0, 10)` by vrátil o den dřív.
