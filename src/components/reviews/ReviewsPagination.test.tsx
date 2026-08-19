@@ -66,4 +66,36 @@ describe('ReviewsPagination', () => {
     expect(screen.queryByRole('link', { name: 'Další strana' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Předchozí strana' })).toBeInTheDocument();
   });
+
+  it('seznam má list role pro přístupnost', () => {
+    renderAt(2, 3);
+    const list = screen.getByRole('list');
+    expect(list).toBeInTheDocument();
+  });
+
+  it('className se dostane na nav', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <ReviewsPagination currentPage={1} totalPages={2} buildHref={buildHref} className="mt-10" />
+      </MemoryRouter>,
+    );
+    const nav = container.querySelector('nav');
+    expect(nav).toHaveClass('mt-10');
+  });
+
+  it('neaktuální odkaz nemá aria-current', () => {
+    renderAt(2, 3);
+    const link1 = screen.getByRole('link', { name: 'Strana 1' });
+    const link3 = screen.getByRole('link', { name: 'Strana 3' });
+    expect(link1).not.toHaveAttribute('aria-current');
+    expect(link3).not.toHaveAttribute('aria-current');
+  });
+
+  it('výpustka má aria-hidden', () => {
+    renderAt(10, 30);
+    const gaps = screen.getAllByText('…');
+    gaps.forEach((gap) => {
+      expect(gap.closest('li')).toHaveAttribute('aria-hidden', 'true');
+    });
+  });
 });

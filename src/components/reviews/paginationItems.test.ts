@@ -21,4 +21,8 @@ describe('paginationItems', () => {
   it('nikdy nevyrobí stranu mimo rozsah', () => {
     expect(paginationItems(1, 30)).toEqual([1, 2, 'gap', 30]);
   });
+
+  it('ignoruje neceločíselné číslo strany', () => {
+    expect(paginationItems(2.5, 30)).toEqual([1, 'gap', 30]);
+  });
 });

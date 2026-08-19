@@ -14,7 +14,8 @@ export function paginationItems(currentPage: number, totalPages: number): Pagina
   }
 
   const keep = new Set<number>([1, totalPages, currentPage, currentPage - 1, currentPage + 1]);
-  const sorted = [...keep].filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
+  // Helper does not rely on caller having clamped page to integer — defend against fractional input.
+  const sorted = [...keep].filter((page) => Number.isInteger(page) && page >= 1 && page <= totalPages).sort((a, b) => a - b);
 
   const items: PaginationItem[] = [];
   let previous = 0;
