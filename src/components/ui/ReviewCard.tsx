@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import RatingStars from './RatingStars';
+import { formatRatingCs } from '../../utils/rating';
 
 interface ReviewCardProps {
   name: string;
@@ -49,7 +50,7 @@ const ReviewCard = memo(({
       <div className="relative z-10 flex items-center justify-start mb-6 flex-shrink-0 pr-12">
         <div className="flex items-center gap-1.5">
           <RatingStars rating={rating} size="w-3.5 h-3.5" className="gap-1.5" />
-          <span className="ml-2 text-xs font-medium text-gray-500 tracking-wide">{rating}</span>
+          <span className="ml-2 text-xs font-medium text-gray-500 tracking-wide">{formatRatingCs(rating)}</span>
         </div>
         {verified && (
           <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-green-800 bg-green-50 px-2 py-1 rounded-full">

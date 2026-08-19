@@ -7,6 +7,7 @@ import { Button, Dropdown } from '../components/ui';
 import RatingStars from '../components/ui/RatingStars';
 import SeoTags from '../components/common/SeoTags';
 import { buildPageMeta } from '../utils/pageSeo';
+import { roundRating, formatRatingCs } from '../utils/rating';
 import { BASE_PATH, ROUTES } from '../constants';
 import { supabase } from '../lib/supabase';
 import type { Tables } from '../types/database.types';
@@ -78,8 +79,8 @@ const GuideCard = ({ guide, onCardClick }: GuideCardProps) => {
           </span>
           {guide.reviewCount > 0 && (
             <div className="flex items-center gap-2">
-              <RatingStars rating={guide.rating} filledClassName="text-yellow-400" emptyClassName="text-gray-200" />
-              <span className="text-sm text-gray-600 font-medium">{guide.rating} ({guide.reviewCount})</span>
+              <RatingStars rating={roundRating(guide.rating)} filledClassName="text-yellow-400" emptyClassName="text-gray-200" />
+              <span className="text-sm text-gray-600 font-medium">{formatRatingCs(guide.rating)} ({guide.reviewCount})</span>
             </div>
           )}
         </div>

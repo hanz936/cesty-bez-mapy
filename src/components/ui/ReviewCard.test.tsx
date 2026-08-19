@@ -51,4 +51,9 @@ describe('ReviewCard', () => {
     rerender(<ReviewCard {...base} verified={false} />);
     expect(screen.queryByText('Ověřeno nákupem')).not.toBeInTheDocument();
   });
+
+  it('rating se vykreslí s českou desetinnou čárkou', () => {
+    render(<ReviewCard {...base} />);
+    expect(screen.getByText('5,0')).toBeInTheDocument();
+  });
 });
