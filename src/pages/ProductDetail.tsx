@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase';
 import { useCart } from '../contexts';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import SeoTags from '../components/common/SeoTags';
-import { buildProductMeta } from '../utils/productSeo';
+import { buildProductMeta, productDisplayName } from '../utils/productSeo';
 import { fetchApprovedReviews } from '../lib/reviews';
 import type { PublicReview } from '../lib/reviews';
 import ProductReviews from '../components/reviews/ProductReviews';
@@ -358,7 +358,7 @@ const ProductDetail = () => {
             {/* Title Section */}
             <div className="text-center mb-6 pb-5 border-b border-gray-200">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-black leading-tight">
-                {product.detail_title}
+                {productDisplayName(product)}
               </h1>
             </div>
 

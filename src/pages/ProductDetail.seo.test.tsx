@@ -152,4 +152,21 @@ describe('ProductDetail per-route SEO + Product JSON-LD + marker (SEO-03)', () =
       expect.objectContaining({ tags: { area: 'reviews', component: 'ProductDetail' } }),
     );
   });
+
+  it('prázdný detail_title vypíše v <h1> interní název produktu', async () => {
+    const builder = makeBuilder({ data: { ...fixtureProduct, detail_title: '   ' }, error: null });
+    fromMock.mockReturnValue(builder);
+
+    const { container } = renderProductDetail();
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-prerender-ready="true"]')).not.toBeNull();
+    });
+
+    // Nadpis prochází stejným pravidlem jako JSON-LD `name` (productDisplayName), aby
+    // stránka a strukturovaná data neříkaly každá něco jiného — a hlavně aby <h1>
+    // nezůstal prázdný.
+    expect(container.querySelector('h1')).toHaveTextContent('Itinerář Toskánsko');
+    expect(document.head.querySelector('title')).toHaveTextContent('Itinerář Toskánsko');
+  });
 });
