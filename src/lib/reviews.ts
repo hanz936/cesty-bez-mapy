@@ -38,7 +38,10 @@ export async function fetchApprovedReviews(opts: {
   let query = supabase
     .from('reviews')
     .select(`${REVIEW_COLUMNS}, products ( title, slug )`, { count: 'exact' })
-    .order('created_at', { ascending: false });
+    // `id` jako rozhodující druhý klíč: bez něj může offsetové stránkování při
+    // shodných `created_at` řádek zopakovat nebo přeskočit.
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false });
   if (opts.productId) {
     query = query.eq('product_id', opts.productId);
   }
@@ -104,4 +107,41 @@ export async function submitReview(payload: {
     return { ok: false, error: await edgeErrorCode(error, data) };
   }
   return { ok: true };
+}
+
+export interface ProductForReviews {
+  id: string;
+  title: string;
+  detail_title: string | null;
+  hero_subtitle: string | null;
+  slug: string;
+  image_url: string | null;
+  average_rating: number | null;
+  review_count: number | null;
+}
+
+/**
+ * Produkt pro stránku recenzí — jen pole potřebná pro souhrn, nadpis a JSON-LD
+ * (`hero_subtitle` slouží jako `Product.description`, viz `buildProductReviewsMeta`).
+ * `null` = produkt neexistuje nebo není veřejný (PGRST116). Jakákoli jiná chyba
+ * se vyhazuje, aby se výpadek nevydával za „produkt nenalezen".
+ *
+ * `.single()`, ne `.maybeSingle()`: postgrest-js 2.105 už u `maybeSingle()` neposílá
+ * `Accept: application/vnd.pgrst.object+json` a kardinalitu řeší na klientu, takže by
+ * PGRST116 nikdy nepřišel a větev níž by byla mrtvý kód. `.single()` navíc kopíruje
+ * dva existující call-sites (`ProductDetail.tsx:93-98`, `ProductReviews.tsx:65-70`).
+ */
+export async function fetchProductForReviews(slug: string): Promise<ProductForReviews | null> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('id, title, detail_title, hero_subtitle, slug, image_url, average_rating, review_count')
+    .eq('slug', slug)
+    .eq('is_active', true)
+    .eq('is_deleted', false)
+    .single<ProductForReviews>();
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw error;
+  }
+  return data;
 }

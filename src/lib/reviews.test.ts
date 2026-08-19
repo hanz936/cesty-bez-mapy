@@ -17,7 +17,8 @@ describe('reviews data layer', () => {
 
   it('fetchApprovedReviews selects explicit columns with product embed and range', async () => {
     const range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
-    const order = vi.fn().mockReturnValue({ range });
+    const orderById = vi.fn().mockReturnValue({ range });
+    const order = vi.fn().mockReturnValue({ order: orderById });
     const select = vi.fn().mockReturnValue({ order });
     fromMock.mockReturnValue({ select });
 
@@ -26,13 +27,17 @@ describe('reviews data layer', () => {
     expect(fromMock).toHaveBeenCalledWith('reviews');
     expect(select).toHaveBeenCalledWith(`${REVIEW_COLUMNS}, products ( title, slug )`, { count: 'exact' });
     expect(order).toHaveBeenCalledWith('created_at', { ascending: false });
+    // `id` jako rozhodující druhý klíč — bez něj je pořadí při shodných časech
+    // nedefinované a offsetové stránkování může řádek zopakovat nebo přeskočit.
+    expect(orderById).toHaveBeenCalledWith('id', { ascending: false });
     expect(range).toHaveBeenCalledWith(0, 8);
   });
 
   it('fetchApprovedReviews filters by productId when provided', async () => {
     const range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
     const eq = vi.fn().mockReturnValue({ range });
-    const order = vi.fn().mockReturnValue({ eq });
+    const orderById = vi.fn().mockReturnValue({ eq });
+    const order = vi.fn().mockReturnValue({ order: orderById });
     const select = vi.fn().mockReturnValue({ order });
     fromMock.mockReturnValue({ select });
 
