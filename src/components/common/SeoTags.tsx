@@ -1,19 +1,21 @@
 import { serializeJsonLd } from '../../utils/blogSeo';
 import type { BlogMeta } from '../../utils/blogSeo';
-import type { ProductMeta } from '../../utils/productSeo';
+import type { ProductMeta, ProductReviewsMeta } from '../../utils/productSeo';
 
-// Structural shape covering PageMeta | BlogMeta | ProductMeta (src/utils/{pageSeo,blogSeo,productSeo}.ts):
-// PageMeta has no `jsonLd`; BlogMeta/ProductMeta declare it required (not optional). A plain
-// union of those three exported interfaces can't be used here because TS won't allow accessing
+// Structural shape covering PageMeta | BlogMeta | ProductMeta | ProductReviewsMeta (src/utils/{pageSeo,blogSeo,productSeo}.ts):
+// PageMeta has no `jsonLd`; BlogMeta/ProductMeta/ProductReviewsMeta declare it required (not optional). A plain
+// union of those exported interfaces can't be used here because TS won't allow accessing
 // `.jsonLd` on a union where one member lacks the property at all — this local structural type
-// (jsonLd optional, typed via indexed access so all three metas stay assignable in wave 3)
-// is what all three actually satisfy.
+// (jsonLd optional, typed via indexed access so all metas stay assignable)
+// is what they actually satisfy.
 interface SeoTagsMeta {
   title: string;
   description: string;
   canonical: string;
   ogImage: string;
-  jsonLd?: BlogMeta['jsonLd'] | ProductMeta['jsonLd'];
+  /** Např. 'noindex' pro stránky, které nemají do indexu. */
+  robots?: string;
+  jsonLd?: BlogMeta['jsonLd'] | ProductMeta['jsonLd'] | ProductReviewsMeta['jsonLd'];
 }
 
 interface SeoTagsProps {
@@ -35,6 +37,7 @@ export default function SeoTags({ meta, type = 'website' }: SeoTagsProps) {
       <title>{`${meta.title} | Cesty bez mapy`}</title>
       <meta name="description" content={meta.description} />
       <link rel="canonical" href={meta.canonical} />
+      {meta.robots && <meta name="robots" content={meta.robots} />}
       <meta property="og:type" content={type} />
       <meta property="og:title" content={meta.title} />
       <meta property="og:description" content={meta.description} />
