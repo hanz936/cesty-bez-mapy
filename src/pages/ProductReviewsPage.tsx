@@ -9,6 +9,7 @@ import ProductRatingSummary from '../components/reviews/ProductRatingSummary';
 import { REVIEWS_DISCLOSURE } from '../components/reviews/disclosure';
 import { formatReviewDate, reviewDateIso } from '../components/reviews/formatReviewDate';
 import { REVIEWS_PAGE_SIZE, clampPage } from '../constants/reviews';
+import { BASE_PATH } from '../constants';
 import { fetchApprovedReviews, fetchProductForReviews } from '../lib/reviews';
 import type { ProductForReviews, PublicReview } from '../lib/reviews';
 import { buildProductReviewsMeta, productDisplayName, productReviewsPath } from '../utils/productSeo';
@@ -33,9 +34,10 @@ const ProductReviewsPage = () => {
     //
     // 1. Ne při prvním renderu. Příchod z detailu produktu je totiž taky `PUSH`,
     //    jenže efekt běží dřív, než doběhne `fetchProductForReviews` — odečítač by
-    //    oznámil useknuté „Recenze —“ a doplnění názvu už by neoznámil. Navíc by
-    //    fokus přeskočil odkaz „Zpět na průvodce“, který je v DOMu NAD nadpisem,
-    //    takže by se k němu dopředným tabováním nešlo dostat. (Ověřeno spuštěním.)
+    //    oznámil holé „Recenze“ bez názvu produktu a doplnění názvu už by neoznámil.
+    //    Navíc by fokus přeskočil odkaz „Zpět na průvodce“, který je v DOMu NAD
+    //    nadpisem, takže by se k němu dopředným tabováním nešlo dostat.
+    //    (Ověřeno spuštěním.)
     // 2. Jen `PUSH`. `POP` = mount, reload i tlačítko zpět; `REPLACE` = naše
     //    vlastní přesměrování na kanonickou stranu. V obou případech si uživatel
     //    stránku právě otevřel a sebrat mu fokus doprostřed by bylo překvapení.
@@ -60,6 +62,20 @@ const ProductReviewsPage = () => {
     if (navigationType !== NavigationType.Push) return;
     headingRef.current?.focus();
   }, [page, navigationType]);
+
+  // `StrictMode` (main.tsx) simuluje remount: v dev módu proběhne mount → cleanup →
+  // mount znovu. `isFirstRender` je `useRef`, takže simulovaný remount ho neresetuje —
+  // bez tohohle efektu by první „mount" nastavil `isFirstRender.current` na `false`
+  // a druhý (ten skutečný) by strážce nahoře přeskočil, takže by fokus v dev módu
+  // naskočil přesně ve chvíli, které měl strážce zabránit. Prázdné závislosti: přepnutí
+  // strany se ho nesmí dotknout. Při opravdovém unmountu/remountu (ne StrictMode) je
+  // znovunastavení na `true` taky správné chování — komponenta se otevírá nanovo.
+  useEffect(
+    () => () => {
+      isFirstRender.current = true;
+    },
+    [],
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -146,6 +162,8 @@ const ProductReviewsPage = () => {
   // (Task 10), takže se strop dá včas zvednout.
   const totalPages = Math.ceil(count / REVIEWS_PAGE_SIZE);
   const productTitle = product ? productDisplayName(product) : '';
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string image_url must fall through to fallback, stejně jako v buildProductReviewsMeta
+  const imageSrc = product?.image_url || `${BASE_PATH}/images/placeholder-guide.jpg`;
   const meta = product
     ? buildProductReviewsMeta(product, {
         page,
@@ -188,7 +206,7 @@ const ProductReviewsPage = () => {
           tabIndex={-1}
           className="text-3xl sm:text-4xl font-bold text-green-800 mt-6 mb-4 focus:outline-none focus:ring-2 focus:ring-green-800 focus:ring-offset-2 rounded"
         >
-          Recenze — {productTitle}
+          {productTitle ? `Recenze — ${productTitle}` : 'Recenze'}
         </h1>
 
         {product && count > 0 && (
@@ -198,18 +216,23 @@ const ProductReviewsPage = () => {
         {/* Perex a náhledový obrázek nejsou dekorace: JSON-LD je posílá
             v `description` a `image`, a Google zakazuje markovat obsah, který
             na stránce vidět není. Kdyby odsud zmizely, musí zmizet i
-            z `buildProductReviewsMeta` — a naopak. Obrázek bereme z `meta.ogImage`
-            schválně: je to tentýž výraz, který jde do markupu, včetně
-            placeholderu pro produkt bez vlastního obrázku. */}
+            z `buildProductReviewsMeta` — a naopak.
+            `src` schválně NENÍ `meta.ogImage`: ten je vždy absolutní produkční URL
+            (i pro placeholder), a `public/images/placeholder-guide.jpg` v repu
+            vůbec neexistuje — u produktu bez vlastního obrázku by <img> mířil na
+            cizí origin, který je do launche za Basic autentizací. Relativní cesta
+            přes `BASE_PATH` tenhle cross-origin dotaz obchází; pro produkt
+            s vlastním `image_url` je hodnota stejná jako v JSON-LD, protože ten
+            samotný sloupec je už absolutní URL do Storage. `loading="lazy"` schválně
+            chybí — obrázek je nad ohybem, hned pod nadpisem. */}
         {product?.hero_subtitle?.trim() && (
           <p className="text-lg text-gray-700 mb-6">{product.hero_subtitle}</p>
         )}
         {meta && (
           <img
-            src={meta.ogImage}
+            src={imageSrc}
             alt={`Průvodce ${productTitle}`}
             className="w-full max-h-64 object-cover rounded-2xl mb-8"
-            loading="lazy"
           />
         )}
 
@@ -223,13 +246,18 @@ const ProductReviewsPage = () => {
           <p className="text-center text-gray-600">Recenze se nepodařilo načíst. Zkus to prosím později.</p>
         )}
 
-        {!loading && !error && count === 0 && (
+        {/* `reviews.length === 0` vedle `count === 0` schválně: moderace může mezi
+            dotazem na produkt (review_count) a dotazem na recenze schválenou recenzi
+            smazat nebo odschválit. Bez týhle podmínky by stránka ukázala prázdný
+            `<ul>` i stránkování a neřekla by nic — stejný prázdný stav je pro
+            uživatele pravdivější než tichá prázdnota. */}
+        {!loading && !error && (count === 0 || reviews.length === 0) && (
           <p className="text-center text-gray-600">
             Tenhle průvodce zatím recenzi nemá. Buď první, kdo se podělí o zkušenost!
           </p>
         )}
 
-        {!loading && !error && count > 0 && (
+        {!loading && !error && count > 0 && reviews.length > 0 && (
           <>
             <ul className="space-y-6">
               {reviews.map((review) => (

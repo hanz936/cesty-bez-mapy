@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { CartProvider } from '../contexts';
 
 const fetchProductForReviewsMock = vi.fn<(...args: unknown[]) => unknown>();
@@ -9,7 +9,10 @@ vi.mock('../lib/reviews', () => ({
   fetchProductForReviews: (...args: unknown[]) => fetchProductForReviewsMock(...args),
   fetchApprovedReviews: (...args: unknown[]) => fetchApprovedReviewsMock(...args),
 }));
-vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
+// Module-scope handle (ne inline `vi.fn()`), stejně jako ProductDetail.seo.test.tsx —
+// jinak by nešlo ověřit, s jakými argumenty (tagy) se `captureException` volá.
+const captureExceptionMock = vi.fn<(...args: unknown[]) => unknown>();
+vi.mock('@sentry/react', () => ({ captureException: (...args: unknown[]) => captureExceptionMock(...args) }));
 
 import ProductReviewsPage from './ProductReviewsPage';
 
@@ -100,8 +103,12 @@ describe('ProductReviewsPage', () => {
     fetchProductForReviewsMock.mockResolvedValue(product);
     fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
     renderAt('/cestovni-pruvodci/italie/recenze/strana/abc');
+    // Přesná shoda, ne `toHaveTextContent`: ten testuje podřetězec a
+    // '/cestovni-pruvodci/italie/recenze' je podřetězcem i výchozí (nepřesměrované)
+    // cesty '/cestovni-pruvodci/italie/recenze/strana/abc' — bez přesné shody by test
+    // prošel, i kdyby k přesměrování vůbec nedošlo.
     await waitFor(() =>
-      expect(screen.getByTestId('pathname')).toHaveTextContent('/cestovni-pruvodci/italie/recenze'),
+      expect(screen.getByTestId('pathname').textContent).toBe('/cestovni-pruvodci/italie/recenze'),
     );
     await waitFor(() =>
       expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 10, offset: 0 }),
@@ -113,8 +120,15 @@ describe('ProductReviewsPage', () => {
     fetchProductForReviewsMock.mockResolvedValue(product);
     fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
     renderAt('/cestovni-pruvodci/italie/recenze/strana/1');
+    // Přesná shoda, ne `toHaveTextContent`: ten testuje podřetězec a
+    // '/cestovni-pruvodci/italie/recenze' je podřetězcem i výchozí (nepřesměrované)
+    // cesty '/cestovni-pruvodci/italie/recenze/strana/1' — bez přesné shody by test
+    // prošel, i kdyby k přesměrování vůbec nedošlo.
     await waitFor(() =>
-      expect(screen.getByTestId('pathname')).toHaveTextContent('/cestovni-pruvodci/italie/recenze'),
+      expect(screen.getByTestId('pathname').textContent).toBe('/cestovni-pruvodci/italie/recenze'),
+    );
+    await waitFor(() =>
+      expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 10, offset: 0 }),
     );
   });
 
@@ -140,12 +154,43 @@ describe('ProductReviewsPage', () => {
     expect(fetchApprovedReviewsMock).not.toHaveBeenCalled();
   });
 
+  it('review_count > 0, ale dotaz na recenze vrátí prázdné pole → prázdný stav, ne prázdný seznam', async () => {
+    // Závod: moderace mezi dotazem na produkt (review_count) a dotazem na recenze
+    // schválenou recenzi smaže nebo odschválí. `product.review_count` pak lže — 12,
+    // ale `fetchApprovedReviews` vrátí `[]`. Bez ochrany by stránka vykreslila
+    // prázdný `<ul>` a stránkování a neřekla by uživateli vůbec nic.
+    fetchProductForReviewsMock.mockResolvedValue(product);
+    fetchApprovedReviewsMock.mockResolvedValue({ reviews: [], total: 12 });
+    const { container } = renderAt('/cestovni-pruvodci/italie/recenze');
+    await waitFor(() => expect(screen.getByText(/zatím recenzi nemá/)).toBeInTheDocument());
+    // Cíleně na `container` a přesnou třídu/atribut, ne `getByRole('list')` —
+    // Layout renderuje i navigační `<ul>`, který v jsdomu (na rozdíl od prohlížeče)
+    // implicitní roli "list" neztrácí ani s `list-style: none`, takže by test byl
+    // falešně nejednoznačný.
+    expect(container.querySelector('ul.space-y-6')).toBeNull();
+    expect(container.querySelector('nav[aria-label="Stránkování recenzí"]')).toBeNull();
+  });
+
   it('selhání načtení ukáže chybu, ne prázdný stav', async () => {
     fetchProductForReviewsMock.mockResolvedValue(product);
     fetchApprovedReviewsMock.mockRejectedValue(new Error('boom'));
     renderAt('/cestovni-pruvodci/italie/recenze');
     await waitFor(() => expect(screen.getByText(/nepodařilo načíst/)).toBeInTheDocument());
     expect(screen.queryByText(/zatím recenzi nemá/)).not.toBeInTheDocument();
+    // Plán vyžaduje přesný tvar tagů — bez něj by se ztratila filtrovatelnost
+    // podle oblasti/komponenty v Sentry dashboardu.
+    expect(captureExceptionMock).toHaveBeenCalledWith(expect.any(Error), {
+      tags: { area: 'reviews', component: 'ProductReviewsPage' },
+    });
+  });
+
+  it('selhání načtení produktu vypíše holé „Recenze“, ne useknuté „Recenze —“', async () => {
+    // Rozhodnutí ownera: bez názvu produktu se nadpis nezkracuje s pomlčkou navíc.
+    fetchProductForReviewsMock.mockRejectedValue(new Error('boom'));
+    renderAt('/cestovni-pruvodci/italie/recenze');
+    await waitFor(() => expect(screen.getByText(/nepodařilo načíst/)).toBeInTheDocument());
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Recenze');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Recenze');
   });
 
   it('po kliknutí na jinou stranu přesune fokus na nadpis', async () => {
@@ -191,6 +236,43 @@ describe('ProductReviewsPage', () => {
     expect(document.activeElement).not.toBe(heading);
   });
 
+  it('příchod z detailu produktu (skutečný PUSH) fokus NEsebere', async () => {
+    // Regrese pro strážce `isFirstRender`: příchod z odkazu na detailu produktu je
+    // taky `PUSH` (na rozdíl od všech ostatních testů, které startují přes
+    // `initialEntries`, což je `POP`). Bez tohohle strážce by fokus naskočil na
+    // nadpis dřív, než doběhne `fetchProductForReviews`, a přeskočil by odkaz
+    // „Zpět na průvodce", který je v DOMu nad nadpisem.
+    fetchProductForReviewsMock.mockResolvedValue(product);
+    fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
+    render(
+      <CartProvider>
+        <MemoryRouter initialEntries={['/cestovni-pruvodci/italie']}>
+          <LocationSpy />
+          <Routes>
+            <Route path="/cestovni-pruvodci/:slug/recenze" element={<ProductReviewsPage />} />
+            <Route
+              path="/cestovni-pruvodci/:slug"
+              element={<Link to="/cestovni-pruvodci/italie/recenze">Recenze</Link>}
+            />
+          </Routes>
+        </MemoryRouter>
+      </CartProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('link', { name: 'Recenze' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('pathname').textContent).toBe('/cestovni-pruvodci/italie/recenze'),
+    );
+
+    // Ihned po přepnutí trasy, ještě předtím, než doběhne `fetchProductForReviews`.
+    const heading = screen.getByRole('heading', { level: 1 });
+    expect(document.activeElement).not.toBe(heading);
+
+    // I po doběhnutí načtení — strážce nesmí povolit fokus ani retroaktivně.
+    await waitFor(() => expect(fetchApprovedReviewsMock).toHaveBeenCalled());
+    expect(document.activeElement).not.toBe(heading);
+  });
+
   it('odkazuje zpět na detail produktu', async () => {
     fetchProductForReviewsMock.mockResolvedValue(product);
     fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
@@ -214,6 +296,33 @@ describe('ProductReviewsPage', () => {
       'src',
       'https://cdn.example/i.jpg',
     );
+  });
+
+  it('JSON-LD datePublished počítá pražské datum, ne UTC řez', async () => {
+    // 22:30 UTC je v Praze (léto, UTC+2) už 00:30 dalšího dne — `reviewDateIso`
+    // s tím počítá, `created_at.slice(0, 10)` by vrátil o den dřív.
+    fetchProductForReviewsMock.mockResolvedValue(product);
+    fetchApprovedReviewsMock.mockResolvedValue({
+      reviews: [{ ...review('r1'), created_at: '2026-06-30T22:30:00.000Z' }],
+      total: 12,
+    });
+    const { container } = renderAt('/cestovni-pruvodci/italie/recenze');
+
+    await waitFor(() => {
+      const scripts = [...container.querySelectorAll('script[type="application/ld+json"]')];
+      const hasProductJsonLd = scripts.some(
+        (s) => (JSON.parse(s.textContent) as { '@type': string })['@type'] === 'Product',
+      );
+      expect(hasProductJsonLd).toBe(true);
+    });
+
+    // Footer vykresluje vlastní Organization JSON-LD vždy (SEO-08) — vybíráme
+    // script podle @type, ne podle pořadí.
+    const scripts = [...container.querySelectorAll('script[type="application/ld+json"]')];
+    const productJsonLd = scripts
+      .map((s) => JSON.parse(s.textContent) as { '@type': string; review?: { datePublished: string }[] })
+      .find((j) => j['@type'] === 'Product');
+    expect(productJsonLd?.review?.[0]?.datePublished).toBe('2026-07-01');
   });
 
   it('signalizuje prerenderu hotovo až po načtení dat', async () => {
