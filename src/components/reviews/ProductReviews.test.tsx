@@ -162,4 +162,30 @@ describe('ProductReviews', () => {
     const reviewText = await screen.findByText(/Skvělý průvodce\./);
     expect(reviewText.className).toContain('line-clamp-6');
   });
+
+  it('mřížka ubírá sloupce podle počtu karet, aby se 1–2 recenze skutečně vycentrovaly', () => {
+    // Zúžení kontejneru samo nestačí: sloupce jsou `1fr` a volnou šířku spolykají,
+    // takže jediná karta zůstane přilepená vlevo od osy. Ověřujeme třídy, ne vypočtený
+    // vzhled — jsdom žádné CSS nenačítá, o rozvržení tedy nic neví.
+    const review = (id: string) => ({
+      id, product_id: 'p1', reviewer_name: 'Jana N.', rating: 5,
+      review_text: 'Skvělý průvodce.', created_at: '2026-07-01T10:00:00.000Z',
+      products: { title: 'Salzburg', slug: 'salzburg' },
+    });
+    const expected: Record<number, string> = {
+      1: 'grid gap-6 mx-auto grid-cols-1 max-w-md',
+      2: 'grid gap-6 mx-auto grid-cols-1 md:grid-cols-2 max-w-3xl',
+      3: 'grid gap-6 mx-auto grid-cols-1 md:grid-cols-2 lg:grid-cols-3',
+    };
+    for (const count of [1, 2, 3]) {
+      const reviews = Array.from({ length: count }, (_, index) => review(`r${index + 1}`));
+      const { container, unmount } = render(
+        <MemoryRouter>
+          <ProductReviews productSlug="salzburg" preloaded={{ productId: 'p1', reviewCount: count, reviews }} />
+        </MemoryRouter>,
+      );
+      expect(container.querySelector('div.grid')?.className).toBe(expected[count]);
+      unmount();
+    }
+  });
 });

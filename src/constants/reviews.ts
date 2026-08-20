@@ -2,11 +2,10 @@
 export const REVIEWS_PAGE_SIZE = 10;
 
 /**
- * Kolik recenzí má ukazovat detail produktu. Jediný zdroj pravdy pro horní limit počtu
- * recenzí v `ProductReviews.tsx` (vykreslení karet) i `ProductDetail.tsx` (preload pro
- * JSON-LD) — obě místa čtou tuhle konstantu, takže se nemůže rozejít ten limit samotný.
- * Google vyžaduje, aby se počet recenzí ve strukturovaných datech rovnal počtu, který
- * je na stránce vidět.
+ * Kolik recenzí má ukazovat detail produktu. Jediný zdroj pravdy pro `ProductReviews.tsx`
+ * (vykreslení karet) i `ProductDetail.tsx` (preload, ze kterého se skládá JSON-LD) — obě
+ * místa čtou tuhle konstantu, takže nemůže nastat stav, kdy strukturovaná data nesou jiný
+ * počet recenzí, než kolik jich je na stránce vidět. Přesně to Google vyžaduje.
  */
 export const PRODUCT_REVIEWS_LIMIT = 3;
 
