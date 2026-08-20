@@ -47,7 +47,7 @@ describe('ProductReviews', () => {
     });
     render(<MemoryRouter><ProductReviews productSlug="salzburg" /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText('Jana N.')).toBeInTheDocument());
-    expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 6, offset: 0 });
+    expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 3, offset: 0 });
   });
 
   it('shows error message (not fake empty state) when product lookup fails', async () => {
@@ -129,5 +129,20 @@ describe('ProductReviews', () => {
       expect(fromMock).not.toHaveBeenCalled();
       expect(fetchApprovedReviewsMock).not.toHaveBeenCalled();
     });
+  });
+
+  it('odkaz na všechny recenze míří na stránku produktu a je i u jediné recenze', async () => {
+    singleMock.mockResolvedValue({ data: { id: 'p1', average_rating: 5, review_count: 1 }, error: null });
+    fetchApprovedReviewsMock.mockResolvedValue({
+      reviews: [{
+        id: 'r1', product_id: 'p1', reviewer_name: 'Jana N.', rating: 5,
+        review_text: 'Skvělý průvodce.', created_at: '2026-07-01T10:00:00.000Z',
+        products: { title: 'Salzburg', slug: 'salzburg' },
+      }],
+      total: 1,
+    });
+    render(<MemoryRouter><ProductReviews productSlug="salzburg" /></MemoryRouter>);
+    const link = await screen.findByRole('link', { name: /Všechny recenze/ });
+    expect(link).toHaveAttribute('href', '/cestovni-pruvodci/salzburg/recenze');
   });
 });

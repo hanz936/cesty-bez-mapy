@@ -7,9 +7,8 @@ import type { PublicReview } from '../../lib/reviews';
 import { REVIEWS_DISCLOSURE } from './disclosure';
 import { formatReviewDate } from './formatReviewDate';
 import { supabase } from '../../lib/supabase';
-import { ROUTES } from '../../constants';
-
-const PRODUCT_REVIEWS_LIMIT = 6;
+import { PRODUCT_REVIEWS_LIMIT } from '../../constants/reviews';
+import { productReviewsPath } from '../../utils/productSeo';
 
 interface ProductReviewsProps {
   productSlug: string;
@@ -115,7 +114,11 @@ const ProductReviews = ({ productSlug, className = '', preloaded }: ProductRevie
 
         {!error && reviewCount > 0 && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div
+              className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${
+                reviews.length < 3 ? 'max-w-4xl mx-auto' : ''
+              }`.trim()}
+            >
               {reviews.map((review) => (
                 <ReviewCard
                   key={review.id}
@@ -125,13 +128,14 @@ const ProductReviews = ({ productSlug, className = '', preloaded }: ProductRevie
                   productTitle={null}
                   date={formatReviewDate(review.created_at)}
                   verified
+                  variant="teaser"
                   className="h-full shadow-md"
                 />
               ))}
             </div>
-            {reviewCount > PRODUCT_REVIEWS_LIMIT && (
+            {reviewCount > 0 && (
               <div className="text-center mt-8">
-                <Link to={ROUTES.REVIEWS} className="text-green-800 font-medium underline">
+                <Link to={productReviewsPath(productSlug)} className="text-green-800 font-medium underline">
                   Všechny recenze ({reviewCount})
                 </Link>
               </div>

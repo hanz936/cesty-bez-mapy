@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { CartProvider } from '../contexts';
+import { PRODUCT_REVIEWS_LIMIT } from '../constants/reviews';
 
 // vi.mock je hoistovaný Vitestem nad importy, takže pořadí zápisu v souboru nevadí.
 // Chainovatelný mock query builderu mirroruje řetězec použitý v ProductDetail:
@@ -168,5 +170,18 @@ describe('ProductDetail per-route SEO + Product JSON-LD + marker (SEO-03)', () =
     // nezůstal prázdný.
     expect(container.querySelector('h1')).toHaveTextContent('Itinerář Toskánsko');
     expect(document.head.querySelector('title')).toHaveTextContent('Itinerář Toskánsko');
+  });
+
+  it('preload recenzí používá sdílenou konstantu, ne vlastní číslo', () => {
+    expect(PRODUCT_REVIEWS_LIMIT).toBe(3);
+    // Regrese: ProductDetail měl limit napevno, takže změna konstanty se neprojevila.
+    //
+    // Čteme cestou relativní ke kořeni projektu (cwd Vitestu). NEPOUŽÍVAT
+    // `new URL('./ProductDetail.tsx', import.meta.url)`: Vite ten literál přepisuje
+    // svým assetImportMetaUrl transformem na `http://localhost:3000/src/...`, takže
+    // `readFileSync` spadne na ERR_INVALID_URL_SCHEME. (Ověřeno spuštěním.)
+    const source = readFileSync('src/pages/ProductDetail.tsx', 'utf8');
+    expect(source).not.toMatch(/limit:\s*6/);
+    expect(source).toContain('PRODUCT_REVIEWS_LIMIT');
   });
 });

@@ -10,11 +10,13 @@ import { supabase } from '../lib/supabase';
 import { useCart } from '../contexts';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import SeoTags from '../components/common/SeoTags';
-import { buildProductMeta, productDisplayName } from '../utils/productSeo';
+import { buildProductMeta, productDisplayName, productReviewsPath } from '../utils/productSeo';
 import { fetchApprovedReviews } from '../lib/reviews';
 import type { PublicReview } from '../lib/reviews';
 import ProductReviews from '../components/reviews/ProductReviews';
+import ProductRatingSummary from '../components/reviews/ProductRatingSummary';
 import { reviewDateIso } from '../components/reviews/formatReviewDate';
+import { PRODUCT_REVIEWS_LIMIT } from '../constants/reviews';
 import type { Tables } from '../types/database.types';
 
 type ProductDetailRow = Pick<
@@ -52,8 +54,8 @@ const ProductDetail = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [seoReviews, setSeoReviews] = useState<{ author: string; rating: number; text: string; datePublished: string }[]>([]);
-  // Raw recenze (stejný fetch jako seoReviews, limit 6 = PRODUCT_REVIEWS_LIMIT v ProductReviews) —
-  // předávané jako `preloaded` do ProductReviews, aby si sekce nemusela dělat vlastní duplicitní fetch.
+  // Raw recenze (stejný fetch jako seoReviews, PRODUCT_REVIEWS_LIMIT) — předávané
+  // jako `preloaded` do ProductReviews, aby si sekce nemusela dělat vlastní duplicitní fetch.
   const [reviewsRaw, setReviewsRaw] = useState<PublicReview[]>([]);
   // Když isolovaný fetch recenzí selže, `preloaded` se NEPŘEDÁVÁ — ProductReviews si udělá vlastní
   // fetch (a případně ukáže poctivou chybovou hlášku) místo tichého prázdného gridu.
@@ -109,7 +111,7 @@ const ProductDetail = () => {
 
         if ((data.review_count ?? 0) > 0) {
           try {
-            const page = await fetchApprovedReviews({ productId: data.id, limit: 6, offset: 0 });
+            const page = await fetchApprovedReviews({ productId: data.id, limit: PRODUCT_REVIEWS_LIMIT, offset: 0 });
             if (isMounted) {
               setReviewsRaw(page.reviews);
               setSeoReviews(page.reviews.map((r) => ({
@@ -360,6 +362,14 @@ const ProductDetail = () => {
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-black leading-tight">
                 {productDisplayName(product)}
               </h1>
+              {(product.review_count ?? 0) > 0 && (
+                <ProductRatingSummary
+                  average={product.average_rating ?? 0}
+                  count={product.review_count ?? 0}
+                  href={productReviewsPath(product.slug)}
+                  className="mt-4"
+                />
+              )}
             </div>
 
             <div className="grid lg:grid-cols-2 gap-12 xl:gap-16 items-start">
