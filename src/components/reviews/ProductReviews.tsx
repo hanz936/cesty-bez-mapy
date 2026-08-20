@@ -7,8 +7,7 @@ import type { PublicReview } from '../../lib/reviews';
 import { REVIEWS_DISCLOSURE } from './disclosure';
 import { formatReviewDate } from './formatReviewDate';
 import { supabase } from '../../lib/supabase';
-import { PRODUCT_REVIEWS_LIMIT } from '../../constants/reviews';
-import { productReviewsPath } from '../../utils/productSeo';
+import { PRODUCT_REVIEWS_LIMIT, productReviewsPath } from '../../constants/reviews';
 
 interface ProductReviewsProps {
   productSlug: string;

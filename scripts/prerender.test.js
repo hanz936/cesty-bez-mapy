@@ -4,10 +4,11 @@
 // jenž v jsdom realmu selže → helpery testujeme v node prostředí.
 import { describe, it, expect } from 'vitest';
 import { collectRoutes, outputPathForRoute, validateHtml } from './prerender.mjs';
+import { MAX_PRERENDERED_REVIEW_PAGES } from '../src/constants/reviews.ts';
 
 describe('collectRoutes', () => {
   it('složí veřejné statické routy + blog + produkty bez duplikátů', () => {
-    const routes = collectRoutes([{ slug: 'a' }, { slug: 'a' }], [{ slug: 'tos' }]);
+    const routes = collectRoutes([{ slug: 'a' }, { slug: 'a' }], [{ slug: 'tos', review_count: 0 }]);
     expect(routes).toContain('/');
     expect(routes).toContain('/kontakt');
     expect(routes).toContain('/inspirace/a');
@@ -19,6 +20,34 @@ describe('collectRoutes', () => {
     expect(routes).toContain('/');
     expect(routes).toContain('/ochrana-osobnich-udaju');
     expect(routes).not.toContain('/cestovni-pruvodci/itinerar-na-miru/dotaznik');
+  });
+  it('přidá routu recenzí i produktu bez recenzí (kvůli canonicalu a noindex ve zdroji)', () => {
+    const routes = collectRoutes([], [{ slug: 'tos', review_count: 0 }]);
+    expect(routes).toContain('/cestovni-pruvodci/tos/recenze');
+    expect(routes).not.toContain('/cestovni-pruvodci/tos/recenze/strana/2');
+  });
+  it('přidá další strany podle review_count (10 na stranu)', () => {
+    const routes = collectRoutes([], [{ slug: 'italie', review_count: 25 }]);
+    expect(routes).toContain('/cestovni-pruvodci/italie/recenze');
+    expect(routes).toContain('/cestovni-pruvodci/italie/recenze/strana/2');
+    expect(routes).toContain('/cestovni-pruvodci/italie/recenze/strana/3');
+    expect(routes).not.toContain('/cestovni-pruvodci/italie/recenze/strana/4');
+  });
+  it('přesně 10 recenzí = jedna strana, žádné /strana/2', () => {
+    const routes = collectRoutes([], [{ slug: 'x', review_count: 10 }]);
+    expect(routes).toContain('/cestovni-pruvodci/x/recenze');
+    expect(routes).not.toContain('/cestovni-pruvodci/x/recenze/strana/2');
+  });
+  it('chybějící review_count bere jako nulu', () => {
+    const routes = collectRoutes([], [{ slug: 'x' }]);
+    expect(routes).toContain('/cestovni-pruvodci/x/recenze');
+    expect(routes).not.toContain('/cestovni-pruvodci/x/recenze/strana/2');
+  });
+  it('počet prerenderovaných stran má strop', () => {
+    // 500 recenzí = 50 stran; předgenerujeme jen prvních MAX_PRERENDERED_REVIEW_PAGES.
+    const routes = collectRoutes([], [{ slug: 'velky', review_count: 500 }]);
+    expect(routes).toContain(`/cestovni-pruvodci/velky/recenze/strana/${MAX_PRERENDERED_REVIEW_PAGES}`);
+    expect(routes).not.toContain(`/cestovni-pruvodci/velky/recenze/strana/${MAX_PRERENDERED_REVIEW_PAGES + 1}`);
   });
 });
 

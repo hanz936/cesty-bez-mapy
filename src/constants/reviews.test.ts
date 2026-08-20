@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { clampPage, REVIEWS_PAGE_SIZE, PRODUCT_REVIEWS_LIMIT } from './reviews';
+import {
+  clampPage,
+  productReviewsPath,
+  reviewPageRange,
+  REVIEWS_PAGE_SIZE,
+  PRODUCT_REVIEWS_LIMIT,
+  MAX_PRERENDERED_REVIEW_PAGES,
+} from './reviews';
 
 describe('konstanty recenzí', () => {
   it('drží dohodnuté hodnoty', () => {
@@ -32,5 +39,39 @@ describe('clampPage', () => {
   it('při nule stran vrací vždy 1, aby nevznikla strana 0', () => {
     expect(clampPage('5', 0)).toBe(1);
     expect(clampPage(undefined, 0)).toBe(1);
+  });
+});
+
+describe('productReviewsPath', () => {
+  it('strana 1 nemá segment /strana', () => {
+    expect(productReviewsPath('italie-roadtrip', 1)).toBe('/cestovni-pruvodci/italie-roadtrip/recenze');
+  });
+
+  it('strana 3 má segment /strana/3', () => {
+    expect(productReviewsPath('italie-roadtrip', 3)).toBe('/cestovni-pruvodci/italie-roadtrip/recenze/strana/3');
+  });
+
+  it('NaN se chová jako nestránkovaná cesta', () => {
+    // `NaN <= 1` i `NaN > 1` jsou obě false — bez sdíleného predikátu se `productReviewsPath`
+    // a titulek ve `buildProductReviewsMeta` rozejdou (jeden by přidal segment, druhý ne).
+    expect(productReviewsPath('italie-roadtrip', NaN)).toBe('/cestovni-pruvodci/italie-roadtrip/recenze');
+  });
+});
+
+describe('reviewPageRange', () => {
+  it('0 recenzí → 0 stran', () => {
+    expect(reviewPageRange(0)).toEqual({ totalPages: 0, prerenderedPages: 0 });
+  });
+
+  it('10 recenzí = přesně jedna strana', () => {
+    expect(reviewPageRange(10)).toEqual({ totalPages: 1, prerenderedPages: 1 });
+  });
+
+  it('25 recenzí = tři strany, všechny pod stropem', () => {
+    expect(reviewPageRange(25)).toEqual({ totalPages: 3, prerenderedPages: 3 });
+  });
+
+  it('500 recenzí = 50 stran, prerenderuje se jen strop MAX_PRERENDERED_REVIEW_PAGES', () => {
+    expect(reviewPageRange(500)).toEqual({ totalPages: 50, prerenderedPages: MAX_PRERENDERED_REVIEW_PAGES });
   });
 });

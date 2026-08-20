@@ -1,5 +1,6 @@
 import { SITE_URL } from './blogSeo';
 import { ratingValueJsonLd } from './rating';
+import { isPagedPage, productReviewsPath } from '../constants/reviews';
 import type { ProductForReviews } from '../lib/reviews';
 
 export interface ProductMetaProduct {
@@ -172,17 +173,6 @@ export interface ProductReviewsMeta {
   robots?: string;
   /** Chybí, když produkt nemá recenze — `Product` bez review/aggregateRating/offers je neplatný. */
   jsonLd?: ProductReviewsJsonLd;
-}
-
-/** Strana je „další" jen pro celé číslo > 1 — cokoli jiného patří na stranu 1. */
-function isPagedPage(page: number): boolean {
-  return Number.isInteger(page) && page > 1;
-}
-
-/** Cesta stránky recenzí produktu (strana 1 je bez segmentu `/strana`). */
-export function productReviewsPath(slug: string, page = 1): string {
-  const base = `/cestovni-pruvodci/${slug}/recenze`;
-  return isPagedPage(page) ? `${base}/strana/${page}` : base;
 }
 
 export function buildProductReviewsMeta(

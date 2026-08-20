@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildProductMeta, buildProductReviewsMeta, productDisplayName, productReviewsPath } from './productSeo';
+import { buildProductMeta, buildProductReviewsMeta, productDisplayName } from './productSeo';
 
 const product = {
   title: 'Toskánsko průvodce',
@@ -113,22 +113,6 @@ describe('productDisplayName', () => {
 
   it('detail_title jen z mezer spadne na title (`??` by tenhle případ nezachytilo)', () => {
     expect(productDisplayName({ detail_title: '   ', title: 'Roadtrip po Itálii' })).toBe('Roadtrip po Itálii');
-  });
-});
-
-describe('productReviewsPath', () => {
-  it('strana 1 nemá segment /strana', () => {
-    expect(productReviewsPath('italie-roadtrip', 1)).toBe('/cestovni-pruvodci/italie-roadtrip/recenze');
-  });
-
-  it('strana 3 má segment /strana/3', () => {
-    expect(productReviewsPath('italie-roadtrip', 3)).toBe('/cestovni-pruvodci/italie-roadtrip/recenze/strana/3');
-  });
-
-  it('NaN se chová jako nestránkovaná cesta', () => {
-    // `NaN <= 1` i `NaN > 1` jsou obě false — bez sdíleného predikátu se `productReviewsPath`
-    // a titulek ve `buildProductReviewsMeta` rozejdou (jeden by přidal segment, druhý ne).
-    expect(productReviewsPath('italie-roadtrip', NaN)).toBe('/cestovni-pruvodci/italie-roadtrip/recenze');
   });
 });
 

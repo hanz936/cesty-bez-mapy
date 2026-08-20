@@ -8,11 +8,11 @@ import ReviewsPagination from '../components/reviews/ReviewsPagination';
 import ProductRatingSummary from '../components/reviews/ProductRatingSummary';
 import { REVIEWS_DISCLOSURE } from '../components/reviews/disclosure';
 import { formatReviewDate, reviewDateIso } from '../components/reviews/formatReviewDate';
-import { REVIEWS_PAGE_SIZE, clampPage } from '../constants/reviews';
+import { REVIEWS_PAGE_SIZE, clampPage, productReviewsPath } from '../constants/reviews';
 import { BASE_PATH } from '../constants';
 import { fetchApprovedReviews, fetchProductForReviews } from '../lib/reviews';
 import type { ProductForReviews, PublicReview } from '../lib/reviews';
-import { buildProductReviewsMeta, productDisplayName, productReviewsPath } from '../utils/productSeo';
+import { buildProductReviewsMeta, productDisplayName } from '../utils/productSeo';
 import NotFound from './NotFound';
 
 const ProductReviewsPage = () => {

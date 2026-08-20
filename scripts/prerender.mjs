@@ -2,16 +2,44 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { preview } from 'vite';
 import { PUBLIC_PAGES } from '../src/constants/publicRoutes.ts';
+import { productReviewsPath, reviewPageRange } from '../src/constants/reviews.ts';
 import { fetchBlogSlugs, fetchProductSlugs } from './contentSlugs.mjs';
 
 const DIST = 'dist';
 const BRAND = 'Cesty';
 const STATIC_ROUTES = PUBLIC_PAGES.map((p) => p.path);
 
-/** Statické veřejné routy + /inspirace/:slug + /cestovni-pruvodci/:slug (bez duplikátů). */
+/**
+ * Statické veřejné routy + /inspirace/:slug + /cestovni-pruvodci/:slug
+ * + stránky recenzí (bez duplikátů).
+ *
+ * Routa recenzí se generuje i pro produkt bez recenzí: neprerenderovaná adresa
+ * by dostala přes rewrite index.html, a než se stihne uplatnit klientský canonical,
+ * je tam ten ze zdroje. Prázdná stránka navíc nese noindex už ve zdrojovém HTML.
+ *
+ * Hlubší strany mají strop — každá je jedna návštěva headless Chromia navíc
+ * a prerender po každých osmi routách browser restartuje. Nad stropem strany
+ * dál fungují, jen se nepředgenerují.
+ */
 export function collectRoutes(blogPosts, productSlugs = []) {
   const blog = (blogPosts || []).map((p) => `/inspirace/${p.slug}`);
-  const products = (productSlugs || []).map((p) => `/cestovni-pruvodci/${p.slug}`);
+  const products = [];
+  for (const product of productSlugs || []) {
+    products.push(`/cestovni-pruvodci/${product.slug}`);
+    products.push(productReviewsPath(product.slug));
+    const { totalPages, prerenderedPages } = reviewPageRange(product.review_count ?? 0);
+    if (totalPages > prerenderedPages) {
+      // Stránkování na stránce odkazy neořezává (jinak by se uživatel na hlubší
+      // strany nedostal), takže od téhle chvíle existují crawlovatelné odkazy
+      // na strany bez statického HTML. Není to tichá vada — je to signál strop zvednout.
+      console.warn(
+        `⚠ ${product.slug}: ${totalPages} stran recenzí, prerenderuje se jen ${prerenderedPages}. Zvaž zvýšení MAX_PRERENDERED_REVIEW_PAGES.`,
+      );
+    }
+    for (let page = 2; page <= prerenderedPages; page++) {
+      products.push(productReviewsPath(product.slug, page));
+    }
+  }
   return [...new Set([...STATIC_ROUTES, ...blog, ...products])];
 }
 

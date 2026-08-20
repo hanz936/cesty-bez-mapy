@@ -29,3 +29,25 @@ export function clampPage(raw: string | undefined, totalPages: number): number {
   if (!raw || !/^[1-9]\d*$/.test(raw)) return 1;
   return Math.min(Number(raw), Math.max(totalPages, 1));
 }
+
+/** Strana je „další" jen pro celé číslo > 1 — cokoli jiného patří na stranu 1. */
+export function isPagedPage(page: number): boolean {
+  return Number.isInteger(page) && page > 1;
+}
+
+/** Cesta stránky recenzí produktu (strana 1 je bez segmentu `/strana`). */
+export function productReviewsPath(slug: string, page = 1): string {
+  const base = `/cestovni-pruvodci/${slug}/recenze`;
+  return isPagedPage(page) ? `${base}/strana/${page}` : base;
+}
+
+/**
+ * Kolik stran recenzí produkt celkem má a kolik z nich se má prerenderovat/uvést
+ * v sitemapě (strop `MAX_PRERENDERED_REVIEW_PAGES`). Jediné místo, kde žije
+ * `Math.ceil`/`Math.min` pár — `prerender.mjs` i `sitemap.mjs` z něj jen čtou,
+ * takže matematika stránkování nemůže mezi oběma skripty zdvojeně zestárnout.
+ */
+export function reviewPageRange(reviewCount: number): { totalPages: number; prerenderedPages: number } {
+  const totalPages = Math.ceil((reviewCount ?? 0) / REVIEWS_PAGE_SIZE);
+  return { totalPages, prerenderedPages: Math.min(totalPages, MAX_PRERENDERED_REVIEW_PAGES) };
+}

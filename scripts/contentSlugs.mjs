@@ -22,5 +22,6 @@ export function fetchBlogSlugs() {
 }
 
 export function fetchProductSlugs() {
-  return getJson('products?select=slug&is_active=eq.true&is_deleted=eq.false');
+  // `review_count` je potřeba pro routy recenzí (počet stran) — viz prerender.mjs.
+  return getJson('products?select=slug,review_count&is_active=eq.true&is_deleted=eq.false');
 }

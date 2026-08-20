@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { PUBLIC_PAGES } from '../src/constants/publicRoutes.ts';
+import { productReviewsPath, reviewPageRange } from '../src/constants/reviews.ts';
 import { fetchBlogSlugs, fetchProductSlugs } from './contentSlugs.mjs';
 
 const SITE_URL = process.env.VITE_SITE_URL || 'https://www.cestybezmapy.cz';
@@ -28,13 +29,33 @@ export function buildSitemap(paths, siteUrl = SITE_URL) {
   );
 }
 
-async function run() {
-  const [posts, products] = await Promise.all([fetchBlogSlugs(), fetchProductSlugs()]);
+/**
+ * Cesty do sitemapy. Stránka recenzí se uvádí jen u produktů, které recenzi mají —
+ * prázdná nese noindex, a do sitemapy patří jen adresy, které chceme ve výsledcích.
+ * Hlubší strany mají stejný strop jako prerender, aby sitemapa neslibovala adresy,
+ * které nemají statické HTML.
+ */
+export function collectSitemapPaths(posts, products) {
   const paths = [
     ...PUBLIC_PAGES.map((p) => p.path),
-    ...posts.map((p) => `/inspirace/${p.slug}`),
-    ...products.map((p) => `/cestovni-pruvodci/${p.slug}`),
+    ...(posts || []).map((p) => `/inspirace/${p.slug}`),
   ];
+  for (const product of products || []) {
+    paths.push(`/cestovni-pruvodci/${product.slug}`);
+    const count = product.review_count ?? 0;
+    if (count === 0) continue;
+    paths.push(productReviewsPath(product.slug));
+    const { prerenderedPages } = reviewPageRange(count);
+    for (let page = 2; page <= prerenderedPages; page++) {
+      paths.push(productReviewsPath(product.slug, page));
+    }
+  }
+  return paths;
+}
+
+async function run() {
+  const [posts, products] = await Promise.all([fetchBlogSlugs(), fetchProductSlugs()]);
+  const paths = collectSitemapPaths(posts, products);
   const xml = buildSitemap(paths);
   const out = path.posix.join('dist', 'sitemap.xml');
   await fs.mkdir(path.dirname(out), { recursive: true });

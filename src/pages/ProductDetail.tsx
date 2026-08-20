@@ -10,13 +10,13 @@ import { supabase } from '../lib/supabase';
 import { useCart } from '../contexts';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import SeoTags from '../components/common/SeoTags';
-import { buildProductMeta, productDisplayName, productReviewsPath } from '../utils/productSeo';
+import { buildProductMeta, productDisplayName } from '../utils/productSeo';
 import { fetchApprovedReviews } from '../lib/reviews';
 import type { PublicReview } from '../lib/reviews';
 import ProductReviews from '../components/reviews/ProductReviews';
 import ProductRatingSummary from '../components/reviews/ProductRatingSummary';
 import { reviewDateIso } from '../components/reviews/formatReviewDate';
-import { PRODUCT_REVIEWS_LIMIT } from '../constants/reviews';
+import { PRODUCT_REVIEWS_LIMIT, productReviewsPath } from '../constants/reviews';
 import type { Tables } from '../types/database.types';
 
 type ProductDetailRow = Pick<
