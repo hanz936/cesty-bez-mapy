@@ -17,7 +17,7 @@ import path from 'node:path';
  * nic nespustí: `run()` se v nich volá jen když `import.meta.url` odpovídá
  * `process.argv[1]`, a to je při `node -e` prázdné.
  */
-const NODE_LOADED = ['scripts/prerender.mjs', 'scripts/sitemap.mjs'];
+const NODE_LOADED = ['scripts/prerender.mjs', 'scripts/sitemap.mjs', 'scripts/verify-dist.mjs'];
 
 /**
  * Skripty, které se načíst NEDAJÍ, protože pracují už při importu (nemají guard na

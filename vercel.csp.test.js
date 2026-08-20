@@ -3,7 +3,10 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 
 const cfg = JSON.parse(readFileSync(new URL('./vercel.json', import.meta.url)));
-const csp = cfg.headers[0].headers.find((h) => h.key === 'Content-Security-Policy').value;
+// Hledáme podle `source`, ne podle pořadí: `headers` má víc pravidel (scoped
+// /app-shell) a Vercel je při shodě aplikuje všechna, takže index nic neznamená.
+const globalRule = cfg.headers.find((h) => h.source === '/(.*)');
+const csp = globalRule.headers.find((h) => h.key === 'Content-Security-Policy').value;
 const directive = (name) => csp.split(';').map((d) => d.trim()).find((d) => d.startsWith(name + ' '));
 
 describe('CSP allows Umami', () => {

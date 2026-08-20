@@ -5,7 +5,12 @@ import { ROUTES } from '../constants';
 const NotFound = () => {
   return (
     <Layout>
-      <div className="flex items-center justify-center px-4 py-16 min-h-96">
+      {/* Marker pro prerender: routa, která skončí na 404, nikdy neohlásí připravenost
+          (Layout dostává `ready` jen od stránek, které mají co předgenerovat), takže
+          build spadne na timeoutu. Podle tohohle atributu umí říct PROČ — viz
+          `explainStuckPage` v `scripts/prerender.mjs`. Atribut, ne text nadpisu:
+          texty se mění, atribut je záměr. */}
+      <div data-page="not-found" className="flex items-center justify-center px-4 py-16 min-h-96">
         <div className="max-w-md w-full text-center">
           <div className="mb-8">
             <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">

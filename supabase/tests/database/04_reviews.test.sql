@@ -1,11 +1,13 @@
 BEGIN;
-SELECT plan(39);
+SELECT plan(41);
 
 -- ── Struktura ────────────────────────────────────────────────
 SELECT has_table('public'::name, 'reviews'::name);
 SELECT has_table('public'::name, 'review_requests'::name);
 SELECT has_function('public'::name, 'refresh_product_rating'::name);
 SELECT has_trigger('public'::name, 'reviews'::name, 'trg_reviews_refresh_product_rating'::name);
+select has_function('public'::name, 'notify_vercel_reviews_change'::name, 'deploy-hook funkce pro recenze existuje');
+select has_trigger('public'::name, 'reviews'::name, 'trg_reviews_deploy_hook'::name, 'reviews mají deploy-hook trigger');
 
 -- Advisor 0028/0029: trigger-only SECURITY DEFINER funkce nesmi byt spustitelna
 -- pres RPC anon/authenticated rolemi; trigger samotny EXECUTE volajiciho nekontroluje

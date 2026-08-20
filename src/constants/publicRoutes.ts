@@ -6,8 +6,8 @@ import { ROUTES } from './routes.ts';
  * (objednávka, potvrzení, stažení, dotazník/náhled itineráře) ani 404.
  * `title` je holý (komponenta SeoTags připojí „ | Cesty bez mapy"); copy lze
  * doladit s Janou před launchem. `/` je v registru kvůli prerenderu+sitemap,
- * ale Home.jsx meta bere z index.html (žádné SeoTags) — title/description zde
- * jsou jen dokumentační.
+ * ale `Home.tsx` si meta vykresluje sám (vlastní texty, ne přes SeoTags) —
+ * title/description zde jsou jen dokumentační.
  */
 export const PUBLIC_PAGES = [
   { path: ROUTES.HOME, title: 'Cesty (bez) mapy', description: 'Místo, kde najdeš inspiraci, itineráře i tipy na místa, která se do běžných průvodců nevešla.' },

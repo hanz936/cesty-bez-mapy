@@ -11,6 +11,17 @@ import { fetchBlogSlugs, fetchProductSlugs } from './contentSlugs.mjs';
 
 const DIST = 'dist';
 const BRAND = 'Cesty';
+/**
+ * Neutrální titulek skořápky. Šablona ho po rozdělení nemá (meta homepage se
+ * přestěhovala do `Home.tsx`), a bez něj by prohlížeč na neprerenderovaných
+ * adresách ukazoval v záložce holou URL, dokud nedoběhne React.
+ */
+const SHELL_TITLE = 'Cesty (bez) mapy';
+/**
+ * `NotFound` se pozná podle atributu, ne podle nadpisu — texty se mění, atribut je záměr
+ * (stejná volba jako u `data-loading`). Zdroj: `src/pages/NotFound.tsx`.
+ */
+export const NOT_FOUND_MARKER = 'data-page="not-found"';
 const STATIC_ROUTES = PUBLIC_PAGES.map((p) => p.path);
 
 /**
@@ -63,7 +74,8 @@ export function outputPathForRoute(distDir, route) {
 }
 
 /**
- * Ověří, že zachycené HTML je „opravdové" (ne loading shell). Jinak vyhodí.
+ * Ověří, že zachycené HTML je „opravdové" (ne loading shell) a že patří té routě,
+ * pod kterou se chystá zapsat. Jinak vyhodí.
  *
  * Marker `data-prerender-ready` sám nestačí: stránka ho může vydat natvrdo, zatímco
  * data načítá až vnořená komponenta — pak se předgeneruje loading stav a build ho
@@ -71,11 +83,23 @@ export function outputPathForRoute(distDir, route) {
  * stavy proto nesou `data-loading` a jejich přítomnost je tvrdá chyba. Kontrolujeme
  * atribut, ne text hlášky — texty se mění, atribut je záměr.
  *
+ * `expectedPath` je povinný schválně: kdyby byl volitelný, vypadnutí argumentu na
+ * volacím místě by kontrolu tiše vyplo a nic by nezčervenalo.
+ *
+ * Porovnává se JEN cesta, ne celá URL. Origin v HTML pochází z `VITE_SITE_URL`
+ * zapečeného do bundlu při `vite build`, kdežto skript čte prostředí až za běhu —
+ * rozdíl mezi nimi není vada stránky a shodil by build na něčem jiném, než co
+ * hlídáme. Že všechny stránky míří na tutéž doménu, ověřuje `verify-dist.mjs`,
+ * který vidí celý `dist/` najednou.
+ *
  * @param {string | null | undefined} html
- * @param {{ minBytes: number, requireH1: boolean, brand: string }} limits
+ * @param {{ minBytes: number, requireH1: boolean, brand: string, expectedPath: string }} limits
  * @returns {void}
  */
-export function validateHtml(html, { minBytes, requireH1, brand }) {
+export function validateHtml(html, { minBytes, requireH1, brand, expectedPath }) {
+  if (typeof expectedPath !== 'string' || !expectedPath.startsWith('/')) {
+    throw new Error(`Prerender: validateHtml potřebuje cestu routy (expectedPath), dostal ${JSON.stringify(expectedPath)}`);
+  }
   if (!html || html.length < minBytes) {
     throw new Error(`Prerender: HTML příliš krátké (${html?.length ?? 0} < ${minBytes} B)`);
   }
@@ -90,6 +114,86 @@ export function validateHtml(html, { minBytes, requireH1, brand }) {
   if (brand && !html.includes(brand)) {
     throw new Error(`Prerender: chybí značka „${brand}" v HTML`);
   }
+  const canonical = canonicalHref(html);
+  if (canonical === null) {
+    // Po rozdělení skořápky nemá canonical ani `NotFound`, ani nic jiného, co
+    // nevykresluje vlastní meta — „chybí" je proto silnější signál než „nesedí".
+    throw new Error(`Prerender: ${expectedPath} nemá canonical — stránka nevykresluje vlastní meta`);
+  }
+  const canonicalPath = pathOf(canonical);
+  if (canonicalPath !== expectedPath) {
+    throw new Error(
+      `Prerender: ${expectedPath} má canonical na ${canonicalPath} (${canonical}) — zachycená stránka patří jiné routě`,
+    );
+  }
+}
+
+/**
+ * `href` z `<link rel="canonical">`, nebo null. Pořadí atributů je volné —
+ * React je vypisuje jinak než ruční HTML.
+ * @param {string} html
+ * @returns {string | null}
+ */
+export function canonicalHref(html) {
+  const tag = html.match(/<link\b[^>]*\brel="canonical"[^>]*>/i)?.[0];
+  return tag?.match(/\bhref="([^"]*)"/i)?.[1] ?? null;
+}
+
+/**
+ * Cesta z absolutní URL. Když se URL rozparsovat nedá, vrací vstup beze změny —
+ * ať se v hlášce objeví to, co v HTML doopravdy stojí.
+ * @param {string} href
+ * @returns {string}
+ */
+export function pathOf(href) {
+  try {
+    return new URL(href).pathname;
+  } catch {
+    return href;
+  }
+}
+
+/**
+ * Vysvětlí, proč routa nikdy neohlásila `data-prerender-ready`.
+ *
+ * Bez toho build hlásí jen „Timeout waiting for selector" — pravdu o mechanismu,
+ * ne o příčině. Ta nejčastější se přitom dá pojmenovat: routa se vyrenderovala jako
+ * stránka „nenalezeno", typicky když se rozešla routa v `App.tsx` se stavitelem cesty
+ * a prerender chodí na adresu, kterou router nezná. `NotFound` marker připravenosti
+ * schválně nevydává (nemá co předgenerovat), takže se to projeví právě timeoutem.
+ *
+ * @param {string} route
+ * @param {{ html?: string | null, title?: string | null, h1?: string | null }} seen
+ * @returns {string}
+ */
+export function explainStuckPage(route, { html, title, h1 }) {
+  if (html && html.includes(NOT_FOUND_MARKER)) {
+    return `Prerender: ${route} se vyrenderovala jako stránka „nenalezeno" — router tuhle adresu nezná. Zkontroluj, že cestu staví tentýž zdroj, ze kterého je routa v App.tsx.`;
+  }
+  return `Prerender: ${route} neohlásila připravenost (data-prerender-ready) do limitu. <title>: ${title || '—'}, první <h1>: ${h1 || '—'}.`;
+}
+
+/**
+ * Skořápka pro SPA rewrite: výstup `vite build` bez meta homepage, s neutrálním titulkem.
+ *
+ * Vzniká z `dist/index.html` DŘÍV, než ho přepíše prerender homepage — jinak by
+ * rewrite `/(.*) → /app-shell` servíroval HTML s canonicalem homepage a klientský
+ * kód by ho přepisoval, což Google zakazuje.
+ *
+ * @param {string} template
+ * @returns {string}
+ */
+export function buildShellHtml(template) {
+  if (canonicalHref(template) !== null) {
+    // V tuhle chvíli má být dist/index.html čerstvý výstup `vite build`, tedy bez
+    // canonicalu. Když ho obsahuje, běží prerender nad UŽ prerenderovanou homepage
+    // (typicky opakované `npm run build:novite`, které samo `vite build` nespouští)
+    // a do skořápky by se uložila homepage — přesně stav, který tenhle krok ruší.
+    throw new Error(
+      'dist/index.html už je prerenderovaný — spusť `vite build` před prerenderem, jinak by app-shell.html dostal meta homepage.',
+    );
+  }
+  return template.replace('</head>', `  <title>${SHELL_TITLE}</title>\n  </head>`);
 }
 
 /**
@@ -116,6 +220,16 @@ async function run() {
   const [posts, products] = await Promise.all([fetchBlogSlugs(), fetchProductSlugs()]);
   const routes = collectRoutes(posts, products);
 
+  // `/` se prerenderuje do dist/index.html, takže by se skořápka jinak ztratila.
+  // Odkládáme ji stranou, aby rewrite `/(.*) → /app-shell` servíroval HTML BEZ
+  // meta homepage — klientský kód si ji pak smí nastavit sám.
+  //
+  // `DIST`, ne `distDir`: `distDir` je jen název parametru `outputPathForRoute`
+  // a ve `run()` neexistuje.
+  const shellPath = path.posix.join(DIST, 'app-shell.html');
+  await fs.writeFile(shellPath, buildShellHtml(await fs.readFile(path.posix.join(DIST, 'index.html'), 'utf8')), 'utf8');
+  console.log(`✓ skořápka → ${shellPath}`);
+
   const server = await preview({ appType: 'spa', preview: { port: 4173, strictPort: false, open: false } });
   const localUrl = server.resolvedUrls?.local[0];
   if (!localUrl) throw new Error('Prerender: vite preview nevrátil lokální URL');
@@ -127,6 +241,14 @@ async function run() {
   const RELAUNCH_EVERY = 8;
   let browser = await launchBrowser();
   let page = await browser.newPage();
+  // Homepage se zapisuje až PO smyčce. Během ní musí `dist/index.html` zůstat čistá
+  // šablona z `vite build`, protože `vite preview` ji podává jako SPA fallback každé
+  // routě, která ještě nemá vlastní soubor. Kdyby ji přepsala prerenderovaná homepage
+  // (a `/` je v pořadí první), nesla by od té chvíle každá další stránka i její meta:
+  // canonical sice uklidí `keepLast()`, ale `<title>` ne. Změřeno na ostrém buildu —
+  // 27 stránek se dvěma titulky, ten druhý patřil domovské stránce.
+  /** @type {string | null} */
+  let homepageHtml = null;
 
   try {
     for (const [i, route] of routes.entries()) {
@@ -136,7 +258,16 @@ async function run() {
         page = await browser.newPage();
       }
       await page.goto(base + route, { waitUntil: 'load', timeout: 30000 });
-      await page.waitForSelector('[data-prerender-ready]', { timeout: 20000 });
+      try {
+        await page.waitForSelector('[data-prerender-ready]', { timeout: 20000 });
+      } catch (err) {
+        const seen = await page.evaluate(() => ({
+          html: document.documentElement.outerHTML,
+          title: document.title,
+          h1: document.querySelector('h1')?.textContent?.trim() ?? null,
+        }));
+        throw new Error(explainStuckPage(route, seen), { cause: err });
+      }
       // React 19 hoistuje per-route <meta>/<link> ZA statické defaulty z index.html
       // (nededupuje je) → v <head> by vznikly duplicitní og:title/description/canonical.
       // Necháme poslední výskyt každého klíče (= React per-route hodnotu).
@@ -168,7 +299,11 @@ async function run() {
         (route.startsWith('/inspirace/') || route.startsWith('/cestovni-pruvodci/')) &&
         !STATIC_ROUTES.includes(route);
       const requireH1 = isDetail; // detail má vždy h1
-      validateHtml(html, { minBytes: 1024, requireH1, brand: BRAND });
+      validateHtml(html, { minBytes: 1024, requireH1, brand: BRAND, expectedPath: route });
+      if (route === '/') {
+        homepageHtml = html;
+        continue;
+      }
       const out = outputPathForRoute(DIST, route);
       await fs.mkdir(path.dirname(out), { recursive: true });
       await fs.writeFile(out, html, 'utf8');
@@ -178,6 +313,10 @@ async function run() {
     await browser.close();
     await server.close();
   }
+  if (homepageHtml === null) throw new Error('Prerender: homepage (/) se nezachytila — bez ní by v dist/ zůstala holá šablona');
+  const homeOut = outputPathForRoute(DIST, '/');
+  await fs.writeFile(homeOut, homepageHtml, 'utf8');
+  console.log(`✓ prerendered / → ${homeOut} (${homepageHtml.length} B)`);
   console.log(`Prerender hotovo: ${routes.length} rout.`);
 }
 

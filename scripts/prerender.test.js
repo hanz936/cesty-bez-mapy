@@ -3,7 +3,17 @@
 // (esbuild). esbuild má invariant `TextEncoder().encode() instanceof Uint8Array`,
 // jenž v jsdom realmu selže → helpery testujeme v node prostředí.
 import { describe, it, expect, vi } from 'vitest';
-import { collectRoutes, outputPathForRoute, validateHtml } from './prerender.mjs';
+import { readFileSync } from 'node:fs';
+import {
+  buildShellHtml,
+  canonicalHref,
+  collectRoutes,
+  explainStuckPage,
+  NOT_FOUND_MARKER,
+  outputPathForRoute,
+  pathOf,
+  validateHtml,
+} from './prerender.mjs';
 import { MAX_PRERENDERED_REVIEW_PAGES } from '../src/constants/reviews.ts';
 
 describe('collectRoutes', () => {
@@ -83,31 +93,125 @@ describe('outputPathForRoute', () => {
 
 describe('validateHtml', () => {
   const brand = 'Cesty';
-  it('projde u plného HTML s h1 a značkou', () => {
-    const html = '<html><body><h1>Nadpis</h1>' + 'x'.repeat(2000) + ' Cesty</body></html>';
-    expect(() => validateHtml(html, { minBytes: 1024, requireH1: true, brand })).not.toThrow();
+  const CANONICAL = '<link rel="canonical" href="https://www.cestybezmapy.cz/kontakt"/>';
+  const limits = { minBytes: 1024, requireH1: true, brand, expectedPath: '/kontakt' };
+  /**
+   * Stránka, která projde vším — jednotlivé testy z ní pak berou jednu vlastnost.
+   * @param {string} [extra]
+   */
+  const page = (extra = '') =>
+    `<html><head>${CANONICAL}</head><body><h1>Nadpis</h1>${extra}` + 'x'.repeat(2000) + ' Cesty</body></html>';
+
+  it('projde u plného HTML s h1, značkou a canonicalem na vlastní routu', () => {
+    expect(() => validateHtml(page(), limits)).not.toThrow();
   });
   it('selže u prázdného/loading shellu (krátké, bez h1)', () => {
-    expect(() => validateHtml('<html><body>Načítám…</body></html>', { minBytes: 1024, requireH1: true, brand })).toThrow();
+    expect(() => validateHtml('<html><body>Načítám…</body></html>', limits)).toThrow();
   });
   it('selže, když chybí značka', () => {
-    const html = '<h1>x</h1>' + 'y'.repeat(2000);
-    expect(() => validateHtml(html, { minBytes: 1024, requireH1: true, brand })).toThrow();
+    const html = `<html><head>${CANONICAL}</head><body><h1>x</h1>` + 'y'.repeat(2000) + '</body></html>';
+    expect(() => validateHtml(html, limits)).toThrow(/značka/);
   });
   it('selže u zachyceného loading stavu, i když má h1, značku i dost bajtů', () => {
     // Regrese P3-A: /recenze se předgenerovala jako skeleton — délka, <h1> i značka
     // seděly, protože stránka ohlásila připravenost natvrdo. Rozhoduje `data-loading`.
-    const html =
-      '<html><body><h1>Recenze</h1><p data-loading="true">Načítám recenze…</p>' +
-      'x'.repeat(2000) +
-      ' Cesty</body></html>';
-    expect(() => validateHtml(html, { minBytes: 1024, requireH1: true, brand })).toThrow(/data-loading/);
+    expect(() => validateHtml(page('<p data-loading="true">Načítám recenze…</p>'), limits)).toThrow(/data-loading/);
   });
   it('nezamění atribut za podobně pojmenovanou třídu nebo text', () => {
-    const html =
-      '<html><body><h1>Recenze</h1><p class="data-loading-hint">Načítám…</p>' +
-      'x'.repeat(2000) +
-      ' Cesty</body></html>';
-    expect(() => validateHtml(html, { minBytes: 1024, requireH1: true, brand })).not.toThrow();
+    expect(() => validateHtml(page('<p class="data-loading-hint">Načítám…</p>'), limits)).not.toThrow();
+  });
+
+  it('selže, když stránka canonical vůbec nemá', () => {
+    // Po rozdělení skořápky je tohle podpis zachycené cizí stránky: `NotFound` ani nic
+    // jiného bez vlastních meta canonical nevydá, protože ho šablona už nedodává.
+    const html = '<html><body><h1>Stránka nenalezena</h1>' + 'x'.repeat(2000) + ' Cesty</body></html>';
+    expect(() => validateHtml(html, limits)).toThrow(/nemá canonical/);
+  });
+  it('selže, když canonical patří jiné routě', () => {
+    // Tichá vada, kvůli které kontrola vznikla: pod adresou A se zapíše stránka B.
+    expect(() => validateHtml(page(), { ...limits, expectedPath: '/recenze' })).toThrow(/patří jiné routě/);
+  });
+  it('porovnává jen cestu, ne doménu', () => {
+    // Origin v HTML pochází z `VITE_SITE_URL` zapečeného do bundlu, skript čte prostředí
+    // až za běhu — rozdíl mezi nimi není vada stránky a nesmí shodit build.
+    const html = page().replace('https://www.cestybezmapy.cz', 'http://localhost:4173');
+    expect(() => validateHtml(html, limits)).not.toThrow();
+  });
+  it('bez expectedPath se odmítne spustit', () => {
+    // Kdyby byl argument volitelný, jeho vypadnutí na volacím místě by kontrolu
+    // tiše vyplo a žádný test by nezčervenal.
+    // `@ts-expect-error` je tu i důkaz: kdyby `expectedPath` v typu povinný nebyl,
+    // řádek by přestal chybovat a `tsc` by na nepoužitou direktivu upozornil.
+    // @ts-expect-error chybějící expectedPath je přesně to, co test ověřuje
+    expect(() => validateHtml(page(), { minBytes: 1024, requireH1: true, brand })).toThrow(/expectedPath/);
+  });
+});
+
+describe('canonicalHref', () => {
+  it('najde href bez ohledu na pořadí atributů', () => {
+    expect(canonicalHref('<link rel="canonical" href="/a"/>')).toBe('/a');
+    expect(canonicalHref('<link href="/b" rel="canonical"/>')).toBe('/b');
+  });
+  it('vrací null, když canonical není', () => {
+    expect(canonicalHref('<link rel="icon" href="/favicon.png"/>')).toBeNull();
+  });
+});
+
+describe('pathOf', () => {
+  it('vytáhne cestu z absolutní URL', () => {
+    expect(pathOf('https://www.cestybezmapy.cz/kontakt')).toBe('/kontakt');
+    expect(pathOf('https://www.cestybezmapy.cz/')).toBe('/');
+  });
+  it('nerozparsovatelný vstup vrací beze změny, ať je v hlášce vidět', () => {
+    expect(pathOf('//nesmysl')).toBe('//nesmysl');
+  });
+});
+
+describe('explainStuckPage', () => {
+  it('pojmenuje zachycenou stránku „nenalezeno\u201c', () => {
+    // P3-D: bez tohohle build hlásí jen „Timeout waiting for selector" — pravdu
+    // o mechanismu, ne o příčině.
+    const msg = explainStuckPage('/cestovni-pruvodci/x', { html: '<div data-page="not-found">…</div>' });
+    expect(msg).toContain('/cestovni-pruvodci/x');
+    expect(msg).toMatch(/nenalezeno/);
+  });
+  it('marker, který hledá, na stránce 404 opravdu je', () => {
+    // Jinak nesvazuje obě strany nic: smazání atributu v `NotFound.tsx` by nechalo
+    // celou sadu zelenou (testy výš si marker píšou samy) a build by se vrátil
+    // k hlášce „Timeout waiting for selector", kvůli které tahle diagnostika vznikla.
+    // Čteme cestou relativní ke kořeni projektu (cwd Vitestu) — viz `routes.test.ts`.
+    expect(readFileSync('src/pages/NotFound.tsx', 'utf8')).toContain(NOT_FOUND_MARKER);
+  });
+
+  it('u jiné příčiny vypíše aspoň to, co stránka ukazovala', () => {
+    const msg = explainStuckPage('/kontakt', { html: '<div>…</div>', title: 'Kontakt', h1: 'Napiš mi' });
+    expect(msg).toContain('/kontakt');
+    expect(msg).toContain('Kontakt');
+    expect(msg).toContain('Napiš mi');
+    expect(msg).not.toMatch(/nenalezeno/);
+  });
+});
+
+describe('buildShellHtml', () => {
+  const template = '<!doctype html><html><head><meta charset="UTF-8" />\n  </head><body><div id="root"></div></body></html>';
+
+  it('doplní neutrální titulek, protože šablona už žádný nemá', () => {
+    const shell = buildShellHtml(template);
+    expect(shell).toContain('<title>Cesty (bez) mapy</title>');
+    expect(shell.match(/<title[\s>]/g)).toHaveLength(1);
+  });
+  it('skořápka nenese canonical ani marker připravenosti', () => {
+    // Canonical by klientský kód přepisoval (Google to zakazuje) a marker by z fallbacku
+    // udělal „předgenerovanou stránku" pro každou adresu, která na něj spadne.
+    const shell = buildShellHtml(template);
+    expect(canonicalHref(shell)).toBeNull();
+    expect(shell).not.toMatch(/data-prerender-ready/);
+  });
+  it('odmítne už prerenderovanou homepage', () => {
+    // Opakované `build:novite` nespouští `vite build`, takže dist/index.html je tou dobou
+    // homepage — a do skořápky by se uložila i s jejím canonicalem.
+    expect(() => buildShellHtml(template.replace('</head>', '<link rel="canonical" href="https://www.cestybezmapy.cz/"/></head>'))).toThrow(
+      /už je prerenderovaný/,
+    );
   });
 });
