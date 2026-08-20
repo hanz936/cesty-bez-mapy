@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { preview } from 'vite';
 import { PUBLIC_PAGES } from '../src/constants/publicRoutes.ts';
+import { productDetailPath } from '../src/constants/routes.ts';
 import { productReviewsPath, reviewPageRange } from '../src/constants/reviews.ts';
 import { fetchBlogSlugs, fetchProductSlugs } from './contentSlugs.mjs';
 
@@ -32,7 +33,7 @@ export function collectRoutes(blogPosts, productSlugs = []) {
   const blog = (blogPosts || []).map((p) => `/inspirace/${p.slug}`);
   const products = [];
   for (const product of productSlugs || []) {
-    products.push(`/cestovni-pruvodci/${product.slug}`);
+    products.push(productDetailPath(product.slug));
     products.push(productReviewsPath(product.slug));
     const { totalPages, prerenderedPages } = reviewPageRange(product.review_count);
     if (totalPages > prerenderedPages) {

@@ -1,3 +1,9 @@
+// Import s explicitní příponou je tu podmínka, ne styl: tenhle soubor načítají build
+// skripty v plain Node, který příponu nedoplňuje. `routes.ts` je bezpečný cíl — Node ho
+// stejně už načítá přes `publicRoutes.ts` a sám nic neimportuje. Ověřuje to
+// `scripts/loadable.test.js` a hlásí i `npm run type-check` (tsconfig.scripts.json).
+import { productDetailPath } from './routes.ts';
+
 /** Kolik recenzí je na jedné straně stránky recenzí. */
 export const REVIEWS_PAGE_SIZE = 10;
 
@@ -37,7 +43,7 @@ export function isPagedPage(page: number): boolean {
 
 /** Cesta stránky recenzí produktu (strana 1 je bez segmentu `/strana`). */
 export function productReviewsPath(slug: string, page = 1): string {
-  const base = `/cestovni-pruvodci/${slug}/recenze`;
+  const base = `${productDetailPath(slug)}/recenze`;
   return isPagedPage(page) ? `${base}/strana/${page}` : base;
 }
 

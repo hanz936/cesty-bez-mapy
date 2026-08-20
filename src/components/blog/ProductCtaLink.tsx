@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { productDetailPath } from '../../constants';
 
 interface ProductCtaLinkProps {
   slug: string;
@@ -11,7 +12,7 @@ interface ProductCtaLinkProps {
 export default function ProductCtaLink({ slug, label, exists }: ProductCtaLinkProps) {
   if (!exists) return null;
   return (
-    <Link to={`/cestovni-pruvodci/${slug}`} className="blog-cta">
+    <Link to={productDetailPath(slug)} className="blog-cta">
       {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: falsy ReactNode (''/0/false) must fall through to the fallback label */}
       🛒 {label || 'Zobrazit průvodce'}
     </Link>

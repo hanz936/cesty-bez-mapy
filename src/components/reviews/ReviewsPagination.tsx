@@ -29,6 +29,11 @@ const ReviewsPagination = ({ currentPage, totalPages, buildHref, className = '' 
   if (totalPages <= 1) return null;
 
   const items = paginationItems(currentPage, totalPages);
+  // Šipky si stranu dopočítávají (`currentPage ± 1`), takže obcházejí filtr, který má
+  // `paginationItems` uvnitř — z necelého čísla by vyrobily odkaz na `/strana/1.5`.
+  // Doménový predikát `isPagedPage` se sem schválně netahá: komponenta dostává
+  // `buildHref` zvenčí a o recenzích nic neví. Tohle je defenzivní guard, ne rozhodnutí.
+  const hasIntegerPage = Number.isInteger(currentPage);
 
   return (
     <nav aria-label="Stránkování recenzí" className={`flex justify-center ${className}`.trim()}>
@@ -36,7 +41,7 @@ const ReviewsPagination = ({ currentPage, totalPages, buildHref, className = '' 
           bez odrážek pak VoiceOver jako seznam neohlásí — doporučuje to dokumentace
           Tailwindu. U stránkování ta ztráta bolí, „seznam, N položek" říká, kolik je stran. */}
       <ul role="list" className="flex flex-wrap items-center gap-2">
-        {currentPage > 1 && (
+        {hasIntegerPage && currentPage > 1 && (
           <li>
             <Link to={buildHref(currentPage - 1)} className={linkClass} aria-label="Předchozí strana">
               ‹
@@ -61,7 +66,7 @@ const ReviewsPagination = ({ currentPage, totalPages, buildHref, className = '' 
             </li>
           ),
         )}
-        {currentPage < totalPages && (
+        {hasIntegerPage && currentPage < totalPages && (
           <li>
             <Link to={buildHref(currentPage + 1)} className={linkClass} aria-label="Další strana">
               ›

@@ -106,7 +106,7 @@ function App() {
               <Route path={ROUTES.PLAN_YOUR_DREAM_TRIP} element={<PlanYourDreamTrip />} />
               <Route path={ROUTES.QUIZ} element={<Quiz />} />
               <Route path={ROUTES.TRAVEL_GUIDES} element={<TravelGuides />} />
-              <Route path="/cestovni-pruvodci/:slug" element={<ProductDetail />} />
+              <Route path={ROUTES.PRODUCT_DETAIL} element={<ProductDetail />} />
               <Route path={ROUTES.PRODUCT_REVIEWS} element={<ProductReviewsPage />} />
               <Route path={ROUTES.PRODUCT_REVIEWS_PAGED} element={<ProductReviewsPage />} />
               <Route path={ROUTES.SALZBURG_ITINERARY} element={<SalzburgItinerary />} />

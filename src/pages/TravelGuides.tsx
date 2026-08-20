@@ -8,7 +8,7 @@ import RatingStars from '../components/ui/RatingStars';
 import SeoTags from '../components/common/SeoTags';
 import { buildPageMeta } from '../utils/pageSeo';
 import { roundRating, formatRatingCs } from '../utils/rating';
-import { BASE_PATH, ROUTES } from '../constants';
+import { BASE_PATH, ROUTES, productDetailPath } from '../constants';
 import { supabase } from '../lib/supabase';
 import type { Tables } from '../types/database.types';
 import { hasAnyReviews, visibleSortOptions } from './travelGuidesFilters';
@@ -313,7 +313,7 @@ const TravelGuides = () => {
     // Dynamická navigace na detail produktu podle slug
     if (guide.slug) {
       // eslint-disable-next-line @typescript-eslint/no-floating-promises -- pre-existing fire-and-forget navigation (react-router NavigateFunction returns void | Promise<void>)
-      navigate(`/cestovni-pruvodci/${guide.slug}`);
+      navigate(productDetailPath(guide.slug));
       window.scrollTo(0, 0);
     }
   }, [navigate]);

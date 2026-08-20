@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { PUBLIC_PAGES } from '../src/constants/publicRoutes.ts';
+import { productDetailPath } from '../src/constants/routes.ts';
 import { productReviewsPath, reviewPageRange } from '../src/constants/reviews.ts';
 import { fetchBlogSlugs, fetchProductSlugs } from './contentSlugs.mjs';
 
@@ -57,7 +58,7 @@ export function collectSitemapPaths(posts, products) {
     ...(posts || []).map((p) => `/inspirace/${p.slug}`),
   ];
   for (const product of products || []) {
-    paths.push(`/cestovni-pruvodci/${product.slug}`);
+    paths.push(productDetailPath(product.slug));
     const { totalPages, prerenderedPages } = reviewPageRange(product.review_count);
     if (totalPages === 0) continue;
     paths.push(productReviewsPath(product.slug));

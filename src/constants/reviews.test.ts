@@ -1,14 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import {
   clampPage,
+  isPagedPage,
   productReviewsPath,
   reviewPageRange,
   REVIEWS_PAGE_SIZE,
   PRODUCT_REVIEWS_LIMIT,
   MAX_PRERENDERED_REVIEW_PAGES,
 } from './reviews';
-// `reviews.ts` sám o sobě nesmí nic importovat (Node ho načítá přímo z build
-// skriptů) — import route registru je proto jen v TESTU, ne ve zdroji.
+// `reviews.ts` dnes `routes.ts` importuje — cesta detailu produktu žije v registru
+// a stránka recenzí ji jen prodlužuje. Že ta dvojice zůstane načitatelná v plain Node,
+// hlídá `scripts/loadable.test.js`; tenhle soubor hlídá, že se stavitel cesty a route
+// pattern nerozejdou.
 import { ROUTES } from './routes.ts';
 
 describe('konstanty recenzí', () => {
@@ -58,6 +61,16 @@ describe('productReviewsPath', () => {
     // `NaN <= 1` i `NaN > 1` jsou obě false — bez sdíleného predikátu se `productReviewsPath`
     // a titulek ve `buildProductReviewsMeta` rozejdou (jeden by přidal segment, druhý ne).
     expect(productReviewsPath('italie-roadtrip', NaN)).toBe('/cestovni-pruvodci/italie-roadtrip/recenze');
+  });
+
+  it('segment /strana vzniká právě pro isPagedPage', () => {
+    // Tuhle ekvivalenci si podmínka redirectu v `ProductReviewsPage` půjčuje: adresa
+    // se segmentem `/strana` smí vzniknout právě tehdy, když `isPagedPage` řekne ano.
+    // Kdyby se ty dvě věci rozešly, stránka by se přesměrovávala do kruhu.
+    for (const raw of [undefined, '1', '2', '3', '99', 'abc', '0', '2.5', '02']) {
+      const page = clampPage(raw, 3);
+      expect(productReviewsPath('italie', page).includes('/strana/')).toBe(isPagedPage(page));
+    }
   });
 
   it('shoduje se s route patterny v routes.ts', () => {

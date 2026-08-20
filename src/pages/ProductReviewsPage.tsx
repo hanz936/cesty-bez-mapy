@@ -8,8 +8,8 @@ import ReviewsPagination from '../components/reviews/ReviewsPagination';
 import ProductRatingSummary from '../components/reviews/ProductRatingSummary';
 import { REVIEWS_DISCLOSURE } from '../components/reviews/disclosure';
 import { formatReviewDate, reviewDateIso } from '../components/reviews/formatReviewDate';
-import { REVIEWS_PAGE_SIZE, clampPage, productReviewsPath, reviewPageRange } from '../constants/reviews';
-import { BASE_PATH } from '../constants';
+import { REVIEWS_PAGE_SIZE, clampPage, isPagedPage, productReviewsPath, reviewPageRange } from '../constants/reviews';
+import { BASE_PATH, productDetailPath } from '../constants';
 import { fetchApprovedReviews, fetchProductForReviews } from '../lib/reviews';
 import type { ProductForReviews, PublicReview } from '../lib/reviews';
 import { buildProductReviewsMeta, productDisplayName } from '../utils/productSeo';
@@ -101,7 +101,7 @@ const ProductReviewsPage = () => {
         // → přesměrujeme, ať tentýž obsah nežije pod víc adresami. Porovnáváme
         // parametr, ne `location.pathname`: pathname v závislostech efektu by při
         // každém přesměrování znovu natáhl produkt a k rozhodnutí nic nepřidává.
-        const canonicalStrana = currentPage === 1 ? undefined : String(currentPage);
+        const canonicalStrana = isPagedPage(currentPage) ? String(currentPage) : undefined;
         if (strana !== canonicalStrana) {
           setRedirectTo(productReviewsPath(slug!, currentPage));
           return;
@@ -192,7 +192,7 @@ const ProductReviewsPage = () => {
           komentář — pak by nikdy nezezelenal a implementátor by v souboru
           marně hledal druhou hlavní oblast, která tu není. */}
       <div className="max-w-4xl mx-auto px-5 py-16">
-        <Link to={`/cestovni-pruvodci/${slug}`} className="text-green-800 underline underline-offset-4">
+        <Link to={productDetailPath(slug!)} className="text-green-800 underline underline-offset-4">
           ← Zpět na průvodce
         </Link>
 

@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { productReviewsPath } from '../../constants/reviews';
 import ReviewsPagination from './ReviewsPagination';
-
-const buildHref = (page: number) => (page <= 1 ? '/r' : `/r/strana/${page}`);
+// Skutečný stavitel cesty, ne testovací dvojník: dvojník byl čtvrtou kopií pravidla
+// „strana 1 je bez segmentu", navíc v zakázané formě `page <= 1` (u NaN se chová opačně
+// než `isPagedPage`). S opravdovým builderem test ověřuje tu dvojici, která běží i v
+// produkci — stránkování vždycky dostává `productReviewsPath`.
+const buildHref = (page: number) => productReviewsPath('italie', page);
+const base = productReviewsPath('italie');
 const renderAt = (currentPage: number, totalPages: number) =>
   render(
     <MemoryRouter>
@@ -28,7 +33,7 @@ describe('ReviewsPagination', () => {
     renderAt(2, 3);
     const current = screen.getByRole('link', { name: 'Strana 2' });
     expect(current).toHaveAttribute('aria-current', 'page');
-    expect(current).toHaveAttribute('href', '/r/strana/2');
+    expect(current).toHaveAttribute('href', `${base}/strana/2`);
   });
 
   it('u krátké sekvence vypíše všechny strany', () => {
@@ -49,10 +54,10 @@ describe('ReviewsPagination', () => {
 
   it('každý odkaz má vlastní přístupný název', () => {
     renderAt(2, 3);
-    expect(screen.getByRole('link', { name: 'Strana 1' })).toHaveAttribute('href', '/r');
-    expect(screen.getByRole('link', { name: 'Strana 3' })).toHaveAttribute('href', '/r/strana/3');
-    expect(screen.getByRole('link', { name: 'Předchozí strana' })).toHaveAttribute('href', '/r');
-    expect(screen.getByRole('link', { name: 'Další strana' })).toHaveAttribute('href', '/r/strana/3');
+    expect(screen.getByRole('link', { name: 'Strana 1' })).toHaveAttribute('href', base);
+    expect(screen.getByRole('link', { name: 'Strana 3' })).toHaveAttribute('href', `${base}/strana/3`);
+    expect(screen.getByRole('link', { name: 'Předchozí strana' })).toHaveAttribute('href', base);
+    expect(screen.getByRole('link', { name: 'Další strana' })).toHaveAttribute('href', `${base}/strana/3`);
   });
 
   it('na první straně chybí odkaz na předchozí', () => {
@@ -90,6 +95,16 @@ describe('ReviewsPagination', () => {
     const link3 = screen.getByRole('link', { name: 'Strana 3' });
     expect(link1).not.toHaveAttribute('aria-current');
     expect(link3).not.toHaveAttribute('aria-current');
+  });
+
+  it('necelá strana šipky nevykreslí', () => {
+    // `paginationItems` má proti necelým číslům vlastní filtr, šipky si ale stranu
+    // dopočítávají samy — bez guardu by odkazovaly na `/strana/1.5` a `/strana/3.5`.
+    renderAt(2.5, 10);
+    expect(screen.queryByRole('link', { name: 'Předchozí strana' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Další strana' })).not.toBeInTheDocument();
+    // Zbytek stránkování zůstává — schovat celou navigaci by uživatele uvěznilo.
+    expect(screen.getByRole('link', { name: 'Strana 1' })).toBeInTheDocument();
   });
 
   it('výpustka má aria-hidden', () => {

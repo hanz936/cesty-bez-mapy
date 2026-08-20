@@ -1,5 +1,6 @@
 import { SITE_URL } from './blogSeo';
 import { ratingValueJsonLd } from './rating';
+import { productDetailPath } from '../constants';
 import { isPagedPage, productReviewsPath } from '../constants/reviews';
 import type { ProductForReviews } from '../lib/reviews';
 
@@ -79,7 +80,7 @@ export function productDisplayName(product: { detail_title: string | null; title
  * Míří na detail, protože ten je kanonickou stránkou produktu.
  */
 export function productJsonLdId(slug: string, siteUrl: string = SITE_URL): string {
-  return `${siteUrl}/cestovni-pruvodci/${slug}#product`;
+  return `${siteUrl}${productDetailPath(slug)}#product`;
 }
 
 function toReviewJsonLd(
@@ -106,7 +107,7 @@ export function buildProductMeta(
   const title = productDisplayName(product);
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string description must fall through to fallback (?? would change behavior)
   const description = product.hero_subtitle?.trim() || product.detail_title?.trim() || product.title;
-  const canonical = `${siteUrl}/cestovni-pruvodci/${product.slug}`;
+  const canonical = `${siteUrl}${productDetailPath(product.slug)}`;
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string image_url must fall through to fallback (?? would change behavior)
   const image = product.image_url || `${siteUrl}/images/placeholder-guide.jpg`;
 
