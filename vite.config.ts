@@ -3,7 +3,6 @@ import { defineConfig } from 'vite'
 import type { Plugin, Rollup } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { resolve } from 'path'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
 import { umamiPlugin } from './vite/umami-plugin.js'
 
@@ -156,15 +155,9 @@ export default defineConfig({
     },
   },
 
-  // Path resolution
-  resolve: {
-    alias: {
-      '@': resolve(__dirname, 'src'),
-      '@components': resolve(__dirname, 'src/components'),
-      '@pages': resolve(__dirname, 'src/pages'),
-      '@assets': resolve(__dirname, 'src/assets'),
-    },
-  },
+  // Aliasy (@, @components, …) tu záměrně nejsou: nikde se nepoužívaly, v tsconfigu
+  // neměly protějšek a byly to tikající hodiny — `@/constants/reviews` v souboru, který
+  // importují build skripty, by Vite přeložil, ale `node` ne, a build by spadl až na Vercelu.
 
   // Environment variables
   define: {

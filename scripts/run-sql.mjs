@@ -1,3 +1,8 @@
+// `pg` (devDependency, ad-hoc ops skript) nemá k ESM vstupu deklarace a `@types/pg`
+// v projektu nedržíme — kvůli jednomu ručně spouštěnému skriptu by to byla další
+// závislost navíc. `@ts-expect-error` je zároveň pojistka: až typy přibudou, TypeScript
+// tenhle řádek ohlásí jako zbytečný.
+// @ts-expect-error - modul 'pg' nemá typové deklarace
 import pg from 'pg';
 const { Client } = pg;
 
@@ -29,7 +34,7 @@ try {
     console.log('(no rows)');
   }
 } catch (err) {
-  console.error('Error:', err.message);
+  console.error('Error:', err instanceof Error ? err.message : err);
   process.exit(1);
 } finally {
   await client.end();

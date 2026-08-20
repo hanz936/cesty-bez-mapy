@@ -4,9 +4,16 @@ import { PUBLIC_PAGES } from '../src/constants/publicRoutes.ts';
 import { productReviewsPath, reviewPageRange } from '../src/constants/reviews.ts';
 import { fetchBlogSlugs, fetchProductSlugs } from './contentSlugs.mjs';
 
+/** @typedef {import('./contentSlugs.mjs').BlogSlugRow} BlogSlugRow */
+/** @typedef {import('./contentSlugs.mjs').ProductSlugRow} ProductSlugRow */
+
 const SITE_URL = process.env.VITE_SITE_URL || 'https://www.cestybezmapy.cz';
 
-/** XML entity-escape (sitemaps.org: & < > " '). */
+/**
+ * XML entity-escape (sitemaps.org: & < > " ').
+ * @param {string} s
+ * @returns {string}
+ */
 export function xmlEscape(s) {
   return String(s)
     .replaceAll('&', '&amp;')
@@ -16,7 +23,12 @@ export function xmlEscape(s) {
     .replaceAll("'", '&apos;');
 }
 
-/** Sestaví validní sitemap.xml z relativních cest (bez duplikátů). */
+/**
+ * Sestaví validní sitemap.xml z relativních cest (bez duplikátů).
+ * @param {string[]} paths
+ * @param {string} [siteUrl]
+ * @returns {string}
+ */
 export function buildSitemap(paths, siteUrl = SITE_URL) {
   const urls = [...new Set(paths)]
     .map((p) => `  <url>\n    <loc>${xmlEscape(`${siteUrl}${p}`)}</loc>\n  </url>`)
@@ -34,6 +46,10 @@ export function buildSitemap(paths, siteUrl = SITE_URL) {
  * prázdná nese noindex, a do sitemapy patří jen adresy, které chceme ve výsledcích.
  * Hlubší strany mají stejný strop jako prerender, aby sitemapa neslibovala adresy,
  * které nemají statické HTML.
+ *
+ * @param {BlogSlugRow[] | null | undefined} posts
+ * @param {ProductSlugRow[] | null | undefined} products
+ * @returns {string[]}
  */
 export function collectSitemapPaths(posts, products) {
   const paths = [

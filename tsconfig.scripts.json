@@ -1,0 +1,36 @@
+// Build skripty (scripts/) mají vlastní projekt, ne jen položku v tsconfig.node.json.
+// Dva důvody:
+//  1. `checkJs: true` je tu zapnuté, což tsconfig.node.json mít nemůže — vite.config.ts
+//     táhne vite/umami-plugin.js, který zůstává mimo TS migraci.
+//  2. `moduleResolution: nodenext` napodobuje pravidla, kterými se řídí `node`, když
+//     tyhle soubory spouští: relativní import MUSÍ mít příponu. `bundler` (co má app
+//     projekt) bezpříponový import povolí, Node ho odmítne — a build spadne až na
+//     Vercelu. Díky nodenext to ohlásí `npm run type-check` (TS2835).
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.scripts.tsbuildinfo",
+    "target": "ES2023",
+    // DOM je tu výhradně kvůli `page.evaluate` v prerender.mjs — ten callback se
+    // serializuje a spouští v prohlížeči, takže sahá na `document`. Platí ale pro celý
+    // projekt: v ostatních skriptech, které běží jen v Node, se na browser globály
+    // nespoléhej — type-check je propustí a spadnou až za běhu.
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "allowImportingTsExtensions": true,
+    "types": ["node"],
+    "noEmit": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "checkJs": true,
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    // Tady je to nejpodstatnější: tenhle projekt pokrývá právě ty soubory, které spouští
+    // `node` bez překladu. Viz tsconfig.app.json.
+    "erasableSyntaxOnly": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["scripts"]
+}

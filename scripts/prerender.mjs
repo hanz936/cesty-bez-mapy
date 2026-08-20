@@ -5,6 +5,9 @@ import { PUBLIC_PAGES } from '../src/constants/publicRoutes.ts';
 import { productReviewsPath, reviewPageRange } from '../src/constants/reviews.ts';
 import { fetchBlogSlugs, fetchProductSlugs } from './contentSlugs.mjs';
 
+/** @typedef {import('./contentSlugs.mjs').BlogSlugRow} BlogSlugRow */
+/** @typedef {import('./contentSlugs.mjs').ProductSlugRow} ProductSlugRow */
+
 const DIST = 'dist';
 const BRAND = 'Cesty';
 const STATIC_ROUTES = PUBLIC_PAGES.map((p) => p.path);
@@ -20,6 +23,10 @@ const STATIC_ROUTES = PUBLIC_PAGES.map((p) => p.path);
  * Hlubší strany mají strop — každá je jedna návštěva headless Chromia navíc
  * a prerender po každých osmi routách browser restartuje. Nad stropem strany
  * dál fungují, jen se nepředgenerují.
+ *
+ * @param {BlogSlugRow[] | null | undefined} blogPosts
+ * @param {ProductSlugRow[] | null | undefined} productSlugs
+ * @returns {string[]}
  */
 export function collectRoutes(blogPosts, productSlugs = []) {
   const blog = (blogPosts || []).map((p) => `/inspirace/${p.slug}`);
@@ -43,7 +50,12 @@ export function collectRoutes(blogPosts, productSlugs = []) {
   return [...new Set([...STATIC_ROUTES, ...blog, ...products])];
 }
 
-/** Cesta k výstupnímu souboru pro routu (directory-index). */
+/**
+ * Cesta k výstupnímu souboru pro routu (directory-index).
+ * @param {string} distDir
+ * @param {string} route
+ * @returns {string}
+ */
 export function outputPathForRoute(distDir, route) {
   if (route === '/') return path.posix.join(distDir, 'index.html');
   return path.posix.join(distDir, route.replace(/^\//, ''), 'index.html');
@@ -57,6 +69,10 @@ export function outputPathForRoute(distDir, route) {
  * odbaví jako úspěch. Přesně tak skončila /recenze jako prázdný skeleton. Loading
  * stavy proto nesou `data-loading` a jejich přítomnost je tvrdá chyba. Kontrolujeme
  * atribut, ne text hlášky — texty se mění, atribut je záměr.
+ *
+ * @param {string | null | undefined} html
+ * @param {{ minBytes: number, requireH1: boolean, brand: string }} limits
+ * @returns {void}
  */
 export function validateHtml(html, { minBytes, requireH1, brand }) {
   if (!html || html.length < minBytes) {
@@ -100,7 +116,9 @@ async function run() {
   const routes = collectRoutes(posts, products);
 
   const server = await preview({ appType: 'spa', preview: { port: 4173, strictPort: false, open: false } });
-  const base = server.resolvedUrls.local[0].replace(/\/$/, '');
+  const localUrl = server.resolvedUrls?.local[0];
+  if (!localUrl) throw new Error('Prerender: vite preview nevrátil lokální URL');
+  const base = localUrl.replace(/\/$/, '');
   // Sparticuz chromium na Vercelu běží --single-process → paměť se kumuluje přes
   // všechny routy v jednom procesu a po ~14 routách se browser zabije
   // („Target page, context or browser has been closed"). Periodický relaunch
@@ -122,6 +140,10 @@ async function run() {
       // (nededupuje je) → v <head> by vznikly duplicitní og:title/description/canonical.
       // Necháme poslední výskyt každého klíče (= React per-route hodnotu).
       await page.evaluate(() => {
+        /**
+         * @param {string} selector
+         * @param {string} keyAttr
+         */
         const keepLast = (selector, keyAttr) => {
           const byKey = new Map();
           for (const el of document.querySelectorAll(selector)) {

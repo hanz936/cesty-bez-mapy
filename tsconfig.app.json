@@ -14,6 +14,12 @@
     "strict": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
+    // Nesahat bez rozmyslu: krom typové hygieny tohle drží i produkční build. Node
+    // spouští `.ts` listy z `src/constants/` (publicRoutes.ts, reviews.ts) tak, že z nich
+    // jen odstraní typy — tsconfig přitom vůbec nečte. Cokoli, co potřebuje skutečný
+    // překlad (enum, namespace s kódem, parameter properties, `import x = require()`),
+    // by tedy prošlo sem, ale v `node scripts/prerender.mjs` skončilo SyntaxError.
+    // Záchytnou síť tvoří scripts/loadable.test.js.
     "erasableSyntaxOnly": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,

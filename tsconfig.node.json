@@ -14,6 +14,8 @@
     "strict": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
+    // Držet zapnuté i tady, ať se tři projekty chovají stejně a soubor přesunutý mezi
+    // nimi nemůže tiše získat syntax, kterou Node neumí odstranit. Viz tsconfig.app.json.
     "erasableSyntaxOnly": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
