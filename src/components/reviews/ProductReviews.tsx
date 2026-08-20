@@ -96,6 +96,16 @@ const ProductReviews = ({ productSlug, className = '', preloaded }: ProductRevie
 
   if (loading || notFound) return null;
 
+  // Počet sloupců odvozený od počtu karet, ne jen šířka kontejneru: sloupce mřížky
+  // jsou `1fr`, takže při méně kartách by samo zúžení kontejneru (`max-w-* mx-auto`)
+  // volnou šířku beze zbytku spolykalo do posledního sloupce a karta by zůstala
+  // přilepená vlevo — `justify-center` na `1fr` tracích nic nezmůže. Skutečné
+  // vycentrování jde jen přes odstranění prázdných sloupců.
+  const columns =
+    reviews.length === 1 ? 'grid-cols-1 max-w-md'
+    : reviews.length === 2 ? 'grid-cols-1 md:grid-cols-2 max-w-3xl'
+    : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
+
   return (
     <section aria-label="Recenze produktu" className={`py-16 ${className}`.trim()}>
       <div className="max-w-7xl mx-auto px-5">
@@ -114,11 +124,7 @@ const ProductReviews = ({ productSlug, className = '', preloaded }: ProductRevie
 
         {!error && reviewCount > 0 && (
           <>
-            <div
-              className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${
-                reviews.length < 3 ? 'max-w-4xl mx-auto' : ''
-              }`.trim()}
-            >
+            <div className={`grid gap-6 mx-auto ${columns}`}>
               {reviews.map((review) => (
                 <ReviewCard
                   key={review.id}
@@ -133,13 +139,11 @@ const ProductReviews = ({ productSlug, className = '', preloaded }: ProductRevie
                 />
               ))}
             </div>
-            {reviewCount > 0 && (
-              <div className="text-center mt-8">
-                <Link to={productReviewsPath(productSlug)} className="text-green-800 font-medium underline">
-                  Všechny recenze ({reviewCount})
-                </Link>
-              </div>
-            )}
+            <div className="text-center mt-8">
+              <Link to={productReviewsPath(productSlug)} className="text-green-800 font-medium underline">
+                Všechny recenze ({reviewCount})
+              </Link>
+            </div>
           </>
         )}
       </div>

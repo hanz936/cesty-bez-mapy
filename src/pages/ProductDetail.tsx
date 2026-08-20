@@ -362,14 +362,12 @@ const ProductDetail = () => {
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-black leading-tight">
                 {productDisplayName(product)}
               </h1>
-              {(product.review_count ?? 0) > 0 && (
-                <ProductRatingSummary
-                  average={product.average_rating ?? 0}
-                  count={product.review_count ?? 0}
-                  href={productReviewsPath(product.slug)}
-                  className="mt-4"
-                />
-              )}
+              <ProductRatingSummary
+                average={product.average_rating ?? 0}
+                count={product.review_count ?? 0}
+                href={productReviewsPath(product.slug)}
+                className="mt-4"
+              />
             </div>
 
             <div className="grid lg:grid-cols-2 gap-12 xl:gap-16 items-start">

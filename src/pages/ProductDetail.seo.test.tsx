@@ -172,6 +172,46 @@ describe('ProductDetail per-route SEO + Product JSON-LD + marker (SEO-03)', () =
     expect(document.head.querySelector('title')).toHaveTextContent('Itinerář Toskánsko');
   });
 
+  it('souhrn hodnocení pod nadpisem je odkaz na stránku recenzí a preload čte sdílenou konstantu', async () => {
+    const builder = makeBuilder({ data: { ...fixtureProduct, average_rating: 4.5, review_count: 2 }, error: null });
+    fromMock.mockReturnValue(builder);
+    fetchApprovedReviewsMock.mockResolvedValue({ reviews: [], total: 2 });
+
+    const { container } = renderProductDetail();
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-prerender-ready="true"]')).not.toBeNull();
+    });
+
+    // Souhrn hodnocení (F-1): musí to být skutečný odkaz na stránku recenzí tohoto
+    // produktu s korektně poskládaným přístupným názvem — ne jen vizuální text.
+    const summaryLink = container.querySelector('a[href="/cestovni-pruvodci/toskansko/recenze"]');
+    expect(summaryLink).not.toBeNull();
+    expect(summaryLink).toHaveAccessibleName('Hodnocení 4,5 z 5, 2 recenze — zobrazit všechny recenze');
+
+    // Preload (F-2): volání fetchApprovedReviews musí nést sdílenou konstantu, ne
+    // jakékoli jiné číslo — jinak by JSON-LD a viditelné karty mohly nést jiný počet.
+    expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({
+      productId: 'prod-1',
+      limit: PRODUCT_REVIEWS_LIMIT,
+      offset: 0,
+    });
+  });
+
+  it('bez recenzí (výchozí fixtura) se souhrn hodnocení nevykreslí a recenze se nefetchují', async () => {
+    const builder = makeBuilder({ data: fixtureProduct, error: null });
+    fromMock.mockReturnValue(builder);
+
+    const { container } = renderProductDetail();
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-prerender-ready="true"]')).not.toBeNull();
+    });
+
+    expect(container.querySelector('a[href="/cestovni-pruvodci/toskansko/recenze"]')).toBeNull();
+    expect(fetchApprovedReviewsMock).not.toHaveBeenCalled();
+  });
+
   it('preload recenzí používá sdílenou konstantu, ne vlastní číslo', () => {
     expect(PRODUCT_REVIEWS_LIMIT).toBe(3);
     // Regrese: ProductDetail měl limit napevno, takže změna konstanty se neprojevila.
