@@ -2,7 +2,7 @@
 // Tento soubor testuje čisté helpery z prerender.mjs, který importuje `vite`
 // (esbuild). esbuild má invariant `TextEncoder().encode() instanceof Uint8Array`,
 // jenž v jsdom realmu selže → helpery testujeme v node prostředí.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { collectRoutes, outputPathForRoute, validateHtml } from './prerender.mjs';
 import { MAX_PRERENDERED_REVIEW_PAGES } from '../src/constants/reviews.ts';
 
@@ -48,6 +48,28 @@ describe('collectRoutes', () => {
     const routes = collectRoutes([], [{ slug: 'velky', review_count: 500 }]);
     expect(routes).toContain(`/cestovni-pruvodci/velky/recenze/strana/${MAX_PRERENDERED_REVIEW_PAGES}`);
     expect(routes).not.toContain(`/cestovni-pruvodci/velky/recenze/strana/${MAX_PRERENDERED_REVIEW_PAGES + 1}`);
+  });
+  it('nad stropem varuje do konzole a jmenuje produkt', () => {
+    // Bez tohohle testu by smazání celého console.warn bloku nezčervenalo nic —
+    // je to jediný signál, že strop byl překročen a odkazy vedou na nepredgenerované strany.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      collectRoutes([], [{ slug: 'velky', review_count: 500 }]);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toContain('velky');
+      expect(warn.mock.calls[0][0]).toContain('MAX_PRERENDERED_REVIEW_PAGES');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+  it('pod stropem nevaruje', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      collectRoutes([], [{ slug: 'italie', review_count: 25 }]);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 

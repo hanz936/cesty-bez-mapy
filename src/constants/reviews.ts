@@ -46,8 +46,13 @@ export function productReviewsPath(slug: string, page = 1): string {
  * v sitemapě (strop `MAX_PRERENDERED_REVIEW_PAGES`). Jediné místo, kde žije
  * `Math.ceil`/`Math.min` pár — `prerender.mjs` i `sitemap.mjs` z něj jen čtou,
  * takže matematika stránkování nemůže mezi oběma skripty zdvojeně zestárnout.
+ *
+ * `reviewCount` smí být `null`/`undefined`: skripty ho berou přímo ze Supabase
+ * (`products.review_count`), kde je to nullable sloupec — pojistka `?? 0` proto
+ * patří sem, na jedno místo, které ji garantuje pro každého volajícího, ne
+ * duplicitně na každé volací místo.
  */
-export function reviewPageRange(reviewCount: number): { totalPages: number; prerenderedPages: number } {
+export function reviewPageRange(reviewCount: number | null | undefined): { totalPages: number; prerenderedPages: number } {
   const totalPages = Math.ceil((reviewCount ?? 0) / REVIEWS_PAGE_SIZE);
   return { totalPages, prerenderedPages: Math.min(totalPages, MAX_PRERENDERED_REVIEW_PAGES) };
 }

@@ -7,6 +7,9 @@ import {
   PRODUCT_REVIEWS_LIMIT,
   MAX_PRERENDERED_REVIEW_PAGES,
 } from './reviews';
+// `reviews.ts` sám o sobě nesmí nic importovat (Node ho načítá přímo z build
+// skriptů) — import route registru je proto jen v TESTU, ne ve zdroji.
+import { ROUTES } from './routes.ts';
 
 describe('konstanty recenzí', () => {
   it('drží dohodnuté hodnoty', () => {
@@ -55,6 +58,16 @@ describe('productReviewsPath', () => {
     // `NaN <= 1` i `NaN > 1` jsou obě false — bez sdíleného predikátu se `productReviewsPath`
     // a titulek ve `buildProductReviewsMeta` rozejdou (jeden by přidal segment, druhý ne).
     expect(productReviewsPath('italie-roadtrip', NaN)).toBe('/cestovni-pruvodci/italie-roadtrip/recenze');
+  });
+
+  it('shoduje se s route patterny v routes.ts', () => {
+    // Nic jinak stavitel cesty a router nesvazuje: přejmenování segmentu
+    // v `ROUTES.PRODUCT_REVIEWS`/`PRODUCT_REVIEWS_PAGED` by se jinak projevilo
+    // až za běhu (prerender by pod adresou recenzí uložil obsah `*`/NotFound).
+    expect(productReviewsPath('x')).toBe(ROUTES.PRODUCT_REVIEWS.replace(':slug', 'x'));
+    expect(productReviewsPath('x', 2)).toBe(
+      ROUTES.PRODUCT_REVIEWS_PAGED.replace(':slug', 'x').replace(':strana', '2'),
+    );
   });
 });
 

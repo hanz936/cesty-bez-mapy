@@ -42,10 +42,9 @@ export function collectSitemapPaths(posts, products) {
   ];
   for (const product of products || []) {
     paths.push(`/cestovni-pruvodci/${product.slug}`);
-    const count = product.review_count ?? 0;
-    if (count === 0) continue;
+    const { totalPages, prerenderedPages } = reviewPageRange(product.review_count);
+    if (totalPages === 0) continue;
     paths.push(productReviewsPath(product.slug));
-    const { prerenderedPages } = reviewPageRange(count);
     for (let page = 2; page <= prerenderedPages; page++) {
       paths.push(productReviewsPath(product.slug, page));
     }

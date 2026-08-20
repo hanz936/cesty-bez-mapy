@@ -8,7 +8,7 @@ import ReviewsPagination from '../components/reviews/ReviewsPagination';
 import ProductRatingSummary from '../components/reviews/ProductRatingSummary';
 import { REVIEWS_DISCLOSURE } from '../components/reviews/disclosure';
 import { formatReviewDate, reviewDateIso } from '../components/reviews/formatReviewDate';
-import { REVIEWS_PAGE_SIZE, clampPage, productReviewsPath } from '../constants/reviews';
+import { REVIEWS_PAGE_SIZE, clampPage, productReviewsPath, reviewPageRange } from '../constants/reviews';
 import { BASE_PATH } from '../constants';
 import { fetchApprovedReviews, fetchProductForReviews } from '../lib/reviews';
 import type { ProductForReviews, PublicReview } from '../lib/reviews';
@@ -94,7 +94,7 @@ const ProductReviewsPage = () => {
         setProduct(found);
 
         const count = found.review_count ?? 0;
-        const totalPages = Math.ceil(count / REVIEWS_PAGE_SIZE);
+        const totalPages = reviewPageRange(count).totalPages;
         const currentPage = clampPage(strana, totalPages);
 
         // Adresa neodpovídá platné straně (mimo rozsah, nečíselná, nebo /strana/1)
@@ -160,7 +160,7 @@ const ProductReviewsPage = () => {
   // skořápku a obsah uvidí až po vykonání JavaScriptu. Je to vědomý kompromis
   // ve prospěch uživatele. Prerender na překročení stropu upozorní v logu
   // (Task 10), takže se strop dá včas zvednout.
-  const totalPages = Math.ceil(count / REVIEWS_PAGE_SIZE);
+  const totalPages = reviewPageRange(count).totalPages;
   const productTitle = product ? productDisplayName(product) : '';
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string image_url must fall through to fallback, stejně jako v buildProductReviewsMeta
   const imageSrc = product?.image_url || `${BASE_PATH}/images/placeholder-guide.jpg`;

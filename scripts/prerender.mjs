@@ -27,7 +27,7 @@ export function collectRoutes(blogPosts, productSlugs = []) {
   for (const product of productSlugs || []) {
     products.push(`/cestovni-pruvodci/${product.slug}`);
     products.push(productReviewsPath(product.slug));
-    const { totalPages, prerenderedPages } = reviewPageRange(product.review_count ?? 0);
+    const { totalPages, prerenderedPages } = reviewPageRange(product.review_count);
     if (totalPages > prerenderedPages) {
       // Stránkování na stránce odkazy neořezává (jinak by se uživatel na hlubší
       // strany nedostal), takže od téhle chvíle existují crawlovatelné odkazy
