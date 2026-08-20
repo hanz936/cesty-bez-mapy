@@ -15,15 +15,25 @@ const STATS_THRESHOLD = 3;
 
 interface ReviewsSectionProps {
   className?: string;
+  /** Ohlásí rodiči, že sekce doběhla (viz prerender gating v Reviews.tsx). */
+  onReadyChange?: (ready: boolean) => void;
 }
 
-const ReviewsSection = ({ className = '' }: ReviewsSectionProps) => {
+const ReviewsSection = ({ className = '', onReadyChange }: ReviewsSectionProps) => {
   const [reviews, setReviews] = useState<PublicReview[]>([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<{ count: number; average: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
+
+  // Prerender: rodičovská stránka nesmí ohlásit připravenost dřív, než se tahle sekce
+  // ustálí — jinak se do statického HTML zapíše loading stav. Přesně to se stalo
+  // u /recenze, kde `<Layout ready>` bylo natvrdo. Při chybě připravenost NEohlásíme
+  // vůbec: build má spadnout hlasitě, ne předgenerovat chybovou stránku.
+  useEffect(() => {
+    onReadyChange?.(!loading && !error);
+  }, [loading, error, onReadyChange]);
 
   useEffect(() => {
     let isMounted = true;
@@ -73,7 +83,7 @@ const ReviewsSection = ({ className = '' }: ReviewsSectionProps) => {
         <div className="w-24 h-0.5 bg-gradient-to-r from-green-600 to-green-800 mx-auto"></div>
       </div>
 
-      {loading && <p className="text-center text-gray-500">Načítám recenze…</p>}
+      {loading && <p data-loading="true" className="text-center text-gray-500">Načítám recenze…</p>}
 
       {!loading && error && (
         <p className="text-center text-gray-500">Recenze se nepodařilo načíst. Zkus to prosím později.</p>

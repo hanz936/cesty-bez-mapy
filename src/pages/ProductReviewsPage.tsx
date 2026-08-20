@@ -240,7 +240,7 @@ const ProductReviewsPage = () => {
             ale u drobného textu je rezerva 0,34 na paletě, která se může posunout. */}
         <p className="text-sm text-gray-600 mb-10">{REVIEWS_DISCLOSURE}</p>
 
-        {loading && <p className="text-center text-gray-600">Načítám recenze…</p>}
+        {loading && <p data-loading="true" className="text-center text-gray-600">Načítám recenze…</p>}
 
         {!loading && error && (
           <p className="text-center text-gray-600">Recenze se nepodařilo načíst. Zkus to prosím později.</p>

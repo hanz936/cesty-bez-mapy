@@ -94,4 +94,20 @@ describe('validateHtml', () => {
     const html = '<h1>x</h1>' + 'y'.repeat(2000);
     expect(() => validateHtml(html, { minBytes: 1024, requireH1: true, brand })).toThrow();
   });
+  it('selže u zachyceného loading stavu, i když má h1, značku i dost bajtů', () => {
+    // Regrese P3-A: /recenze se předgenerovala jako skeleton — délka, <h1> i značka
+    // seděly, protože stránka ohlásila připravenost natvrdo. Rozhoduje `data-loading`.
+    const html =
+      '<html><body><h1>Recenze</h1><p data-loading="true">Načítám recenze…</p>' +
+      'x'.repeat(2000) +
+      ' Cesty</body></html>';
+    expect(() => validateHtml(html, { minBytes: 1024, requireH1: true, brand })).toThrow(/data-loading/);
+  });
+  it('nezamění atribut za podobně pojmenovanou třídu nebo text', () => {
+    const html =
+      '<html><body><h1>Recenze</h1><p class="data-loading-hint">Načítám…</p>' +
+      'x'.repeat(2000) +
+      ' Cesty</body></html>';
+    expect(() => validateHtml(html, { minBytes: 1024, requireH1: true, brand })).not.toThrow();
+  });
 });

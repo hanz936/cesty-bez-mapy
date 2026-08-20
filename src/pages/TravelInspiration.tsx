@@ -110,7 +110,7 @@ const TravelInspiration = () => {
     (post.tag_ids || []).map((id) => tagNameById.get(id)).filter(Boolean);
 
   return (
-    <Layout ready={!loading}>
+    <Layout ready={!loading && !error}>
       <SeoTags meta={buildPageMeta(ROUTES.INSPIRATION)} />
       <PageHero
         backgroundImage={`${BASE_PATH}/images/blog-hero.jpg`}
@@ -144,7 +144,7 @@ const TravelInspiration = () => {
         )}
 
         {loading && (
-          <div className="text-center py-20 text-gray-600">
+          <div data-loading="true" className="text-center py-20 text-gray-600">
             <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-green-700 mb-4"></div>
             <p>Načítám články…</p>
           </div>

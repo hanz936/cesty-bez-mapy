@@ -89,13 +89,17 @@ const CustomItineraryDetail = React.memo(() => {
     return () => container.removeEventListener('scroll', handleScroll);
   }, [handleScroll]);
 
+  // Recenze si načítá ProductReviews sám; bez tohohle gatingu se stránka
+  // předgenerovala úplně bez sekce recenzí (komponenta při loadingu vrací null).
+  const [reviewsReady, setReviewsReady] = useState(false);
+
   // Automatické posčrollování na vrchol při načtení stránky
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
   return (
-    <Layout ready>
+    <Layout ready={reviewsReady}>
       <SeoTags meta={buildPageMeta(ROUTES.CUSTOM_ITINERARY_DETAIL)} />
       <main className="min-h-screen bg-white">
         {/* Hero Section with Breadcrumb */}
@@ -401,7 +405,7 @@ const CustomItineraryDetail = React.memo(() => {
           </div>
         </section>
 
-        <ProductReviews productSlug="itinerar-na-miru" />
+        <ProductReviews productSlug="itinerar-na-miru" onReadyChange={setReviewsReady} />
       </main>
 
       <Lightbox

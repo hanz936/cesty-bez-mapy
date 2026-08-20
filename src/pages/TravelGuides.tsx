@@ -792,7 +792,7 @@ const TravelGuides = () => {
           // Loading State
           <div className="flex flex-col items-center justify-center py-20">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-800"></div>
-            <p className="mt-4 text-gray-600">Načítám průvodce...</p>
+            <p data-loading="true" className="mt-4 text-gray-600">Načítám průvodce...</p>
           </div>
         ) : error ? (
           // Error State

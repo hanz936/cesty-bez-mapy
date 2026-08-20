@@ -23,6 +23,8 @@ interface ProductReviewsProps {
     reviewCount: number;
     reviews: PublicReview[];
   };
+  /** Ohlásí rodiči, že sekce doběhla (viz prerender gating v CustomItineraryDetail.tsx). */
+  onReadyChange?: (ready: boolean) => void;
 }
 
 interface ProductRatingRow {
@@ -39,13 +41,21 @@ interface ProductRatingRow {
  * recenzí — skutečná chyba (síť, RLS, …) má vlastní hlášku, aby se nevydávala
  * za "žádné recenze".
  */
-const ProductReviews = ({ productSlug, className = '', preloaded }: ProductReviewsProps) => {
+const ProductReviews = ({ productSlug, className = '', preloaded, onReadyChange }: ProductReviewsProps) => {
   const hasPreloaded = Boolean(preloaded);
   const [reviews, setReviews] = useState<PublicReview[]>(preloaded?.reviews ?? []);
   const [reviewCount, setReviewCount] = useState(preloaded?.reviewCount ?? 0);
   const [loading, setLoading] = useState(!preloaded);
   const [error, setError] = useState(false);
   const [notFound, setNotFound] = useState(false);
+
+  // Prerender: rodičovská stránka nesmí ohlásit připravenost dřív, než se tahle sekce
+  // ustálí — jinak se do statického HTML zapíše loading stav. Přesně to se stalo
+  // u /recenze, kde `<Layout ready>` bylo natvrdo. Při chybě připravenost NEohlásíme
+  // vůbec: build má spadnout hlasitě, ne předgenerovat chybovou stránku.
+  useEffect(() => {
+    onReadyChange?.(!loading && !error);
+  }, [loading, error, onReadyChange]);
 
   useEffect(() => {
     // preloaded (viz ProductReviewsProps) → lookup i fetch se úplně přeskočí, stav

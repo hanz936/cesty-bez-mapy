@@ -163,6 +163,54 @@ describe('ProductReviews', () => {
     expect(reviewText.className).toContain('line-clamp-6');
   });
 
+  describe('prerender gating (stránka itineráře na míru)', () => {
+    const REVIEW_ROW = {
+      id: 'r1', product_id: 'p1', reviewer_name: 'Jana N.', rating: 5,
+      review_text: 'Skvělý průvodce.', created_at: '2026-07-01T10:00:00.000Z',
+      products: { title: 'Salzburg', slug: 'salzburg' },
+    };
+
+    it('připravenost ohlásí až po doběhnutí, ne při loadingu', async () => {
+      singleMock.mockResolvedValue({ data: { id: 'p1', average_rating: 5, review_count: 1 }, error: null });
+      fetchApprovedReviewsMock.mockResolvedValue({ reviews: [REVIEW_ROW], total: 1 });
+      const onReadyChange = vi.fn();
+      render(<MemoryRouter><ProductReviews productSlug="salzburg" onReadyChange={onReadyChange} /></MemoryRouter>);
+      expect(onReadyChange).toHaveBeenCalledWith(false);
+      expect(onReadyChange).not.toHaveBeenCalledWith(true);
+      await waitFor(() => expect(onReadyChange).toHaveBeenCalledWith(true));
+    });
+
+    it('s preloaded je připravená hned (žádné čekání)', () => {
+      const onReadyChange = vi.fn();
+      render(
+        <MemoryRouter>
+          <ProductReviews
+            productSlug="salzburg"
+            preloaded={{ productId: 'p1', reviewCount: 0, reviews: [] }}
+            onReadyChange={onReadyChange}
+          />
+        </MemoryRouter>,
+      );
+      expect(onReadyChange).toHaveBeenCalledWith(true);
+    });
+
+    it('při chybě připravenost neohlásí', async () => {
+      singleMock.mockResolvedValue({ data: null, error: { message: 'boom', code: 'XX000' } });
+      const onReadyChange = vi.fn();
+      render(<MemoryRouter><ProductReviews productSlug="salzburg" onReadyChange={onReadyChange} /></MemoryRouter>);
+      await waitFor(() => expect(screen.getByText(/nepodařilo načíst/)).toBeInTheDocument());
+      expect(onReadyChange).not.toHaveBeenCalledWith(true);
+    });
+
+    it('nenalezený produkt je platný ustálený stav — připravenost ohlásí', async () => {
+      singleMock.mockResolvedValue({ data: null, error: { message: 'No rows', code: 'PGRST116' } });
+      const onReadyChange = vi.fn();
+      render(<MemoryRouter><ProductReviews productSlug="neexistuje" onReadyChange={onReadyChange} /></MemoryRouter>);
+      // Sekce se schová, ale stránka kolem ní je v pořádku — build blokovat nesmí.
+      await waitFor(() => expect(onReadyChange).toHaveBeenCalledWith(true));
+    });
+  });
+
   it('mřížka ubírá sloupce podle počtu karet, aby se 1–2 recenze skutečně vycentrovaly', () => {
     // Zúžení kontejneru samo nestačí: sloupce jsou `1fr` a volnou šířku spolykají,
     // takže jediná karta zůstane přilepená vlevo od osy. Ověřujeme třídy, ne vypočtený

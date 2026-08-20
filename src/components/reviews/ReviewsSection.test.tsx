@@ -97,4 +97,36 @@ describe('ReviewsSection', () => {
     await waitFor(() => expect(screen.getByText('Průměrné hodnocení')).toBeInTheDocument());
     expect(screen.getByText('4,7')).toBeInTheDocument();
   });
+
+  describe('prerender gating (P3-A)', () => {
+    it('připravenost ohlásí až po doběhnutí načítání, ne hned', async () => {
+      fetchApprovedReviewsMock.mockResolvedValue({ reviews: [REVIEW], total: 1 });
+      fetchReviewStatsMock.mockResolvedValue({ count: 1, average: 5 });
+      const onReadyChange = vi.fn();
+      render(<MemoryRouter><ReviewsSection onReadyChange={onReadyChange} /></MemoryRouter>);
+      // První render je loading — kdyby se `true` ohlásilo tady, prerender zachytí skeleton.
+      expect(onReadyChange).toHaveBeenCalledWith(false);
+      expect(onReadyChange).not.toHaveBeenCalledWith(true);
+      await waitFor(() => expect(onReadyChange).toHaveBeenCalledWith(true));
+    });
+
+    it('při chybě načtení připravenost neohlásí vůbec', async () => {
+      fetchApprovedReviewsMock.mockRejectedValue(new Error('network down'));
+      fetchReviewStatsMock.mockResolvedValue({ count: 0, average: 0 });
+      const onReadyChange = vi.fn();
+      render(<MemoryRouter><ReviewsSection onReadyChange={onReadyChange} /></MemoryRouter>);
+      await waitFor(() => expect(screen.getByText(/nepodařilo načíst/)).toBeInTheDocument());
+      // Build má spadnout hlasitě, ne předgenerovat chybovou stránku.
+      expect(onReadyChange).not.toHaveBeenCalledWith(true);
+    });
+
+    it('loading stav nese atribut data-loading, podle kterého ho prerender pozná', () => {
+      // Nikdy nedokončený fetch = trvalý loading stav, přesně to, co má prerender poznat.
+      const pending = new Promise(() => undefined);
+      fetchApprovedReviewsMock.mockReturnValue(pending);
+      fetchReviewStatsMock.mockReturnValue(pending);
+      const { container } = render(<MemoryRouter><ReviewsSection /></MemoryRouter>);
+      expect(container.querySelector('[data-loading="true"]')).not.toBeNull();
+    });
+  });
 });

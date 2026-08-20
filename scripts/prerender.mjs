@@ -49,10 +49,23 @@ export function outputPathForRoute(distDir, route) {
   return path.posix.join(distDir, route.replace(/^\//, ''), 'index.html');
 }
 
-/** Ověří, že zachycené HTML je „opravdové" (ne loading shell). Jinak vyhodí. */
+/**
+ * Ověří, že zachycené HTML je „opravdové" (ne loading shell). Jinak vyhodí.
+ *
+ * Marker `data-prerender-ready` sám nestačí: stránka ho může vydat natvrdo, zatímco
+ * data načítá až vnořená komponenta — pak se předgeneruje loading stav a build ho
+ * odbaví jako úspěch. Přesně tak skončila /recenze jako prázdný skeleton. Loading
+ * stavy proto nesou `data-loading` a jejich přítomnost je tvrdá chyba. Kontrolujeme
+ * atribut, ne text hlášky — texty se mění, atribut je záměr.
+ */
 export function validateHtml(html, { minBytes, requireH1, brand }) {
   if (!html || html.length < minBytes) {
     throw new Error(`Prerender: HTML příliš krátké (${html?.length ?? 0} < ${minBytes} B)`);
+  }
+  if (/\sdata-loading[=\s>]/i.test(html)) {
+    throw new Error(
+      'Prerender: HTML nese loading stav (data-loading) — stránka ohlásila připravenost dřív, než doběhla data',
+    );
   }
   if (requireH1 && !/<h1[\s>]/i.test(html)) {
     throw new Error('Prerender: chybí <h1> (pravděpodobně zachycen loading stav)');

@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import PageHero from '../components/common/PageHero';
@@ -9,6 +9,9 @@ import { BASE_PATH, ROUTES } from '../constants';
 
 const Reviews = memo(() => {
   const navigate = useNavigate();
+  // Data načítá až vnořená ReviewsSection, takže připravenost pro prerender
+  // musí hlásit ona — natvrdo `ready` sem zapsalo loading skeleton (P3-A).
+  const [reviewsReady, setReviewsReady] = useState(false);
 
   const handleTravelGuidesClick = () => {
     // eslint-disable-next-line @typescript-eslint/no-floating-promises -- react-router NavigateFunction returns void | Promise<void>; fire-and-forget navigation is the pre-existing JS behavior
@@ -21,7 +24,7 @@ const Reviews = memo(() => {
   };
 
   return (
-    <Layout ready>
+    <Layout ready={reviewsReady}>
       <SeoTags meta={buildPageMeta(ROUTES.REVIEWS)} />
       {/* Hero Section */}
       <PageHero
@@ -37,7 +40,7 @@ const Reviews = memo(() => {
 
 
         {/* Reviews Section */}
-        <ReviewsSection className="pb-16" />
+        <ReviewsSection className="pb-16" onReadyChange={setReviewsReady} />
 
         {/* CTA Section - More elegant */}
         <section className="py-20 text-center">
