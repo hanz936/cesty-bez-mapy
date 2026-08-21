@@ -120,7 +120,7 @@ const TravelInspiration = () => {
         ariaLabel="Hero sekce s názvem stránky"
       />
 
-      <main className="py-16 px-5 max-w-6xl mx-auto" role="main" aria-label="Seznam článků o cestování" style={{ overflowAnchor: 'none' }}>
+      <section className="py-16 px-5 max-w-6xl mx-auto" aria-label="Seznam článků o cestování" style={{ overflowAnchor: 'none' }}>
         {usedTags.length > 0 && (
           <div className="flex flex-wrap gap-2 justify-center mb-10">
             <button
@@ -165,7 +165,7 @@ const TravelInspiration = () => {
             ))}
           </div>
         )}
-      </main>
+      </section>
     </Layout>
   );
 };

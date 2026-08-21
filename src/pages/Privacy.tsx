@@ -9,7 +9,7 @@ import { ROUTES } from '../constants';
 // completed/approved by the site owner (Jana), see [PLACEHOLDER] markers.
 export function PrivacyContent() {
   return (
-    <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 prose">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 prose">
       <h1 className="text-3xl sm:text-4xl font-bold text-black mb-6">
         Ochrana osobních údajů
       </h1>
@@ -70,7 +70,7 @@ export function PrivacyContent() {
       </p>
 
       <p className="text-sm text-gray-500 mt-10">Účinnost: [PLACEHOLDER — datum].</p>
-    </main>
+    </div>
   );
 }
 

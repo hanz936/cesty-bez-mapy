@@ -36,7 +36,7 @@ const Reviews = memo(() => {
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-5" role="main">
+      <div className="max-w-7xl mx-auto px-5">
 
 
         {/* Reviews Section */}
@@ -71,7 +71,7 @@ const Reviews = memo(() => {
           </div>
         </section>
 
-      </main>
+      </div>
     </Layout>
   );
 });

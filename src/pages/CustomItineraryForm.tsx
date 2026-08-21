@@ -1162,7 +1162,7 @@ const CustomItineraryForm = React.memo(() => {
         </div>
       )}
 
-      <main className="min-h-screen bg-white">
+      <div className="min-h-screen bg-white">
         {/* Hero Section with Breadcrumb */}
         <section className="relative pt-6 pb-12 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1193,7 +1193,7 @@ const CustomItineraryForm = React.memo(() => {
             />
           </div>
         </section>
-      </main>
+      </div>
     </Layout>
   );
 });

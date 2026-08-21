@@ -166,7 +166,6 @@ const Collaboration = () => {
       
       <section 
         className={CLASSES.section}
-        role="main"
         aria-labelledby="collaboration-heading"
       >
         <div className={CLASSES.grid}>

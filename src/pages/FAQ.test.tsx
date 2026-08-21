@@ -5,9 +5,9 @@ import { CartProvider } from '../contexts';
 import FAQ from './FAQ';
 
 // FAQ je obalený Layoutem, který renderuje Navigation -> CartButton (potřebuje CartProvider).
-// Dotazujeme se jen v rámci <main role="main">, protože Navigation obsahuje vlastní
-// mobile-menu-button s aria-controls (jiný a11y pattern, inert místo hidden) — bez scope
-// by .find() vždy vrátil tlačítko mobilního menu, ne FAQ accordion.
+// Dotazujeme se jen v rámci hlavní oblasti, kterou renderuje Layout, protože Navigation
+// obsahuje vlastní mobile-menu-button s aria-controls (jiný a11y pattern, inert místo
+// hidden) — bez scope by .find() vždy vrátil tlačítko mobilního menu, ne FAQ accordion.
 describe('FAQ accordion a11y', () => {
   it('button má aria-controls ukazující na panel; zavřený panel je hidden', () => {
     render(
@@ -15,10 +15,10 @@ describe('FAQ accordion a11y', () => {
         <MemoryRouter><FAQ /></MemoryRouter>
       </CartProvider>,
     );
-    // Layout renderuje vlastní <main id="main-content"> a FAQ uvnitř něj svůj <main role="main">
-    // (nested) — vezmeme ten vnitřní/poslední, abychom nezachytili Navigation mimo něj.
-    const mains = screen.getAllByRole('main');
-    const main = mains[mains.length - 1];
+    // Layout renderuje jedinou hlavní oblast (id="main-content") a Navigation je mimo ni.
+    // Dřív jich bylo víc, protože FAQ renderovalo vlastní — proto se tu braly všechny
+    // a používala se poslední.
+    const main = screen.getByRole('main');
     const buttons = within(main).getAllByRole('button', { expanded: false });
     const first = buttons.find((b) => b.hasAttribute('aria-controls'));
     expect(first).toBeTruthy();

@@ -171,7 +171,7 @@ const Contact = () => {
         ariaLabel="Hero sekce kontaktní stránky"
       />
 
-      <main className="py-4 sm:py-6 md:py-8 px-4 sm:px-5" role="main">
+      <div className="py-4 sm:py-6 md:py-8 px-4 sm:px-5">
         <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-12">
             
@@ -313,7 +313,7 @@ const Contact = () => {
             </div>
           </div>
         </div>
-      </main>
+      </div>
     </Layout>
   );
 };

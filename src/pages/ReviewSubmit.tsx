@@ -162,7 +162,7 @@ const ReviewSubmit = () => {
 
   return (
     <Layout ready>
-      <main className="max-w-3xl mx-auto px-5 py-16" role="main">
+      <div className="max-w-3xl mx-auto px-5 py-16">
         <h1 className="text-3xl font-bold text-green-800 mb-4">Napsat recenzi</h1>
 
         {loading && <p className="text-gray-600">Načítám…</p>}
@@ -247,7 +247,7 @@ const ReviewSubmit = () => {
             </div>
           </>
         )}
-      </main>
+      </div>
     </Layout>
   );
 };

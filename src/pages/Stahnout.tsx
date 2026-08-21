@@ -106,7 +106,7 @@ export default function Stahnout() {
 
   return (
     <Layout>
-      <main className="min-h-[60vh] bg-[#f7f5f0] flex items-start justify-center px-4 py-16">
+      <div className="min-h-[60vh] bg-[#f7f5f0] flex items-start justify-center px-4 py-16">
         <div className="max-w-xl w-full bg-white rounded-lg shadow-sm px-8 py-12">
           {state.status === 'loading' && (
             <div className="text-center">
@@ -151,7 +151,7 @@ export default function Stahnout() {
             </div>
           )}
         </div>
-      </main>
+      </div>
     </Layout>
   );
 }

@@ -25,7 +25,6 @@ const MyStory = () => {
       
       <section 
         className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8"
-        role="main"
         aria-labelledby="mystory-heading"
       >
         <div className="flex flex-col lg:flex-row lg:flex-wrap justify-center items-start max-w-6xl mx-auto gap-8 lg:gap-10">

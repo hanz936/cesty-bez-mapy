@@ -143,13 +143,13 @@ async function getFunctionErrorMessage(fnError: EdgeFunctionError | null | undef
 // Loading komponenta
 const LoadingState = () => (
   <Layout>
-    <main className="min-h-screen bg-white flex items-center justify-center">
+    <div className="min-h-screen bg-white flex items-center justify-center">
       <div className="text-center px-4">
         <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-700 mb-4"></div>
         <h2 className="text-xl font-bold text-black mb-2">Ověřujeme platbu...</h2>
         <p className="text-gray-600">Trvá to jen chvilku.</p>
       </div>
-    </main>
+    </div>
   </Layout>
 );
 
@@ -161,7 +161,7 @@ interface ErrorStateProps {
 // Error komponenta
 const ErrorState = ({ message, onRetry }: ErrorStateProps) => (
   <Layout>
-    <main className="min-h-screen bg-white flex items-center justify-center">
+    <div className="min-h-screen bg-white flex items-center justify-center">
       <div className="text-center px-4 max-w-md">
         <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,7 +174,7 @@ const ErrorState = ({ message, onRetry }: ErrorStateProps) => (
           Zkusit znovu
         </Button>
       </div>
-    </main>
+    </div>
   </Layout>
 );
 
@@ -424,7 +424,7 @@ const OrderConfirmation = React.memo(() => {
 
   return (
     <Layout>
-      <main className="min-h-screen bg-white">
+      <div className="min-h-screen bg-white">
         {/* Hero Success Section */}
         <section className="py-12 lg:py-20 px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto text-center">
@@ -618,7 +618,7 @@ const OrderConfirmation = React.memo(() => {
             </div>
           </div>
         </section>
-      </main>
+      </div>
     </Layout>
   );
 });

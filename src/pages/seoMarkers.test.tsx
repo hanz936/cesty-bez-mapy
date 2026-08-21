@@ -1,20 +1,40 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { CartProvider } from '../contexts';
 import Privacy from './Privacy';
 import FAQ from './FAQ';
 import TravelInspiration from './TravelInspiration';
 import Reviews from './Reviews';
 import CustomItineraryDetail from './CustomItineraryDetail';
-import { fetchPublishedPosts } from '../lib/blog';
+import BlogPostDetail from './BlogPostDetail';
+import { fetchPostBySlug, fetchPublishedPosts } from '../lib/blog';
+
+// Článek pro BlogPostDetail. `vi.hoisted` proto, že továrna `vi.mock` se vytahuje
+// nad importy — obyčejná konstanta by v ní byla ještě neinicializovaná.
+const BLOG_POST = vi.hoisted(() => ({
+  id: 'b1',
+  slug: 'testovaci-clanek',
+  title: 'Testovací článek',
+  excerpt: 'Perex testovacího článku.',
+  content: '<p>Obsah testovacího článku.</p>',
+  image_url: null,
+  published_at: '2026-08-01T10:00:00.000Z',
+  tag_ids: [],
+  seo_title: null,
+  seo_description: null,
+}));
 
 // vi.mock je hoistovaný Vitestem nad importy, takže pořadí zápisu v souboru nevadí.
 vi.mock('../lib/blog', () => ({
   fetchPublishedPosts: vi.fn().mockResolvedValue([]),
   fetchTags: vi.fn().mockResolvedValue([]),
   tagNameMap: vi.fn().mockReturnValue(new Map()),
+  fetchPostBySlug: vi.fn().mockResolvedValue(BLOG_POST),
+  fetchPreviewPost: vi.fn().mockResolvedValue(BLOG_POST),
+  fetchRelatedPosts: vi.fn().mockResolvedValue([]),
+  fetchExistingProductSlugs: vi.fn().mockResolvedValue(new Set()),
 }));
 
 vi.mock('../lib/supabase', () => ({
@@ -92,6 +112,42 @@ describe('static page prerender marker + SEO (SEO-02/05/06)', () => {
       expect(container.querySelector('[data-loading="true"]')).toBeNull();
     });
     // Chybová stránka se nesmí předgenerovat jako platná — build má spadnout hlasitě.
+    expect(container.querySelector('[data-prerender-ready="true"]')).toBeNull();
+  });
+
+  // BlogPostDetail marker nevydává přes `<Layout ready>` jako ostatní stránky, ale
+  // atributem přímo na obalovém prvku článku. Build to dnes neprověří: routy
+  // /inspirace/:slug vznikají z publikovaných článků a blog zatím žádný nemá,
+  // takže prerender tuhle stránku nikdy nenavštíví. Bez těchhle dvou testů by
+  // ztráta markeru vyplavala až prvním Janiným článkem — spadlým buildem.
+  const renderBlogPost = () =>
+    render(
+      <CartProvider>
+        <MemoryRouter initialEntries={[`/inspirace/${BLOG_POST.slug}`]}>
+          <Routes>
+            <Route path="/inspirace/:slug" element={<BlogPostDetail />} />
+          </Routes>
+        </MemoryRouter>
+      </CartProvider>,
+    );
+
+  it('BlogPostDetail vydá marker připravenosti až po načtení článku', async () => {
+    const { container } = renderBlogPost();
+
+    expect(container.querySelector('[data-prerender-ready="true"]')).toBeNull();
+    await waitFor(() => {
+      expect(container.querySelector('[data-prerender-ready="true"]')).not.toBeNull();
+    });
+    expect(container.querySelector('[data-loading="true"]')).toBeNull();
+  });
+
+  it('BlogPostDetail při chybě načtení marker nevydá', async () => {
+    vi.mocked(fetchPostBySlug).mockRejectedValueOnce(new Error('supabase down'));
+    const { container } = renderBlogPost();
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-loading="true"]')).toBeNull();
+    });
     expect(container.querySelector('[data-prerender-ready="true"]')).toBeNull();
   });
 

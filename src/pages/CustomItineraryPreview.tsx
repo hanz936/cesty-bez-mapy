@@ -251,7 +251,7 @@ const CustomItineraryPreview = () => {
       </div>
 
       {/* Preview Content - Optimized for printing */}
-      <main className="min-h-screen bg-white print:bg-white">
+      <div className="min-h-screen bg-white print:bg-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:py-0">
           {/* Header */}
           <div className="mb-8 print:mb-6">
@@ -463,7 +463,7 @@ const CustomItineraryPreview = () => {
             <p>Vygenerováno aplikací Cesty bez mapy - www.cestybezmapy.cz</p>
           </footer>
         </div>
-      </main>
+      </div>
     </Layout>
   );
 };

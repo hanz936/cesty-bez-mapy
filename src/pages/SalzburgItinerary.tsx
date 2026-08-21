@@ -124,7 +124,7 @@ const SalzburgItinerary = () => {
         ariaLabel="Hero sekce pro Salzburg itinerář"
       />
 
-      <main className="min-h-screen bg-white">
+      <div className="min-h-screen bg-white">
         {/* Main Content Section */}
         <section className="relative pt-16 sm:pt-20 pb-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -428,7 +428,7 @@ const SalzburgItinerary = () => {
           showCaption
         />
 
-      </main>
+      </div>
     </Layout>
   );
 };

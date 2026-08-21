@@ -206,7 +206,7 @@ const FAQ = () => {
       />
 
       {/* FAQ Section */}
-      <main className="py-16 px-5 max-w-4xl mx-auto" role="main">
+      <div className="py-16 px-5 max-w-4xl mx-auto">
         
 
         {/* FAQ Items */}
@@ -247,7 +247,7 @@ const FAQ = () => {
           </div>
         </div>
 
-      </main>
+      </div>
     </Layout>
   );
 };

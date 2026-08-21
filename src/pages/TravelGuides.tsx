@@ -597,7 +597,7 @@ const TravelGuides = () => {
       />
 
       {/* Guides Section */}
-      <main className="py-16 px-5 max-w-7xl mx-auto" role="main" aria-label="Seznam cestovních průvodců" style={{ overflowAnchor: 'none' }}>
+      <section className="py-16 px-5 max-w-7xl mx-auto" aria-label="Seznam cestovních průvodců" style={{ overflowAnchor: 'none' }}>
 
         {/* Search & Filter Card */}
         <div className="mb-12 card-base overflow-hidden">
@@ -830,7 +830,7 @@ const TravelGuides = () => {
             ))}
           </div>
         )}
-      </main>
+      </section>
 
     </Layout>
   );
