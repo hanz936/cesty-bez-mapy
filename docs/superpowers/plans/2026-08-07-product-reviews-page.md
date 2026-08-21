@@ -2407,6 +2407,10 @@ to what is actually visible, and drops the section from a measured 2430px to
 1341px on a 390px viewport while filling the desktop row exactly."
 ```
 
+Pozn. [Task 13, 2026-08-21]: čísla 2430/1341 v téhle zprávě jsou historická — commit už je
+v historii a nepřepisuje se. Přeměřeno vyšlo **2 620 → 1 477 px**; rozdíl je v hlavičce sekce
+(disclosure + odkaz „Všechny recenze“), ne v kartách, a úspora je ve skutečnosti větší.
+
 ---
 
 ### Task 10: Prerender a sitemap — routy recenzí včetně dalších stran
@@ -3278,7 +3282,9 @@ await browser.close();
 await server.close();
 ```
 
-Expected: se třemi a víc recenzemi (což `test-toskansko` po naseedování má) vyjde na mobilu ~1 341 px a na desktopu ~615 px, protože tři karty vyplní jeden řádek beze zbytku. Výchozím stavem pro porovnání je **dnešních 2 430 px na mobilu** při šesti kartách. U produktu s jedinou recenzí by sekce měřila kolem 615 px na obou a číslo by nic nedokazovalo — proto se měří nad naseedovaným produktem **[4. kolo]**.
+Expected: se třemi a víc recenzemi (což `test-toskansko` po naseedování má) vyjde na mobilu **~1 477 px** a na desktopu **~699 px**, protože tři karty vyplní jeden řádek beze zbytku. Výchozím stavem pro porovnání je **2 620 px na mobilu a 1 106 px na desktopu** při šesti kartách. U produktu s jedinou recenzí by sekce měřila kolem 700 px na obou a číslo by nic nedokazovalo — proto se měří nad naseedovaným produktem **[4. kolo]**.
+
+[Čísla opravena 2026-08-21 při vlastním provedení tohoto kroku. Původně tu stálo ~1 341 / ~615 proti výchozím 2 430 px — odhad z doby, kdy sekce ještě neměla disclosure podle § 5a (100 px i s marginem) ani odkaz „Všechny recenze“ z Tasku 9 (56 px). Karty sedí přesně: 383 px, mezera 24 px, na desktopu tři ve sloupci. Srovnávací hodnota je změřená, ne dopočítaná — konstanta `PRODUCT_REVIEWS_LIMIT` se dočasně vrátila na 6 a build proběhl znovu.]
 
 - [ ] **Step 4: Projdi stránku očima**
 

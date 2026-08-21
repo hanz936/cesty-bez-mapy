@@ -22,7 +22,10 @@ a ne o měření nad živými daty.
    (`src/pages/ReviewSubmit.tsx:18`). **Plný text recenze dnes není dostupný nikde na webu** —
    globální `/recenze` používá tutéž kartu.
 2. **Sekce nabobtná.** Výška sekce recenzí při dnešním limitu 6 karet:
-   **2 430 px na mobilu** (2,9 násobek viewportu) a 994 px na desktopu.
+   **2 620 px na mobilu** (3,1 násobek viewportu) a 1 106 px na desktopu.
+   [Přeměřeno 2026-08-21 v Tasku 13 nad `test-toskansko` s 12 recenzemi; původně tu stálo
+   2 430 / 994 z měření před tím, než sekce dostala disclosure podle § 5a a odkaz
+   „Všechny recenze“. Karty samotné se nezměnily — narostla hlavička sekce.]
 3. **Rozbitá kompozice při málo recenzích.** `lg:grid-cols-3` s jednou recenzí nechá dvě
    třetiny řádku prázdné.
 4. **Chybí souhrn hodnocení.** `ProductDetail` posílá do JSON-LD `aggregateRating`
@@ -175,8 +178,12 @@ Při současném objemu je `count: 'exact'` bez výhrad v pořádku.
   aby nevznikl uťatý řádek.
 - Odkaz „Všechny recenze (N)“ se zobrazí **při `review_count > 0`** (dnes až nad limitem,
   `ProductReviews.tsx:132`) — má smysl i u jediné recenze, protože na stránce je v plném znění.
-- Změřený dopad: sekce klesne z 2 430 px na **1 341 px** na mobilu; na desktopu z 994 px na
-  **615 px**, protože tři karty vyplní jeden řádek beze zbytku.
+- Změřený dopad: sekce klesne z 2 620 px na **1 477 px** na mobilu; na desktopu z 1 106 px na
+  **699 px**, protože tři karty vyplní jeden řádek beze zbytku. Úspora je tedy 1 143 px (44 %)
+  na mobilu a 407 px (37 %) na desktopu.
+  [Obě čísla přeměřena 2026-08-21 v Tasku 13 nad `test-toskansko` s 12 naseedovanými recenzemi,
+  pokaždé skutečným buildem — pro srovnávací hodnotu se konstanta dočasně vrátila na 6.
+  Výška je závislá na délce textů, takže u jiného obsahu se bude lišit; poměr ne.]
 
 ### Stránka recenzí
 
