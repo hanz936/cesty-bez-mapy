@@ -26,6 +26,7 @@ import Reviews from './pages/Reviews';
 import SalzburgItinerary from './pages/SalzburgItinerary';
 import Contact from './pages/Contact';
 import Privacy from './pages/Privacy';
+import ReviewsVerification from './pages/ReviewsVerification';
 import NotFound from './pages/NotFound';
 import logger from './utils/logger';
 import { testSupabaseConnection } from './lib/testConnection';
@@ -124,6 +125,7 @@ function App() {
               <Route path={ROUTES.REVIEW_SUBMIT} element={<ReviewSubmit />} />
               <Route path={ROUTES.CONTACT} element={<Contact />} />
               <Route path={ROUTES.PRIVACY} element={<Privacy />} />
+              <Route path={ROUTES.REVIEWS_VERIFICATION} element={<ReviewsVerification />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

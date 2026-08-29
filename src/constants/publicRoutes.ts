@@ -22,5 +22,6 @@ export const PUBLIC_PAGES = [
   { path: ROUTES.FAQ, title: 'Časté dotazy', description: 'Odpovědi na nejčastější dotazy — průvodci, platby, stahování PDF i itineráře na míru. Vše, co potřebuješ vědět.' },
   { path: ROUTES.REVIEWS, title: 'Recenze', description: 'Co říkají cestovatelé, kteří už vyrazili s průvodci Cesty bez mapy. Přečti si reálné zkušenosti a recenze.' },
   { path: ROUTES.CONTACT, title: 'Kontakt', description: 'Ozvi se mi — dotazy ke cestám, průvodcům i spolupráci. Ráda ti pomůžu naplánovat tvou další cestu bez mapy.' },
+  { path: ROUTES.REVIEWS_VERIFICATION, title: 'Jak ověřujeme recenze', description: 'Recenze u průvodců píšou jen lidé, kteří si je opravdu koupili. Jak ověřování funguje a co s recenzemi děláme, než je zveřejníme.' },
   { path: ROUTES.PRIVACY, title: 'Ochrana osobních údajů', description: 'Jak Cesty bez mapy zpracovávají a chrání tvé osobní údaje. Zásady ochrany soukromí a informace o cookies.' },
 ];

@@ -4,7 +4,6 @@ import * as Sentry from '@sentry/react';
 import ReviewCard from '../ui/ReviewCard';
 import { fetchApprovedReviews, fetchReviewStats } from '../../lib/reviews';
 import type { PublicReview } from '../../lib/reviews';
-import { REVIEWS_DISCLOSURE } from './disclosure';
 import { formatReviewDate } from './formatReviewDate';
 import { ROUTES } from '../../constants';
 import { formatRatingCs } from '../../utils/rating';
@@ -79,7 +78,6 @@ const ReviewsSection = ({ className = '', onReadyChange }: ReviewsSectionProps) 
     <div className={`py-20 ${className}`.trim()}>
       <div className="text-center mb-12">
         <h2 className="text-3xl sm:text-4xl font-bold text-green-800 mb-6">Co říkají cestovatelé</h2>
-        <p className="text-sm text-gray-500 max-w-3xl mx-auto mb-4">{REVIEWS_DISCLOSURE}</p>
         <div className="w-24 h-0.5 bg-gradient-to-r from-green-600 to-green-800 mx-auto"></div>
       </div>
 

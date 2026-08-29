@@ -4,7 +4,6 @@ import * as Sentry from '@sentry/react';
 import ReviewCard from '../ui/ReviewCard';
 import { fetchApprovedReviews } from '../../lib/reviews';
 import type { PublicReview } from '../../lib/reviews';
-import { REVIEWS_DISCLOSURE } from './disclosure';
 import { formatReviewDate } from './formatReviewDate';
 import { supabase } from '../../lib/supabase';
 import { PRODUCT_REVIEWS_LIMIT, productReviewsPath } from '../../constants/reviews';
@@ -36,8 +35,7 @@ interface ProductRatingRow {
 /**
  * Recenze jednoho produktu (resolvuje produkt podle slugu, pokud není zadán
  * `preloaded`). Používá se na ProductDetail a CustomItineraryDetail. S nulou
- * recenzí ukazuje poctivý empty state (sekce zůstává — disclosure je viditelný
- * vždy); empty state se ale ukazuje VÝHRADNĚ při úspěšné odpovědi s nulou
+ * recenzí ukazuje poctivý empty state; ten se ale ukazuje VÝHRADNĚ při úspěšné odpovědi s nulou
  * recenzí — skutečná chyba (síť, RLS, …) má vlastní hlášku, aby se nevydávala
  * za "žádné recenze".
  */
@@ -119,7 +117,6 @@ const ProductReviews = ({ productSlug, className = '', preloaded, onReadyChange 
     <section aria-label="Recenze produktu" className={`py-16 ${className}`.trim()}>
       <div className="max-w-7xl mx-auto px-5">
         <h2 className="text-2xl sm:text-3xl font-bold text-green-800 mb-4 text-center">Recenze</h2>
-        <p className="text-sm text-gray-500 max-w-3xl mx-auto mb-10 text-center">{REVIEWS_DISCLOSURE}</p>
 
         {error && (
           <p className="text-center text-gray-600">Recenze se nepodařilo načíst. Zkus to prosím později.</p>

@@ -55,11 +55,15 @@ function renderAt(path: string) {
 describe('ProductReviewsPage', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('vykreslí povinný disclosure', async () => {
+  it('disclosure u recenzí NEvykresluje — má vlastní stránku', async () => {
+    // Do 2026-08-29 tu stál odstavec s povinným disclosure. User ho po průzkumu
+    // české praxe přesunul na `/overovani-recenzi` s odkazem v patičce; text
+    // u karet zůstat nesmí, jinak by se ta změna tiše vrátila.
     fetchProductForReviewsMock.mockResolvedValue(product);
     fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
     renderAt('/cestovni-pruvodci/italie/recenze');
-    await waitFor(() => expect(screen.getByText(/ověření zákazníci/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument());
+    expect(screen.queryByText(/ověření zákazníci/)).not.toBeInTheDocument();
   });
 
   it('strana 1 načítá s nulovým offsetem', async () => {

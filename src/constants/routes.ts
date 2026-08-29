@@ -28,7 +28,8 @@ export const ROUTES = {
   REVIEWS: '/recenze',
   REVIEW_SUBMIT: '/recenze/pridat',
   CONTACT: '/kontakt',
-  PRIVACY: '/ochrana-osobnich-udaju'
+  PRIVACY: '/ochrana-osobnich-udaju',
+  REVIEWS_VERIFICATION: '/overovani-recenzi'
 };
 
 /**

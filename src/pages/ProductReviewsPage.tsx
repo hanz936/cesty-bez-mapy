@@ -6,7 +6,6 @@ import SeoTags from '../components/common/SeoTags';
 import ReviewCard from '../components/ui/ReviewCard';
 import ReviewsPagination from '../components/reviews/ReviewsPagination';
 import ProductRatingSummary from '../components/reviews/ProductRatingSummary';
-import { REVIEWS_DISCLOSURE } from '../components/reviews/disclosure';
 import { formatReviewDate, reviewDateIso } from '../components/reviews/formatReviewDate';
 import { REVIEWS_PAGE_SIZE, clampPage, isPagedPage, productReviewsPath, reviewPageRange } from '../constants/reviews';
 import { BASE_PATH, productDetailPath } from '../constants';
@@ -236,9 +235,6 @@ const ProductReviewsPage = () => {
           />
         )}
 
-        {/* `gray-600` (7,56:1), ne `gray-500` (4,84:1) — AA sice projde obojí,
-            ale u drobného textu je rezerva 0,34 na paletě, která se může posunout. */}
-        <p className="text-sm text-gray-600 mb-10">{REVIEWS_DISCLOSURE}</p>
 
         {loading && <p data-loading="true" className="text-center text-gray-600">Načítám recenze…</p>}
 
