@@ -206,8 +206,14 @@ async function launchBrowser() {
   if (process.env.VERCEL) {
     const sparticuz = (await import('@sparticuz/chromium')).default;
     const { chromium } = await import('playwright-core');
+    // Prerender čte jen DOM — WebGL nepotřebuje. Odebere --use-gl=angle,
+    // --use-angle=swiftshader a --enable-unsafe-swiftshader, které kvůli
+    // --in-process-gpu běží ve stejném procesu jako renderer.
+    sparticuz.setGraphicsMode = false;
     return chromium.launch({
-      args: sparticuz.args,
+      // /dev/shm má v build containeru 64 MB (změřeno). Playwright to zvenčí řeší
+      // `--ipc=host`, což tady nastavit nejde; tohle je vnitřní ekvivalent.
+      args: [...sparticuz.args, '--disable-dev-shm-usage'],
       executablePath: await sparticuz.executablePath(),
       headless: true,
     });
@@ -234,13 +240,24 @@ async function run() {
   const localUrl = server.resolvedUrls?.local[0];
   if (!localUrl) throw new Error('Prerender: vite preview nevrátil lokální URL');
   const base = localUrl.replace(/\/$/, '');
-  // Sparticuz chromium na Vercelu běží --single-process → paměť se kumuluje přes
-  // všechny routy v jednom procesu a po ~14 routách se browser zabije
-  // („Target page, context or browser has been closed"). Periodický relaunch
-  // drží spotřebu ploše; lokální plný Playwright tím není dotčen.
-  const RELAUNCH_EVERY = 8;
-  let browser = await launchBrowser();
-  let page = await browser.newPage();
+  // Jeden browser a jedna stránka na celý běh. Recyklovat se pod --single-process
+  // nedá nic: `browser.newContext()` tam nefunguje vůbec a druhou stránku
+  // v kontextu od `browser.newPage()` Playwright odmítá („Please use
+  // browser.newContext()"). Restartovat browser mezi routami taky ne — měřeno,
+  // pokaždé to spadlo dřív, protože `executablePath()` binárku znovu rozbaluje.
+  const browser = await launchBrowser();
+  const page = await browser.newPage();
+
+  // Bez tohohle build spadne v půlce prerenderu na „Target page, context or browser
+  // has been closed". NENÍ to nedostatek paměti: v okamžiku pádu bylo z 8 GB limitu
+  // využito 1,7 GB. Chromiu docházejí vlákna a deskriptory, protože každá stránka
+  // s formulářem natáhne Turnstile, ten spustí WebRTC a v build containeru bez
+  // odchozího UDP zaplaví log `sendto() … net::ERR_ADDRESS_UNREACHABLE` —
+  // a všechno se to sčítá v jediném procesu. Prerender captchu nepotřebuje:
+  // widget se stejně vykresluje až u návštěvníka.
+  await page.route('**/*', (route) =>
+    route.request().url().includes('challenges.cloudflare.com') ? route.abort() : route.continue(),
+  );
   // Homepage se zapisuje až PO smyčce. Během ní musí `dist/index.html` zůstat čistá
   // šablona z `vite build`, protože `vite preview` ji podává jako SPA fallback každé
   // routě, která ještě nemá vlastní soubor. Kdyby ji přepsala prerenderovaná homepage
@@ -251,12 +268,7 @@ async function run() {
   let homepageHtml = null;
 
   try {
-    for (const [i, route] of routes.entries()) {
-      if (i > 0 && i % RELAUNCH_EVERY === 0) {
-        await browser.close();
-        browser = await launchBrowser();
-        page = await browser.newPage();
-      }
+    for (const route of routes) {
       await page.goto(base + route, { waitUntil: 'load', timeout: 30000 });
       try {
         await page.waitForSelector('[data-prerender-ready]', { timeout: 20000 });
