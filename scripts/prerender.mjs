@@ -206,14 +206,42 @@ async function launchBrowser() {
   if (process.env.VERCEL) {
     const sparticuz = (await import('@sparticuz/chromium')).default;
     const { chromium } = await import('playwright-core');
+    // Prerender čte jen DOM, WebGL nepotřebuje. `setGraphicsMode = false` odebere
+    // --use-gl=angle, --use-angle=swiftshader a --enable-unsafe-swiftshader
+    // (a přidá --disable-webgl). Ty tři kvůli --in-process-gpu běží ve STEJNÉM
+    // procesu jako renderer — a ten už adresní prostor sdílí se vším ostatním,
+    // protože sparticuz posílá --single-process. Puppeteer k němu říká rovnou:
+    // „--single-process mode is not supported, so random things might not work."
+    sparticuz.setGraphicsMode = false;
     return chromium.launch({
-      args: sparticuz.args,
+      // --disable-dev-shm-usage: /dev/shm mívá v kontejneru 64 MB a Chromium v něm
+      // umře na OOM. Playwright to zvenčí řeší `--ipc=host`, jenže build kontejner
+      // Vercelu si takhle nastavit nejde — tohle je vnitřní ekvivalent (jede přes /tmp).
+      // Sparticuz ho v args nemá.
+      args: [...sparticuz.args, '--disable-dev-shm-usage'],
       executablePath: await sparticuz.executablePath(),
       headless: true,
     });
   }
   const { chromium } = await import('playwright');
   return chromium.launch();
+}
+
+/**
+ * Zavře browser tak, jak to žádá troubleshooting @sparticuz/chromium: nejdřív
+ * VŠECHNY stránky, teprve pak browser („Chromium sometimes opens more pages than
+ * you expect"). Pouhé `browser.close()` po sobě umí nechat viset proces, což je
+ * pod --single-process obzvlášť drahé — paměť se nevrátí a další relaunch startuje
+ * do už zaplněného kontejneru.
+ * @param {import('playwright-core').Browser} browser
+ */
+async function closeBrowser(browser) {
+  for (const context of browser.contexts()) {
+    for (const page of context.pages()) {
+      await page.close().catch(() => {});
+    }
+  }
+  await browser.close();
 }
 
 async function run() {
@@ -238,7 +266,9 @@ async function run() {
   // všechny routy v jednom procesu a po ~14 routách se browser zabije
   // („Target page, context or browser has been closed"). Periodický relaunch
   // drží spotřebu ploše; lokální plný Playwright tím není dotčen.
-  const RELAUNCH_EVERY = 8;
+  // Sníženo z 8 na 4: při osmi padaly buildy na Vercelu i po relaunchi (doloženo
+  // pěti nasazeními, pokaždé jinou routou). Cena je pár sekund navíc za start browseru.
+  const RELAUNCH_EVERY = 4;
   let browser = await launchBrowser();
   let page = await browser.newPage();
   // Homepage se zapisuje až PO smyčce. Během ní musí `dist/index.html` zůstat čistá
@@ -253,7 +283,7 @@ async function run() {
   try {
     for (const [i, route] of routes.entries()) {
       if (i > 0 && i % RELAUNCH_EVERY === 0) {
-        await browser.close();
+        await closeBrowser(browser);
         browser = await launchBrowser();
         page = await browser.newPage();
       }
@@ -310,7 +340,7 @@ async function run() {
       console.log(`✓ prerendered ${route} → ${out} (${html.length} B)`);
     }
   } finally {
-    await browser.close();
+    await closeBrowser(browser);
     await server.close();
   }
   if (homepageHtml === null) throw new Error('Prerender: homepage (/) se nezachytila — bez ní by v dist/ zůstala holá šablona');
