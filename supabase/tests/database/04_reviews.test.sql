@@ -1,6 +1,10 @@
 BEGIN;
 SELECT plan(41);
 
+-- Deploy-hook helper hlasi WARNING, kdyz chybi vault secret `vercel_deploy_hook` —
+-- v lokalni testovaci DB nikdy neni. Vlastni test toho chovani je v 05_deploy_hook.
+set local client_min_messages = error;
+
 -- ── Struktura ────────────────────────────────────────────────
 SELECT has_table('public'::name, 'reviews'::name);
 SELECT has_table('public'::name, 'review_requests'::name);
