@@ -231,6 +231,19 @@ describe('buildProductReviewsMeta', () => {
     expect(meta.jsonLd).toBeUndefined();
   });
 
+  it('nevydá aggregateRating ani index, když strana žádnou recenzi nezobrazuje', () => {
+    // Závod: `review_count` říká 12, ale dotaz na recenze vrátil prázdno (moderace
+    // nebo refund mezi oběma dotazy). Stránka pak VIDITELNĚ píše „zatím nemá recenzi".
+    // Kdyby se markup držel `review_count`, tvrdil by strojově pravý opak a prerender
+    // by ten rozpor zapekl do statického HTML. Google: „Don't mark up content that is
+    // not visible to readers of the page."
+    const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: [] }, 'https://x.cz');
+
+    expect(meta.jsonLd).toBeUndefined();
+    expect(meta.robots).toBe('noindex');
+    expect(meta.description).toMatch(/zatím nemá recenzi/);
+  });
+
   it('se recenzemi noindex nenastavuje', () => {
     const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: reviewsFixture }, 'https://x.cz');
     expect(meta.robots).toBeUndefined();

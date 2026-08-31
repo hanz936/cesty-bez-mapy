@@ -173,6 +173,12 @@ describe('ProductReviewsPage', () => {
     // falešně nejednoznačný.
     expect(container.querySelector('ul.space-y-6')).toBeNull();
     expect(container.querySelector('nav[aria-label="Stránkování recenzí"]')).toBeNull();
+    // A hlavně: nad prázdným stavem nesmí svítit souhrn „4,5 · 12 recenzí". Text
+    // a souhrn by si protiřečily a `SeoTags` by tentýž rozpor poslal do JSON-LD.
+    // A hlavně: nad prázdným stavem nesmí svítit souhrn „5,0 · 12 recenzí". Text
+    // a souhrn by si protiřečily a `SeoTags` by tentýž rozpor poslal do JSON-LD.
+    expect(screen.queryByText(/12 recenz/)).toBeNull();
+    expect(screen.queryByText('5,0')).toBeNull();
   });
 
   it('selhání načtení ukáže chybu, ne prázdný stav', async () => {

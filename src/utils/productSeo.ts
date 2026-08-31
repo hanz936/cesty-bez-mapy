@@ -186,7 +186,16 @@ export function buildProductReviewsMeta(
 ): ProductReviewsMeta {
   // Tentýž helper jako buildProductMeta → obě stránky pošlou shodné `name`.
   const productTitle = productDisplayName(product);
-  const count = product.review_count ?? 0;
+  // Počet NEBEREME ze `review_count`, ale z toho, co stránka opravdu vykreslí.
+  // `review_count` je agregát z jiného dotazu a může se s vrácenými recenzemi
+  // rozejít (moderace nebo refund mezi dotazem na produkt a dotazem na recenze).
+  // Bez tohohle odvození stránka VIDITELNĚ říká „zatím nemá recenzi" a zároveň
+  // vydá `aggregateRating` s dvanácti recenzemi a bez `noindex` — a protože
+  // `Layout ready` je v tom stavu `true`, prerender ten rozpor zapeče do HTML.
+  // Google to zakazuje: „Don't mark up content that is not visible to readers
+  // of the page." Odvození patří sem, ne k volajícímu: takhle na něj nikdo
+  // nemůže zapomenout.
+  const count = options.reviews.length > 0 ? (product.review_count ?? 0) : 0;
   const suffix = isPagedPage(options.page) ? ` (strana ${options.page})` : '';
   const title = `Recenze — ${productTitle}${suffix}`;
   const description = count > 0

@@ -119,9 +119,11 @@ const ProductReviewsPage = () => {
         if (isMounted) setReviews(result.reviews);
       } catch (err) {
         if (isMounted) setError(true);
-        // PostgREST vrací u 416 useknuté tělo (doslova `{"`), na kterém postgrest-js
-        // zhavaruje při JSON.parse a vyhodí prostý objekt bez stacku. Sentry by z toho
-        // udělal „Non-Error exception captured" bez jakékoli informace.
+        // Rozsah mimo data (416) se sem už nedostane — `fetchApprovedReviews` ho
+        // překládá na prázdný výsledek. Obal na Error tu ale zůstává: PostgREST
+        // umí odpovědět chybou s prázdným tělem, ze které postgrest-js vyrobí
+        // prostý objekt bez stacku, a Sentry by z toho udělal
+        // „Non-Error exception captured" bez jakékoli informace.
         const cause = err instanceof Error ? err : new Error(JSON.stringify(err));
         Sentry.captureException(cause, { tags: { area: 'reviews', component: 'ProductReviewsPage' } });
       } finally {
@@ -160,6 +162,11 @@ const ProductReviewsPage = () => {
   // ve prospěch uživatele. Prerender na překročení stropu upozorní v logu
   // (Task 10), takže se strop dá včas zvednout.
   const totalPages = reviewPageRange(count).totalPages;
+  // Kolik recenzí smíme TVRDIT. `count` je agregát z jiného dotazu; když se rozejde
+  // se skutečně vrácenými recenzemi, nesmí stránka zároveň psát „zatím nemá recenzi"
+  // a ukazovat souhrn ze dvanácti. Stránkování zůstává na `count` schválně —
+  // prázdný stav pagination stejně nevykresluje a přepočet by hnul přesměrováním.
+  const effectiveCount = reviews.length > 0 ? count : 0;
   const productTitle = product ? productDisplayName(product) : '';
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string image_url must fall through to fallback, stejně jako v buildProductReviewsMeta
   const imageSrc = product?.image_url || `${BASE_PATH}/images/placeholder-guide.jpg`;
@@ -208,8 +215,10 @@ const ProductReviewsPage = () => {
           {productTitle ? `Recenze — ${productTitle}` : 'Recenze'}
         </h1>
 
-        {product && count > 0 && (
-          <ProductRatingSummary average={product.average_rating ?? 0} count={count} className="mb-4" />
+        {/* Souhrn se řídí `effectiveCount`, ne `review_count` — jinak by nad prázdným
+            stavem svítilo „5,0 · 12 recenzí". Tentýž důvod jako v `buildProductReviewsMeta`. */}
+        {product && effectiveCount > 0 && (
+          <ProductRatingSummary average={product.average_rating ?? 0} count={effectiveCount} className="mb-4" />
         )}
 
         {/* Perex a náhledový obrázek nejsou dekorace: JSON-LD je posílá

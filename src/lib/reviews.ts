@@ -34,18 +34,31 @@ export async function fetchApprovedReviews(opts: {
   productId?: string;
   limit: number;
   offset: number;
+  /**
+   * `count: 'exact'` si vyžádej JEN tam, kde `total` opravdu použiješ.
+   * Je to totiž jediná příčina chyby 416: tentýž dotaz na rozsah mimo data
+   * vrací s `count` HTTP 416, bez něj `200 []` (změřeno proti produkci
+   * 2026-08-31). A 416 při prerenderu shodí `waitForSelector` → celý build.
+   */
+  withCount?: boolean;
 }): Promise<{ reviews: PublicReview[]; total: number }> {
-  let query = supabase
-    .from('reviews')
-    .select(`${REVIEW_COLUMNS}, products ( title, slug )`, { count: 'exact' })
-    // `id` jako rozhodující druhý klíč: bez něj může offsetové stránkování při
-    // shodných `created_at` řádek zopakovat nebo přeskočit.
-    .order('created_at', { ascending: false })
-    .order('id', { ascending: false });
+  const columns = `${REVIEW_COLUMNS}, products ( title, slug )`;
+  let query = opts.withCount
+    ? supabase.from('reviews').select(columns, { count: 'exact' })
+    : supabase.from('reviews').select(columns);
+  // `id` jako rozhodující druhý klíč: bez něj může offsetové stránkování při
+  // shodných `created_at` řádek zopakovat nebo přeskočit.
+  query = query.order('created_at', { ascending: false }).order('id', { ascending: false });
   if (opts.productId) {
     query = query.eq('product_id', opts.productId);
   }
-  const { data, count, error } = await query.range(opts.offset, opts.offset + opts.limit - 1);
+  const { data, count, error, status } = await query.range(opts.offset, opts.offset + opts.limit - 1);
+  // Rozsah mimo data. PostgREST vrací 416 s PRÁZDNÝM tělem, takže postgrest-js
+  // neuspěje s `JSON.parse` a vyrobí `error = { message: '' }` bez `code` —
+  // poznat se to dá jedině podle stavu. `count` v té větvi vůbec nenaplní.
+  // Prázdná strana není chyba, jen doběhlý závod (recenze zmizela mezi
+  // dotazem na `review_count` a tímhle dotazem).
+  if (status === 416) return { reviews: [], total: 0 };
   if (error) throw error;
   return { reviews: (data ?? []) as unknown as PublicReview[], total: count ?? 0 };
 }

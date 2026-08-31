@@ -23,10 +23,12 @@ export const PRODUCT_REVIEWS_LIMIT = 3;
 export const MAX_PRERENDERED_REVIEW_PAGES = 20;
 
 /**
- * Ořízne stranu z adresy do platného rozsahu. Musí se stát PŘED dotazem:
- * `fetchApprovedReviews` posílá `count: 'exact'`, takže PostgREST na `Range`
- * mimo rozsah odpoví 416, funkce na chybu vyhodí a `count` se nedozvíme.
- * Počet stran proto plyne z `products.review_count`.
+ * Ořízne stranu z adresy do platného rozsahu. Musí se stát PŘED dotazem, protože
+ * počet stran plyne z `products.review_count` — z odpovědi na dotaz se ho
+ * nedozvíme: `fetchApprovedReviews` si `count: 'exact'` vyžádá jen tam, kde
+ * `total` opravdu použije (stránka recenzí produktu ne, ta stránkuje podle
+ * `review_count`). Rozsah mimo data tak vrací `200 []` místo 416; 416 je od
+ * srpna 2026 navíc uvnitř té funkce zachycený a přeložený na prázdný výsledek.
  *
  * Přijímáme jen kladné celé číslo bez vodicí nuly. Volnější `Number()` by bralo
  * i `0x2`, `2e1`, `+2` nebo ` 2 ` a vyrobilo pro tutéž stranu několik adres.

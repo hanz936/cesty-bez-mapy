@@ -39,7 +39,7 @@ const ReviewsSection = ({ className = '', onReadyChange }: ReviewsSectionProps) 
     async function load() {
       try {
         const [page, s] = await Promise.all([
-          fetchApprovedReviews({ limit: PAGE_SIZE, offset: 0 }),
+          fetchApprovedReviews({ limit: PAGE_SIZE, offset: 0, withCount: true }),
           fetchReviewStats(),
         ]);
         if (!isMounted) return;
@@ -63,7 +63,7 @@ const ReviewsSection = ({ className = '', onReadyChange }: ReviewsSectionProps) 
   const handleLoadMore = useCallback(async () => {
     setLoadingMore(true);
     try {
-      const page = await fetchApprovedReviews({ limit: PAGE_SIZE, offset: reviews.length });
+      const page = await fetchApprovedReviews({ limit: PAGE_SIZE, offset: reviews.length, withCount: true });
       setReviews((prev) => [...prev, ...page.reviews]);
       setTotal(page.total);
     } catch (err) {

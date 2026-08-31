@@ -25,12 +25,44 @@ describe('reviews data layer', () => {
     await fetchApprovedReviews({ limit: 9, offset: 0 });
 
     expect(fromMock).toHaveBeenCalledWith('reviews');
-    expect(select).toHaveBeenCalledWith(`${REVIEW_COLUMNS}, products ( title, slug )`, { count: 'exact' });
+    // Bez `withCount` se `count` NEPOSÍLÁ — je to jediná příčina 416 (rozsah mimo
+    // data vrací s ním 416, bez něj `200 []`), a 416 při prerenderu shodí build.
+    expect(select).toHaveBeenCalledWith(`${REVIEW_COLUMNS}, products ( title, slug )`);
     expect(order).toHaveBeenCalledWith('created_at', { ascending: false });
     // `id` jako rozhodující druhý klíč — bez něj je pořadí při shodných časech
     // nedefinované a offsetové stránkování může řádek zopakovat nebo přeskočit.
     expect(orderById).toHaveBeenCalledWith('id', { ascending: false });
     expect(range).toHaveBeenCalledWith(0, 8);
+  });
+
+  it('fetchApprovedReviews asks for the exact count only when withCount is set', async () => {
+    const range = vi.fn().mockResolvedValue({ data: [], count: 7, error: null });
+    const orderById = vi.fn().mockReturnValue({ range });
+    const order = vi.fn().mockReturnValue({ order: orderById });
+    const select = vi.fn().mockReturnValue({ order });
+    fromMock.mockReturnValue({ select });
+
+    const result = await fetchApprovedReviews({ limit: 9, offset: 0, withCount: true });
+
+    expect(select).toHaveBeenCalledWith(`${REVIEW_COLUMNS}, products ( title, slug )`, { count: 'exact' });
+    expect(result.total).toBe(7);
+  });
+
+  it('fetchApprovedReviews turns a 416 range error into an empty page instead of throwing', async () => {
+    // PostgREST vrací na rozsah mimo data 416 s PRÁZDNÝM tělem; postgrest-js z něj
+    // udělá `error = { message: '' }` bez `code` a `count` vůbec nenaplní, takže se
+    // to pozná jedině podle stavu. Ověřeno proti produkci i ve zdrojích postgrest-js.
+    const range = vi
+      .fn()
+      .mockResolvedValue({ data: null, count: null, error: { message: '' }, status: 416 });
+    const orderById = vi.fn().mockReturnValue({ range });
+    const order = vi.fn().mockReturnValue({ order: orderById });
+    const select = vi.fn().mockReturnValue({ order });
+    fromMock.mockReturnValue({ select });
+
+    const result = await fetchApprovedReviews({ limit: 12, offset: 5000, withCount: true });
+
+    expect(result).toEqual({ reviews: [], total: 0 });
   });
 
   it('fetchApprovedReviews filters by productId when provided', async () => {
