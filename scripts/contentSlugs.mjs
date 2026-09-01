@@ -41,8 +41,36 @@ export function fetchBlogSlugs() {
   );
 }
 
-/** @returns {Promise<ProductSlugRow[]>} */
-export function fetchProductSlugs() {
+/**
+ * Aktivní produkty pro prerender, sitemapu a routy recenzí.
+ *
+ * Prázdná odpověď je tvrdá chyba, ne platný výsledek. `getJson` vyhodí jen na
+ * `!res.ok`, takže `200 []` (změna RLS pro anon roli, hromadná deaktivace,
+ * výpadek schema-cache PostgRESTu) projde jako legitimní data a celý zbytek
+ * řetězu — `collectRoutes` → prerender → sitemapa → `verify-dist` — se prostě
+ * dohodne na menším světě a ohlásí úspěch. Vznikl by zelený build, který nasadí
+ * web bez jediné stránky produktu, a sitemapa ty adresy Googlu oznámí jako
+ * smazané.
+ *
+ * Když build spadne, produkce zůstane na poslední funkční verzi — což je proti
+ * tichému přepsání ochozeným webem ta výrazně lepší z obou možností.
+ *
+ * Blog tuhle mez schválně NEMÁ: web bez jediného článku je legitimní stav
+ * (a chvíli jím opravdu byl), kdežto e-shop bez jediného produktu ne.
+ *
+ * @returns {Promise<ProductSlugRow[]>}
+ */
+export async function fetchProductSlugs() {
   // `review_count` je potřeba pro routy recenzí (počet stran) — viz prerender.mjs.
-  return getJson('products?select=slug,review_count&is_active=eq.true&is_deleted=eq.false');
+  /** @type {ProductSlugRow[]} */
+  const products = await getJson(
+    'products?select=slug,review_count&is_active=eq.true&is_deleted=eq.false',
+  );
+  if (!Array.isArray(products) || products.length === 0) {
+    throw new Error(
+      'Supabase vrátila 0 aktivních produktů. E-shop bez jediného produktu není platný stav buildu — ' +
+        'zastavuji, aby nasazení nepřepsalo funkční web ochozenou verzí. Zkontroluj products (is_active, is_deleted) a RLS pro anon roli.',
+    );
+  }
+  return products;
 }

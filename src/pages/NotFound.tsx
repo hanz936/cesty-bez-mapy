@@ -5,6 +5,23 @@ import { ROUTES } from '../constants';
 const NotFound = () => {
   return (
     <Layout>
+      {/* Bez tohohle je každá neplatná adresa pro Google plnohodnotná stránka: server
+          na SPA rewrite odpovídá 200, takže stavový kód nic neprozradí. Google pro
+          tenhle případ nabízí („Avoid soft 404 errors in single-page apps") dvě cesty
+          a tohle je ta první — „add a `<meta name='robots' content='noindex'>` to
+          error pages using JavaScript".
+
+          Natvrdo do skořápky to dát NELZE: „When Google encounters the `noindex` tag,
+          it may skip rendering and JavaScript execution", takže platné, jen
+          nepředgenerované adresy (hlubší strany recenzí, čerstvě publikovaný článek)
+          by zůstaly navždy mimo index. Vydat to musí až stránka, která opravdu ví,
+          že nic nenašla.
+
+          Canonical tu schválně NENÍ — na neexistující adrese nemá co označovat
+          a s noindexem by si odporoval. */}
+      <title>Stránka nenalezena | Cesty bez mapy</title>
+      <meta name="robots" content="noindex" />
+
       {/* Marker pro prerender: routa, která skončí na 404, nikdy neohlásí připravenost
           (Layout dostává `ready` jen od stránek, které mají co předgenerovat), takže
           build spadne na timeoutu. Podle tohohle atributu umí říct PROČ — viz

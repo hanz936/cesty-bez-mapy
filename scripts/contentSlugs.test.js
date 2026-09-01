@@ -23,7 +23,13 @@ describe('fetchProductSlugs', () => {
     // Bez tohohle testu by tichá regrese selectu (revert, rebase, „úklid") nezčervenala
     // ani jeden test: `reviewPageRange` by dostávala všude `undefined`, prerender by
     // vyrobil jen strany 1 a sitemapa by nenabídla žádnou stránku recenzí.
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+    // Neprázdná odpověď schválně: prázdné pole teď funkce odmítá (viz test níž),
+    // takže by tenhle test spadl na nesouvisejícím důvodu.
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => [{ slug: 'rakousko', review_count: 0 }],
+    });
     vi.stubGlobal('fetch', fetchMock);
 
     await fetchProductSlugs();
@@ -33,5 +39,31 @@ describe('fetchProductSlugs', () => {
     expect(url).toContain('select=slug,review_count');
     expect(url).toContain('is_active=eq.true');
     expect(url).toContain('is_deleted=eq.false');
+  });
+  it('prázdná odpověď je chyba, ne prázdný web', async () => {
+    // `getJson` vyhodí jen na `!res.ok`, takže `200 []` by prošlo jako platná data
+    // a build by tiše nasadil web bez jediné stránky produktu. Sitemapa by ty adresy
+    // Googlu navíc oznámila jako smazané — a nic by se nenahlásilo.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] }),
+    );
+
+    await expect(fetchProductSlugs()).rejects.toThrow(/0 aktivních produktů/);
+  });
+
+  it('jeden produkt stačí', async () => {
+    // Mez je na nule, ne na nějakém očekávaném počtu: build nesmí padat proto,
+    // že Jana zrovna nabízí míň průvodců než minule.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => [{ slug: 'rakousko', review_count: 3 }],
+      }),
+    );
+
+    await expect(fetchProductSlugs()).resolves.toEqual([{ slug: 'rakousko', review_count: 3 }]);
   });
 });
