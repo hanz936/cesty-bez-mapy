@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { BASE_PATH, ROUTES } from '../../constants';
 import { SITE_URL, serializeJsonLd } from '../../utils/blogSeo';
+import { copyrightYears } from '../../utils/copyright';
 import ImageWithFallback from '../common/ImageWithFallback';
 import logger from '../../utils/logger';
 import NewsletterForm from './NewsletterForm';
@@ -218,7 +219,9 @@ const Footer = ({ flush = false }: FooterProps) => {
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse motion-reduce:animate-none"></div>
               <span className="text-sm text-gray-300">
-                &copy; 2025 Cesty (bez) mapy
+                {/* Rok se počítá, nepíše — natvrdo zapsaný rok tu do letoška zestárl
+                    o celý rok. Podrobnosti a zdroje viz `utils/copyright.ts`. */}
+                &copy; {copyrightYears(new Date().getFullYear())} Cesty (bez) mapy
               </span>
             </div>
             
