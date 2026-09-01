@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -301,6 +301,42 @@ export type Database = {
           phone?: string | null
           total_spent?: number | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      deploy_hook_dispatches: {
+        Row: {
+          checked_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          request_id: number | null
+          skip_reason: string | null
+          source: string
+          status_code: number | null
+          transaction_id: unknown
+        }
+        Insert: {
+          checked_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          request_id?: number | null
+          skip_reason?: string | null
+          source: string
+          status_code?: number | null
+          transaction_id: unknown
+        }
+        Update: {
+          checked_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          request_id?: number | null
+          skip_reason?: string | null
+          source?: string
+          status_code?: number | null
+          transaction_id?: unknown
         }
         Relationships: []
       }
@@ -975,6 +1011,7 @@ export type Database = {
         Args: { retention_days?: number }
         Returns: number
       }
+      collect_deploy_hook_results: { Args: never; Returns: undefined }
       create_order_with_items: { Args: { p_payload: Json }; Returns: Json }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       increment_download_count: {
@@ -987,6 +1024,7 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_permanent_user: { Args: never; Returns: boolean }
+      trigger_vercel_deploy: { Args: { p_source: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
