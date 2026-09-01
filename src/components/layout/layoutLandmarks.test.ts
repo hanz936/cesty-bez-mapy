@@ -16,6 +16,17 @@ const SRC = 'src';
 /** Jediné místo, kde hlavní oblast vzniknout smí. */
 const LAYOUT = 'components/layout/Layout.tsx';
 
+/** Stránky. Každá z nich musí hlavní oblast dostat z Layoutu. */
+const PAGES = 'src/pages';
+
+/**
+ * `role="banner"` na sekci uvnitř stránky. Web žádnou skutečnou hlavičku nemá —
+ * `Navigation` je `<nav>` — takže každý výskyt je omyl: hero je obsah stránky,
+ * ne hlavička webu. Až hlavička vznikne, patří jako `<header>` do `Layout`
+ * a tahle aserce se upraví vědomě, ne omylem.
+ */
+const BANNER_ROLE = /role=["']banner["']/;
+
 /**
  * Obě podoby hlavní oblasti. Samotné `<main` by minulo `<section role="main">`,
  * což je pro čtečku totéž — a přesně v té podobě to bylo v `MyStory`
@@ -52,5 +63,31 @@ describe('orientační body dokumentu', () => {
 
     expect(mainId).toBe('main-content');
     expect(skipHref).toBe(mainId);
+  });
+
+  it('každá stránka renderuje Layout, takže hlavní oblast opravdu má', () => {
+    // Aserce výš hlídá, že `main` nevznikne JINDE než v Layoutu — ale mlčí o tom,
+    // že stránka nemusí mít žádný. Přesně tudy propadla domovská stránka: renderovala
+    // `<div><Navigation/><Hero/></div>`, takže neměla hlavní oblast, skip-link ani
+    // patičku, a guard byl přesto zelený. Změřeno na předgenerovaném buildu —
+    // `dist/index.html` main=0 footer=0, zbylých 29 stran main=1.
+    // WCAG 2.2 SC 2.4.1 (Bypass Blocks); ARIA APG, Landmark Regions: „ensure that
+    // all content is contained within an appropriate landmark region."
+    const offenders = readdirSync(PAGES, { encoding: 'utf8' })
+      .filter((file) => file.endsWith('.tsx') && !file.includes('.test.'))
+      .filter((file) => !readFileSync(`${PAGES}/${file}`, 'utf8').includes('<Layout'))
+      .sort();
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('nikde nevzniká druhá hlavička — `role="banner"` na sekci', () => {
+    // ARIA APG, Landmark Regions: „Each page should have only one `banner`, one
+    // `main`, and one `contentinfo` landmark." Hero sekce nesla `role="banner"` na
+    // dvou stránkách a na `PlanYourDreamTrip` seděl ten banner dokonce UVNITŘ
+    // `<main>` — čtečka pak nabízí hlavičku vnořenou do hlavního obsahu.
+    const offenders = sourceFiles().filter((file) => BANNER_ROLE.test(readFileSync(`${SRC}/${file}`, 'utf8')));
+
+    expect(offenders).toEqual([]);
   });
 });

@@ -66,6 +66,23 @@ describe('pageProblems', () => {
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain('canonical míří na');
   });
+
+  it('najde zapečenou captchu', () => {
+    // Podpis toho, že se skript Turnstile při prerenderu opravdu načetl — tedy že
+    // blokace v `createPrerenderPage` zmizela. Bez ní produkční build padá.
+    const html = page('/kontakt').replace('<body>', '<body><input name="cf-turnstile-response" value="x"/>');
+    const problems = pageProblems('/kontakt', html);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('cf-turnstile-response');
+  });
+
+  it('samotná značka skriptu captchy vadou není', () => {
+    // `<script id="cf-turnstile-script">` vykresluje komponenta, je v hlavičce všech
+    // 29 předgenerovaných stran a s blokací nemá nic společného. Kdyby kontrola hlídala
+    // tenhle řetězec, padal by každý build.
+    const html = page('/kontakt', '<script id="cf-turnstile-script" src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>');
+    expect(pageProblems('/kontakt', html)).toEqual([]);
+  });
 });
 
 describe('shellProblems', () => {

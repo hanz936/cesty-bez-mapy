@@ -86,11 +86,9 @@ const PlanYourDreamTrip = () => {
           backgroundRepeat: 'no-repeat',
           backgroundColor: '#fff'
         }}
-        role="banner"
-        aria-labelledby="hero-heading"
       >
         <div className={CLASSES.heroContent}>
-          <h1 id="hero-heading" className={CLASSES.heroTitle}>
+          <h1 className={CLASSES.heroTitle}>
             Na cestu nemusíš být profík
           </h1>
           <p className={CLASSES.heroParagraph}>

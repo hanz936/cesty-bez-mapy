@@ -4,10 +4,13 @@
 // jenž v jsdom realmu selže → helpery testujeme v node prostředí.
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import {
+  BLOCKED_HOST,
   buildShellHtml,
   canonicalHref,
   collectRoutes,
+  createPrerenderPage,
   explainStuckPage,
   NOT_FOUND_MARKER,
   outputPathForRoute,
@@ -214,4 +217,63 @@ describe('buildShellHtml', () => {
       /už je prerenderovaný/,
     );
   });
+});
+
+describe('createPrerenderPage', () => {
+  it('v opravdovém Chromiu zahodí captchu a vlastní požadavek pustí', async () => {
+    // Tohle je jediná automatická brána, která tu řádku hlídá: CI prerender vůbec
+    // nespouští (`npx vite build`), takže její smazání by se jinak poznalo až
+    // spadlým produkčním buildem na Vercelu — přesně jak se to od 18. 8. dělo.
+    //
+    // Test schválně nepoužívá dvojníka `page`/`route`: dvojník by zůstal zelený i
+    // po tom, co by Playwright metodu přejmenoval nebo změnil chování `abort()`.
+    // Změřeno: celé kolo stojí ~0,7 s (spuštění prohlížeče 0,47 s) a Chromium už
+    // v CI je — stahuje ho `scripts/postinstall.mjs` při `npm ci`.
+    //
+    // „Povolená" adresa míří na lokální server, aby test nezávisel na internetu.
+    const { chromium } = await import('playwright');
+    /** @type {string[]} */
+    const doruceno = [];
+    const server = createServer((req, res) => {
+      doruceno.push(req.url ?? '');
+      res.writeHead(200, { 'content-type': 'text/javascript' });
+      res.end('/* ok */');
+    });
+    await new Promise((resolve) => {
+      server.listen(0, '127.0.0.1', () => resolve(undefined));
+    });
+    const { port } = /** @type {import('node:net').AddressInfo} */ (server.address());
+
+    const browser = await chromium.launch();
+    try {
+      const page = await createPrerenderPage(browser);
+      /** @type {{ url: string; duvod: string }[]} */
+      const zahozeno = [];
+      page.on('requestfailed', (request) =>
+        zahozeno.push({ url: request.url(), duvod: request.failure()?.errorText ?? '' }),
+      );
+
+      await page.setContent(
+        `<script src="https://${BLOCKED_HOST}/turnstile/v0/api.js"></script>` +
+          `<script src="http://127.0.0.1:${port}/vlastni.js"></script>`,
+        { waitUntil: 'load' },
+      );
+
+      // Ptáme se na DŮVOD, ne jen na to, že požadavek neprošel: `ERR_BLOCKED_BY_CLIENT`
+      // umí vyrobit jedině `route.abort('blockedbyclient')` z `createPrerenderPage`.
+      // Kdyby test hlídal pouhé selhání, zůstal by po smazání blokace zelený všude,
+      // kde na challenges.cloudflare.com stejně není vidět — třeba v běhu bez sítě.
+      // Chromium k tomu připojuje příponu (naměřeno `net::ERR_BLOCKED_BY_CLIENT.Inspector`),
+      // takže porovnáváme začátek — přípona se smí změnit, rozlišovací síla zůstává.
+      const captcha = zahozeno.filter((r) => r.url.includes(BLOCKED_HOST));
+      expect(captcha.map((r) => r.url)).toEqual([`https://${BLOCKED_HOST}/turnstile/v0/api.js`]);
+      expect(captcha[0].duvod).toMatch(/^net::ERR_BLOCKED_BY_CLIENT/);
+      expect(doruceno).toEqual(['/vlastni.js']);
+    } finally {
+      await browser.close();
+      await new Promise((resolve) => {
+        server.close(() => resolve(undefined));
+      });
+    }
+  }, 60_000);
 });

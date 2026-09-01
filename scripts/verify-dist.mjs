@@ -16,6 +16,14 @@ const DIST = 'dist';
 const SHELL = 'app-shell.html';
 
 /**
+ * Skryté pole, které do stránky vloží AŽ SPUŠTĚNÝ skript Turnstile. Značka
+ * `<script src>` v hlavičce tenhle podpis nemá — ta se do HTML dostane vždycky,
+ * protože ji vykresluje komponenta. Naměřeno v opravdovém Chromiu: bez blokace
+ * se pole v DOM objeví, s blokací ne (348 → 212 znaků stránky).
+ */
+const TURNSTILE_FIELD = 'cf-turnstile-response';
+
+/**
  * Adresy ze sitemapy jako cesty (bez originu).
  * @param {string} xml
  * @returns {string[]}
@@ -65,6 +73,14 @@ export function pageProblems(route, html) {
   } else {
     const href = /** @type {string} */ (canonicalHref(html));
     if (pathOf(href) !== route) problems.push(`${route}: canonical míří na ${href}`);
+  }
+  // Captcha se do předgenerovaného HTML dostat nesmí: `createPrerenderPage` její
+  // skript blokuje a bez té blokace padal produkční build od 18. 8. (Chromiu pod
+  // `--single-process` docházela vlákna). Tohle je poslední záchyt, kdyby někdo
+  // stránku vyrobil mimo tu funkci — a schválně se ptá na NEPŘÍTOMNOST, takže
+  // až Turnstile z webu jednou zmizí, kontrola nezačne padat bezdůvodně.
+  if (html.includes(TURNSTILE_FIELD)) {
+    problems.push(`${route}: nese ${TURNSTILE_FIELD} — captcha se při prerenderu načetla, blokace nefunguje`);
   }
   return problems;
 }

@@ -222,6 +222,41 @@ async function launchBrowser() {
   return chromium.launch();
 }
 
+/** Hostitel captchy. Jediné místo, kde se to jméno v prerenderu píše. */
+export const BLOCKED_HOST = 'challenges.cloudflare.com';
+
+/**
+ * Stránka pro prerender. Vytvoření stránky a blokace Turnstile jsou schválně
+ * v JEDNÉ funkci — stránku bez blokace tak nejde dostat omylem.
+ *
+ * Bez té blokace build spadne v půlce prerenderu na „Target page, context or browser
+ * has been closed". NENÍ to nedostatek paměti: v okamžiku pádu bylo z 8 GB limitu
+ * využito 1,7 GB. Chromiu docházejí vlákna a deskriptory, protože každá stránka
+ * s formulářem natáhne Turnstile, ten spustí WebRTC a v build containeru bez
+ * odchozího UDP zaplaví log `sendto() … net::ERR_ADDRESS_UNREACHABLE` —
+ * a všechno se to sčítá v jediném procesu (`--single-process` chodí ze
+ * `sparticuz.args`, takže lokálně ani v CI se pád nereprodukuje). Prerender captchu
+ * nepotřebuje: widget se vykresluje až u návštěvníka.
+ *
+ * Kdyby tahle blokace zmizela, zčervená integrační test v `prerender.test.js`
+ * (opravdové Chromium) a build zastaví kontrola v `verify-dist.mjs` — CI totiž
+ * prerender vůbec nespouští, takže jinak by se to poznalo až deploji na Vercelu.
+ *
+ * @param {import('playwright-core').Browser} browser
+ * @returns {Promise<import('playwright-core').Page>}
+ */
+export async function createPrerenderPage(browser) {
+  const page = await browser.newPage();
+  await page.route('**/*', (route) =>
+    // `blockedbyclient`, ne výchozí `failed`: `net::ERR_BLOCKED_BY_CLIENT` je podpis,
+    // který síťová chyba nikdy nevyrobí (ta hlásí ERR_NAME_NOT_RESOLVED a spol.).
+    // Díky tomu test pozná zahozený požadavek od požadavku, který jen neprošel sítí —
+    // jinak by po smazání téhle blokace zůstal v prostředí bez internetu zelený.
+    route.request().url().includes(BLOCKED_HOST) ? route.abort('blockedbyclient') : route.continue(),
+  );
+  return page;
+}
+
 async function run() {
   const [posts, products] = await Promise.all([fetchBlogSlugs(), fetchProductSlugs()]);
   const routes = collectRoutes(posts, products);
@@ -246,18 +281,7 @@ async function run() {
   // browser.newContext()"). Restartovat browser mezi routami taky ne — měřeno,
   // pokaždé to spadlo dřív, protože `executablePath()` binárku znovu rozbaluje.
   const browser = await launchBrowser();
-  const page = await browser.newPage();
-
-  // Bez tohohle build spadne v půlce prerenderu na „Target page, context or browser
-  // has been closed". NENÍ to nedostatek paměti: v okamžiku pádu bylo z 8 GB limitu
-  // využito 1,7 GB. Chromiu docházejí vlákna a deskriptory, protože každá stránka
-  // s formulářem natáhne Turnstile, ten spustí WebRTC a v build containeru bez
-  // odchozího UDP zaplaví log `sendto() … net::ERR_ADDRESS_UNREACHABLE` —
-  // a všechno se to sčítá v jediném procesu. Prerender captchu nepotřebuje:
-  // widget se stejně vykresluje až u návštěvníka.
-  await page.route('**/*', (route) =>
-    route.request().url().includes('challenges.cloudflare.com') ? route.abort() : route.continue(),
-  );
+  const page = await createPrerenderPage(browser);
   // Homepage se zapisuje až PO smyčce. Během ní musí `dist/index.html` zůstat čistá
   // šablona z `vite build`, protože `vite preview` ji podává jako SPA fallback každé
   // routě, která ještě nemá vlastní soubor. Kdyby ji přepsala prerenderovaná homepage

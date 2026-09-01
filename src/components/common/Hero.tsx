@@ -68,11 +68,7 @@ const Hero = () => {
   }, []);
 
   return (
-    <section 
-      className={CLASSES.section}
-      role="banner"
-      aria-labelledby="hero-heading"
-    >
+    <section className={CLASSES.section}>
       {!imageError && (
         <img 
           src={`${BASE_PATH}/images/hero-background.png`} 
@@ -111,8 +107,7 @@ const Hero = () => {
 
       <div className={CLASSES.content}>
         <div className="text-white text-left max-w-4xl w-full">
-          <h1 
-            id="hero-heading"
+          <h1
             className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight drop-shadow-2xl mb-3 sm:mb-4 md:mb-6 lg:mb-8"
           >
             <span className="block mb-1 sm:mb-2">SNI</span>
