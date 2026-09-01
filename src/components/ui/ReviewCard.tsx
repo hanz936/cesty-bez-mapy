@@ -49,8 +49,14 @@ const ReviewCard = memo(({
       {/* Header with subtle rating */}
       <div className="relative z-10 flex items-center justify-start mb-6 flex-shrink-0 pr-12">
         <div className="flex items-center gap-1.5">
-          <RatingStars rating={rating} size="w-3.5 h-3.5" className="gap-1.5" />
-          <span className="ml-2 text-xs font-medium text-gray-500 tracking-wide">{formatRatingCs(rating)}</span>
+          {/* `decorative` skryje hvězdy před odečítačem a vedle nich se rozsvítí věta.
+              Bez toho zbyde v seznamu recenzí holé „5,0", které splyne s cenou i datem:
+              deset SVG hvězd nese informaci „ze škály do 5" jen opticky. WCAG 2.2 SC 1.1.1
+              a 1.3.1. Stejný vzor drží `ProductRatingSummary` — tady se na něj zapomnělo. */}
+          <RatingStars rating={rating} size="w-3.5 h-3.5" className="gap-1.5" decorative />
+          <span className="ml-2 text-xs font-medium text-gray-500 tracking-wide">
+            <span className="sr-only">Hodnocení </span>{formatRatingCs(rating)}<span className="sr-only"> z 5</span>
+          </span>
         </div>
         {verified && (
           <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-green-800 bg-green-50 px-2 py-1 rounded-full">

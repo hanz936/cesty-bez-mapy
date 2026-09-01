@@ -11,6 +11,7 @@ import { roundRating, formatRatingCs } from '../utils/rating';
 import { BASE_PATH, ROUTES, productDetailPath } from '../constants';
 import { supabase } from '../lib/supabase';
 import type { Tables } from '../types/database.types';
+import { reviewCountLabel } from '../components/reviews/reviewCountLabel';
 import { hasAnyReviews, visibleSortOptions } from './travelGuidesFilters';
 
 interface GuideCardProps {
@@ -79,8 +80,16 @@ const GuideCard = ({ guide, onCardClick }: GuideCardProps) => {
           </span>
           {guide.reviewCount > 0 && (
             <div className="flex items-center gap-2">
-              <RatingStars rating={roundRating(guide.rating)} filledClassName="text-yellow-400" emptyClassName="text-gray-200" />
-              <span className="text-sm text-gray-600 font-medium">{formatRatingCs(guide.rating)} ({guide.reviewCount})</span>
+              {/* Bez `decorative` a skrytých fragmentů přečte odečítač „4,7 závorka 12 závorka" —
+                  ani slovo „hodnocení", ani slovo „recenzí". Vizuální podoba „4,7 (12)" zůstává
+                  beze změny, závorka jde jen do `aria-hidden`. WCAG 2.2 SC 1.1.1 a 1.3.1. */}
+              <RatingStars rating={roundRating(guide.rating)} filledClassName="text-yellow-400" emptyClassName="text-gray-200" decorative />
+              <span className="text-sm text-gray-600 font-medium">
+                <span className="sr-only">Hodnocení </span>
+                {formatRatingCs(guide.rating)}
+                <span className="sr-only"> z 5, {guide.reviewCount} {reviewCountLabel(guide.reviewCount)}</span>
+                <span aria-hidden="true"> ({guide.reviewCount})</span>
+              </span>
             </div>
           )}
         </div>

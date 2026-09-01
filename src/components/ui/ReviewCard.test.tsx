@@ -56,4 +56,28 @@ describe('ReviewCard', () => {
     render(<ReviewCard {...base} />);
     expect(screen.getByText('5,0')).toBeInTheDocument();
   });
+
+  it('hodnocení má vedle hvězd i větu pro odečítač, ale vizuálně zůstává holé číslo', () => {
+    // Bez tohohle přečte odečítač v seznamu recenzí jen „5,0“ a číslo splyne
+    // s datem i cenou — měřítko („z 5“) nese pouze obrázek hvězd.
+    const { container } = render(<ReviewCard {...base} />);
+
+    // Přes skrytý úvod, ne přes „5,0“: `getByText` porovnává jen PŘÍMÉ textové
+    // potomky, takže by na „5,0“ sedl rovnou obalový span a test by se díval
+    // o patro výš, než si myslí.
+    const label = screen.getByText('Hodnocení', { selector: '.sr-only' }).parentElement;
+    expect(label).not.toBeNull();
+    expect(label!.textContent).toBe('Hodnocení 5,0 z 5');
+
+    // Oko vidí pořád jen „5,0“ — oprava nesmí nic přikreslit.
+    const visible = Array.from(label!.childNodes)
+      .filter((node) => !(node instanceof HTMLElement && node.className.includes('sr-only')))
+      .map((node) => node.textContent)
+      .join('');
+    expect(visible).toBe('5,0');
+
+    // Deset hvězd bez názvu by se za tou větou přečetlo jako deset prázdných obrázků.
+    expect(label!.previousElementSibling?.getAttribute('aria-hidden')).toBe('true');
+    expect(container.querySelectorAll('[aria-hidden="true"] svg')).toHaveLength(10);
+  });
 });

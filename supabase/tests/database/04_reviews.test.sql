@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(41);
+SELECT plan(52);
 
 -- Deploy-hook helper hlasi WARNING, kdyz chybi vault secret `vercel_deploy_hook` —
 -- v lokalni testovaci DB nikdy neni. Vlastni test toho chovani je v 05_deploy_hook.
@@ -20,6 +20,22 @@ SELECT is( has_function_privilege('anon', 'public.refresh_product_rating()', 'EX
            false, 'anon nema EXECUTE na refresh_product_rating' );
 SELECT is( has_function_privilege('authenticated', 'public.refresh_product_rating()', 'EXECUTE'),
            false, 'authenticated nema EXECUTE na refresh_product_rating' );
+
+-- Stráž agregátů (migrace 20260901194427). Tytéž advisor 0028/0029 grants.
+select has_function('public'::name, 'reject_manual_rating_write'::name, 'stráž agregátů hodnocení existuje');
+select has_trigger('public'::name, 'products'::name, 'trg_products_reject_manual_rating_write'::name,
+           'products mají stráž proti ručnímu zápisu agregátů');
+SELECT is( has_function_privilege('anon', 'public.reject_manual_rating_write()', 'EXECUTE'),
+           false, 'anon nema EXECUTE na reject_manual_rating_write' );
+SELECT is( has_function_privilege('authenticated', 'public.reject_manual_rating_write()', 'EXECUTE'),
+           false, 'authenticated nema EXECUTE na reject_manual_rating_write' );
+
+-- Nosná vlastnost stráže, ne kosmetika: jen jako SECURITY INVOKER vidí funkce
+-- v `current_user` roli, která příkaz opravdu poslala. Kdyby ji někdo přepnul na
+-- DEFINER, přišel by i PATCH z API jako `postgres` a stráž by mlčky přestala platit.
+SELECT is( (SELECT p.prosecdef FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+             WHERE n.nspname = 'public' AND p.proname = 'reject_manual_rating_write'),
+           false, 'reject_manual_rating_write NENI security definer' );
 
 -- ── Fixtures (jako postgres, RLS bypass) ─────────────────────
 INSERT INTO public.products (id, title, description, price, slug)
@@ -68,6 +84,40 @@ SELECT is( (SELECT review_count FROM public.products WHERE id = '00000000-0000-0
            0, 'delete vrati review_count na 0' );
 SELECT is( (SELECT average_rating FROM public.products WHERE id = '00000000-0000-0000-0000-00000000000a'),
            0.00::numeric(3,2), 'average_rating bez recenzi = 0.00' );
+
+-- ── Stráž: agregáty nejdou přepsat přes API ──────────────────
+-- Baseline dává `GRANT ALL ON products` i roli authenticated, takže bez stráže by
+-- admin mohl PATCHem vrátit zastaralý počet — a stránka recenzí by podle něj
+-- schovala poslední recenzi, nebo naopak shodila build. Zápis přes trigger
+-- (SECURITY DEFINER jako `postgres`) projít MUSÍ; to dokazují asserty výš
+-- i test kaskádního mazání na konci souboru, které běží jako authenticated.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal2"}';
+SELECT throws_ok(
+  $$ UPDATE public.products SET review_count = 999
+      WHERE id = '00000000-0000-0000-0000-00000000000a' $$,
+  '42501', NULL, 'admin neprepise review_count primo' );
+SELECT throws_ok(
+  $$ UPDATE public.products SET average_rating = 4.99
+      WHERE id = '00000000-0000-0000-0000-00000000000a' $$,
+  '42501', NULL, 'admin neprepise average_rating primo' );
+SELECT lives_ok(
+  $$ UPDATE public.products SET review_count = 0
+      WHERE id = '00000000-0000-0000-0000-00000000000a' $$,
+  'zapis STEJNE hodnoty projde (straz hlida zmenu, ne zminku sloupce)' );
+SELECT lives_ok(
+  $$ UPDATE public.products SET title = 'Test Guide upraveny'
+      WHERE id = '00000000-0000-0000-0000-00000000000a' $$,
+  'bezna editace produktu se strazi nekoliduje' );
+SELECT throws_ok(
+  $$ INSERT INTO public.products (title, description, price, slug, review_count)
+     VALUES ('Podvrzeny produkt', 'Popis', 100, 'podvrzeny-produkt', 7) $$,
+  '42501', NULL, 'admin nezalozi produkt s vymyslenym poctem recenzi' );
+SELECT lives_ok(
+  $$ INSERT INTO public.products (title, description, price, slug)
+     VALUES ('Cisty produkt', 'Popis', 100, 'cisty-produkt') $$,
+  'zalozeni produktu bez agregatu projde' );
+RESET ROLE;
 
 -- ── Constrainty ──────────────────────────────────────────────
 SELECT throws_ok(

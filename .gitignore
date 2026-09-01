@@ -45,6 +45,10 @@ supabase/functions/**/deno.lock
 id_rsa
 id_dsa
 *.ssh
+# Výjimka: kořenový certifikát Supabase je VEŘEJNÝ (Supabase ho nabízí ke stažení)
+# a `scripts/run-sql.mjs` proti němu ověřuje spojení k produkční databázi. Bez něj
+# by se skript buď neověřoval vůbec, nebo by nešel spustit. Žádný klíč to není.
+!scripts/prod-ca-2021.crt
 
 # Database files
 *.db
