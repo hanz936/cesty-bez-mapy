@@ -8,9 +8,14 @@
  * e-shopů; ČOI naproti tomu doporučuje informaci přímo u recenzí, popř. odtud
  * odkázat — patička je rozšířený, ale měkčí výklad).
  *
+ * Audit P-7 (2026-08-31) to vyhodnotil jako riziko. User 2026-09-15 po změření
+ * 10 českých e-shopů (6 z nich má informaci nebo odkaz přímo u recenzí — Datart,
+ * Notino, Mountfield, Dr. Max, Aurio, Fleppi) rozhodl: ZŮSTÁVÁ JEN PATIČKA, riziko
+ * „přímo tam" přijímá vědomě. Nejde o přehlédnutí — neotevírat bez nového podnětu.
+ *
  * Na formuláři pro vložení recenze povinnost neleží — tam se záměrně
  * nezobrazuje (rozhodnutí usera 2026-07-17). Finální znění schvaluje Jana.
  */
 export const REVIEWS_DISCLOSURE =
   'Recenze píšou jen ověření zákazníci přes odkaz, který posíláme e-mailem po nákupu. ' +
-  'Kontrolujeme jen spam a vulgarity, hodnocení neovlivňujeme.';
+  'Kontrolujeme jen spam, vulgarity a osobní údaje, hodnocení neovlivňujeme.';

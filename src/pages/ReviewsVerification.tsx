@@ -35,9 +35,32 @@ export function ReviewsVerificationContent() {
       </p>
 
       <h2 className="text-2xl font-bold text-black mt-10 mb-4">Co s recenzí děláme, než ji zveřejníme</h2>
+      {/* Úzká výjimka místo slibu „kritickou recenzi nesmažeme“ (audit P-9): admin má
+          `DELETE` i změnu stavu, takže absolutní slib by kód nedržel. Tak to píší
+          i Mountfield a Notino. Pravdivé je, že hodnocení a text upravit nejde vůbec —
+          `authenticated` má `UPDATE` jen na `status` a `approved_at`. */}
       <p className="text-gray-700 mb-4">
-        Každou recenzi si před zveřejněním přečteme. Kontrolujeme jen spam a vulgarity —
-        hodnocení ani text neupravujeme a kritickou recenzi nesmažeme.
+        Každou recenzi si před zveřejněním přečteme. Hodnocení ani text neupravujeme.
+      </p>
+      <p className="text-gray-700 mb-4">
+        Recenzi nezveřejníme jen tehdy, když jde o spam, vulgaritu nebo když obsahuje osobní
+        údaje — nikdy ne proto, že je kritická. Za recenze neplatíme, nedáváme za ně slevu
+        ani dárek a nikdo není za špatné hodnocení nijak postihován.
+      </p>
+
+      {/* Audit P-8: pokyny Komise 2021/C 526/01 chtějí vedle ověřování i „jak se vypočítává
+          průměrné hodnocení“. Každá věta tu odpovídá kódu — při změně kódu změnit i ji:
+          do průměru i počtu vstupují jen `approved` recenze (`refresh_product_rating`),
+          DB drží průměr PŘESNĚ a na jedno desetinné místo ho zaokrouhlí až `roundRating`,
+          a počet stojí u průměru všude, kde se průměr ukazuje. */}
+      <h2 className="text-2xl font-bold text-black mt-10 mb-4">Jak počítáme hodnocení u průvodce</h2>
+      <p className="text-gray-700 mb-4">
+        Hvězdičky u průvodce jsou průměr hodnocení ze všech jeho zveřejněných recenzí,
+        zaokrouhlený na jedno desetinné místo. Vedle průměru vždy píšeme, z kolika recenzí vznikl.
+      </p>
+      <p className="text-gray-700 mb-4">
+        Zveřejňujeme recenze dobré i špatné. Recenze, kterou jsme ještě nestihli přečíst,
+        se do průměru započítá až ve chvíli, kdy ji zveřejníme.
       </p>
 
       <h2 className="text-2xl font-bold text-black mt-10 mb-4">Označení u recenzí</h2>

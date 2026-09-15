@@ -28,6 +28,24 @@ describe('Ověřování recenzí', () => {
     expect(screen.getByText(/žádný veřejný formulář/)).toBeInTheDocument();
   });
 
+  // Audit P-9: absolutní slib „kritickou recenzi nesmažeme“ kód nedrží (admin má DELETE
+  // i změnu stavu). Stránka má pojmenovat úzkou výjimku, ne slibovat nemožné.
+  it('neslibuje, že recenzi nikdy nesmaže, ale říká, kdy ji nezveřejní', () => {
+    renderPage();
+    expect(screen.queryByText(/kritickou recenzi nesmažeme/)).not.toBeInTheDocument();
+    expect(screen.getByText(/nikdy ne proto, že je kritická/)).toBeInTheDocument();
+    expect(screen.getByText(/Za recenze neplatíme/)).toBeInTheDocument();
+  });
+
+  // Audit P-8: pokyny Komise chtějí i „jak se vypočítává průměrné hodnocení“.
+  it('vysvětluje, jak se počítá průměr a co do něj nevstupuje', () => {
+    renderPage();
+    expect(screen.getByRole('heading', { level: 2, name: /jak počítáme hodnocení/i })).toBeInTheDocument();
+    expect(screen.getByText(/zaokrouhlený na jedno desetinné místo/)).toBeInTheDocument();
+    expect(screen.getByText(/dobré i špatné/)).toBeInTheDocument();
+    expect(screen.getByText(/započítá až ve chvíli, kdy ji zveřejníme/)).toBeInTheDocument();
+  });
+
   it('odkazuje na ustanovení, podle kterého se informace uvádí', () => {
     renderPage();
     expect(screen.getByText(/§ 5a odst\. 5/)).toBeInTheDocument();

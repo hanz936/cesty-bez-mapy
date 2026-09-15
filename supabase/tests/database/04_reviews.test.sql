@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(52);
+SELECT plan(55);
 
 -- Deploy-hook helper hlasi WARNING, kdyz chybi vault secret `vercel_deploy_hook` —
 -- v lokalni testovaci DB nikdy neni. Vlastni test toho chovani je v 05_deploy_hook.
@@ -37,6 +37,11 @@ SELECT is( (SELECT p.prosecdef FROM pg_proc p JOIN pg_namespace n ON n.oid = p.p
              WHERE n.nspname = 'public' AND p.proname = 'reject_manual_rating_write'),
            false, 'reject_manual_rating_write NENI security definer' );
 
+-- Průměr se ukládá PŘESNĚ (migrace 20260915100215). S `numeric(3,2)` se zaokrouhloval
+-- dvakrát — v DB na setiny a na webu znovu na desetiny — a vycházel o desetinu výš.
+SELECT col_type_is('public'::name, 'products'::name, 'average_rating'::name, 'numeric',
+                   'average_rating je numeric bez přesnosti');
+
 -- ── Fixtures (jako postgres, RLS bypass) ─────────────────────
 INSERT INTO public.products (id, title, description, price, slug)
 VALUES ('00000000-0000-0000-0000-00000000000a', 'Test Guide', 'Test description', 100, 'test-guide-reviews');
@@ -63,7 +68,7 @@ WHERE id = '00000000-0000-0000-0000-000000000001';
 SELECT is( (SELECT review_count FROM public.products WHERE id = '00000000-0000-0000-0000-00000000000a'),
            1, 'approve zvysi review_count na 1' );
 SELECT is( (SELECT average_rating FROM public.products WHERE id = '00000000-0000-0000-0000-00000000000a'),
-           4.00::numeric(3,2), 'average_rating = 4.00' );
+           4.00::numeric, 'average_rating = 4.00' );
 
 INSERT INTO public.reviews (id, product_id, order_id, reviewer_name, rating, review_text, status, approved_at)
 VALUES ('00000000-0000-0000-0000-000000000002',
@@ -72,7 +77,7 @@ VALUES ('00000000-0000-0000-0000-000000000002',
         'Tester 2', 5, 'Dalsi recenze, taky velmi spokojen.', 'approved', now());
 
 SELECT is( (SELECT average_rating FROM public.products WHERE id = '00000000-0000-0000-0000-00000000000a'),
-           4.50::numeric(3,2), 'prumer 4 a 5 = 4.50' );
+           4.50::numeric, 'prumer 4 a 5 = 4.50' );
 
 -- ── Trigger: reject/delete prepocita zpet ────────────────────
 UPDATE public.reviews SET status = 'rejected' WHERE id = '00000000-0000-0000-0000-000000000002';
@@ -83,7 +88,36 @@ DELETE FROM public.reviews WHERE id = '00000000-0000-0000-0000-000000000001';
 SELECT is( (SELECT review_count FROM public.products WHERE id = '00000000-0000-0000-0000-00000000000a'),
            0, 'delete vrati review_count na 0' );
 SELECT is( (SELECT average_rating FROM public.products WHERE id = '00000000-0000-0000-0000-00000000000a'),
-           0.00::numeric(3,2), 'average_rating bez recenzi = 0.00' );
+           0.00::numeric, 'average_rating bez recenzi = 0.00' );
+
+-- ── Trigger: průměr se ukládá přesně, zaokrouhlí se jen jednou ──────────────
+-- 11 recenzí, 6× pět a 5× čtyři hvězdy: průměr 4,5454…. Dřív se uložilo 4.55 a web
+-- z toho udělal 4,6. Druhá aserce je přesně ta operace, kterou dělá `roundRating`.
+INSERT INTO public.products (id, title, description, price, slug)
+VALUES ('00000000-0000-0000-0000-0000000000e1', 'Rounding Guide', 'Rounding description', 100, 'test-guide-rounding');
+INSERT INTO public.orders (id, customer_email, total_amount, status)
+SELECT ('00000000-0000-0000-0000-0000000001' || lpad(g::text, 2, '0'))::uuid,
+       'rounding-' || g || '@example.com', 100, 'completed'
+FROM generate_series(1, 11) g;
+INSERT INTO public.reviews (product_id, order_id, reviewer_name, rating, review_text, status, approved_at)
+SELECT '00000000-0000-0000-0000-0000000000e1',
+       ('00000000-0000-0000-0000-0000000001' || lpad(g::text, 2, '0'))::uuid,
+       'Tester ' || g, CASE WHEN g <= 6 THEN 5 ELSE 4 END,
+       'Deset znaku minimalne, super pruvodce.', 'approved', now()
+FROM generate_series(1, 11) g;
+
+SELECT is( (SELECT average_rating FROM public.products WHERE id = '00000000-0000-0000-0000-0000000000e1'),
+           (SELECT avg(rating) FROM public.reviews
+             WHERE product_id = '00000000-0000-0000-0000-0000000000e1' AND status = 'approved'),
+           'average_rating je přesný průměr, ne zaokrouhlený' );
+SELECT is( (SELECT round(average_rating, 1) FROM public.products WHERE id = '00000000-0000-0000-0000-0000000000e1'),
+           4.5::numeric, '11 recenzí se součtem 50 dá po jednom zaokrouhlení 4.5, ne 4.6' );
+
+-- Úklid je nutný: RLS aserce níž počítají schválené recenze napříč celou tabulkou
+-- a čekají přesně jednu. Bez něj by jich viděly 12.
+DELETE FROM public.reviews WHERE product_id = '00000000-0000-0000-0000-0000000000e1';
+DELETE FROM public.orders WHERE customer_email LIKE 'rounding-%@example.com';
+DELETE FROM public.products WHERE id = '00000000-0000-0000-0000-0000000000e1';
 
 -- ── Stráž: agregáty nejdou přepsat přes API ──────────────────
 -- Baseline dává `GRANT ALL ON products` i roli authenticated, takže bez stráže by

@@ -1,10 +1,14 @@
 /**
  * Zaokrouhlení průměrného hodnocení na jedno desetinné místo.
  *
- * DB drží `round(avg(rating), 2)` (`refresh_product_rating`), takže hodnota může být
- * třeba 4.67. Zobrazujeme ale jedno desetinné místo — a Google zakazuje markup obsahu,
- * který na stránce není vidět. Viditelný text i `ratingValue` proto musí projít
- * TOUTO funkcí, aby nemohly vydat různá čísla.
+ * DB drží průměr PŘESNĚ, bez zaokrouhlení (`refresh_product_rating`), třeba 4.5454….
+ * Zobrazujeme jedno desetinné místo — a Google zakazuje markup obsahu, který na stránce
+ * není vidět. Viditelný text i `ratingValue` proto musí projít TOUTO funkcí, aby nemohly
+ * vydat různá čísla.
+ *
+ * Zaokrouhluje se jen tady a jen jednou. Dřív DB ukládala `round(avg, 2)` a tahle funkce
+ * pak zaokrouhlila podruhé: 11 recenzí se součtem 50 (4,5454…) se uložilo jako 4.55
+ * a zobrazilo jako 4,6. Chyba šla vždy nahoru. Slibuje to i `/overovani-recenzi`.
  */
 export function roundRating(average: number): number {
   return Math.round(average * 10) / 10;
