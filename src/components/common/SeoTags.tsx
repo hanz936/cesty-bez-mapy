@@ -1,6 +1,7 @@
 import { serializeJsonLd } from '../../utils/blogSeo';
 import type { BlogMeta } from '../../utils/blogSeo';
 import type { ProductMeta, ProductReviewsMeta } from '../../utils/productSeo';
+import type { BreadcrumbListJsonLd } from '../../utils/breadcrumbs';
 
 // Structural shape covering PageMeta | BlogMeta | ProductMeta | ProductReviewsMeta (src/utils/{pageSeo,blogSeo,productSeo}.ts):
 // the four differ in how they declare `jsonLd` — PageMeta not at all, BlogMeta/ProductMeta as
@@ -17,6 +18,13 @@ interface SeoTagsMeta {
   /** Např. 'noindex' pro stránky, které nemají do indexu. */
   robots?: string;
   jsonLd?: BlogMeta['jsonLd'] | ProductMeta['jsonLd'] | ProductReviewsMeta['jsonLd'];
+  /**
+   * Vlastní `<script>`, ne další klíč v `jsonLd`: `BreadcrumbList` je samostatná
+   * položka stránky, ne vlastnost produktu, a Google čte víc bloků na stránce
+   * bez problému (dělá to tak i Datart). Zároveň tím zůstává `Product` uzel
+   * bajt po bajtu takový, jaký byl — breadcrumb do něj nesahá.
+   */
+  breadcrumbJsonLd?: BreadcrumbListJsonLd;
 }
 
 interface SeoTagsProps {
@@ -55,6 +63,15 @@ export default function SeoTags({ meta, type = 'website' }: SeoTagsProps) {
           // Record<string, unknown> param — structurally they are plain JSON objects,
           // so the assertion is sound; no runtime change.
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(meta.jsonLd as unknown as Record<string, unknown>) }}
+        />
+      )}
+      {meta.breadcrumbJsonLd && (
+        <script
+          type="application/ld+json"
+          // Stejná type assertion a ze stejného důvodu jako o blok výš.
+          dangerouslySetInnerHTML={{
+            __html: serializeJsonLd(meta.breadcrumbJsonLd as unknown as Record<string, unknown>),
+          }}
         />
       )}
     </>

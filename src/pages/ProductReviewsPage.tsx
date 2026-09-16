@@ -1,17 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, Navigate, NavigationType, useNavigationType, useParams } from 'react-router-dom';
+import { Navigate, NavigationType, useNavigationType, useParams } from 'react-router-dom';
 import * as Sentry from '@sentry/react';
 import Layout from '../components/layout/Layout';
 import SeoTags from '../components/common/SeoTags';
 import ReviewCard from '../components/ui/ReviewCard';
 import ReviewsPagination from '../components/reviews/ReviewsPagination';
 import ProductRatingSummary from '../components/reviews/ProductRatingSummary';
+import Breadcrumbs from '../components/common/Breadcrumbs';
 import { formatReviewDate, reviewDateIso } from '../components/reviews/formatReviewDate';
 import { REVIEWS_PAGE_SIZE, clampPage, isPagedPage, productReviewsPath, reviewPageRange } from '../constants/reviews';
-import { BASE_PATH, productDetailPath } from '../constants';
+import { BASE_PATH } from '../constants';
 import { fetchApprovedReviews, fetchProductForReviews } from '../lib/reviews';
 import type { ProductForReviews, PublicReview } from '../lib/reviews';
-import { buildProductReviewsMeta, productDisplayName } from '../utils/productSeo';
+import { buildProductReviewsMeta, productDisplayName, productReviewsCrumbs } from '../utils/productSeo';
 import NotFound from './NotFound';
 
 const ProductReviewsPage = () => {
@@ -34,9 +35,10 @@ const ProductReviewsPage = () => {
     // 1. Ne při prvním renderu. Příchod z detailu produktu je totiž taky `PUSH`,
     //    jenže efekt běží dřív, než doběhne `fetchProductForReviews` — odečítač by
     //    oznámil holé „Recenze“ bez názvu produktu a doplnění názvu už by neoznámil.
-    //    Navíc by fokus přeskočil odkaz „Zpět na průvodce“, který je v DOMu NAD
-    //    nadpisem, takže by se k němu dopředným tabováním nešlo dostat.
-    //    (Ověřeno spuštěním.)
+    //    Navíc by fokus přeskočil drobečkovou navigaci, která je v DOMu NAD
+    //    nadpisem, takže by se k ní dopředným tabováním nešlo dostat.
+    //    (Ověřeno spuštěním ještě na odkazu „Zpět na průvodce“, který na tomtéž
+    //    místě stál před ní — pozice v DOMu se nezměnila, jen počet odkazů.)
     // 2. Jen `PUSH`. `POP` = mount, reload i tlačítko zpět; `REPLACE` = naše
     //    vlastní přesměrování na kanonickou stranu. V obou případech si uživatel
     //    stránku právě otevřel a sebrat mu fokus doprostřed by bylo překvapení.
@@ -198,9 +200,14 @@ const ProductReviewsPage = () => {
           komentář — pak by nikdy nezezelenal a implementátor by v souboru
           marně hledal druhou hlavní oblast, která tu není. */}
       <div className="max-w-4xl mx-auto px-5 py-16">
-        <Link to={productDetailPath(slug!)} className="text-green-800 underline underline-offset-4">
-          ← Zpět na průvodce
-        </Link>
+        {/* Nahradilo odkaz „← Zpět na průvodce“ na tomtéž místě v DOMu. Cestu bere
+            z `productReviewsCrumbs` — z TÉŽE funkce, ze které `buildProductReviewsMeta`
+            skládá `BreadcrumbList`, takže markup nemůže popisovat jinou cestu, než
+            jaká je vidět. Google to zakazuje („Don't mark up content that is not
+            visible to readers of the page“).
+            Dokud se produkt načítá, `product` je null a položka s názvem průvodce
+            vypadne — v tu chvíli ale neexistuje ani `meta`, tedy ani JSON-LD. */}
+        <Breadcrumbs crumbs={productReviewsCrumbs(product)} />
 
         {/* `focus:ring`, ne `focus-visible:ring`: po programovém `.focus()` se
             v Chromiu `:focus-visible` neuplatní, pokud uživatel ovládá stránku

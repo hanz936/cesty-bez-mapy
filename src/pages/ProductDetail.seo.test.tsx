@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { CartProvider } from '../contexts';
 import { PRODUCT_REVIEWS_LIMIT } from '../constants/reviews';
@@ -99,6 +99,36 @@ describe('ProductDetail per-route SEO + Product JSON-LD + marker (SEO-03)', () =
     expect(jsonLd.offers.price).toBe('490');
 
     expect(document.head.querySelector('title')).toHaveTextContent('Toskánsko na 7 dní');
+  });
+
+  it('vedle Product vydá i BreadcrumbList, jehož poslední položka sedí na <h1> (audit M-2)', async () => {
+    const builder = makeBuilder({ data: fixtureProduct, error: null });
+    fromMock.mockReturnValue(builder);
+
+    const { container } = renderProductDetail();
+    await waitFor(() => {
+      expect(container.querySelector('[data-prerender-ready="true"]')).not.toBeNull();
+    });
+
+    // Blok si hledáme podle typu, ne podle pořadí: stránka jich nese víc
+    // (Product ze `SeoTags`, Organization z patičky) a index by se posunul
+    // s každým dalším.
+    const nodes = [...container.querySelectorAll('script[type="application/ld+json"]')].map(
+      (s) => JSON.parse(s.textContent) as { '@type': string },
+    );
+    expect(nodes.map((n) => n['@type'])).toContain('BreadcrumbList');
+    const breadcrumb = nodes.find((n) => n['@type'] === 'BreadcrumbList') as unknown as {
+      '@type': string;
+      itemListElement: { position: number; name: string; item?: string }[];
+    };
+    // Obě položky musí být na stránce vidět, jinak by je markup nesměl nést:
+    // „Cestovní průvodci" je tlačítko v hlavičce a druhá položka je nadpis stránky.
+    expect(screen.getByRole('button', { name: /cestovní průvodci/i })).toBeInTheDocument();
+    expect(breadcrumb.itemListElement[0].name).toBe('Cestovní průvodci');
+    expect(breadcrumb.itemListElement[1].name).toBe('Toskánsko na 7 dní');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Toskánsko na 7 dní');
+    // Poslední položka bez `item` = Google dosadí adresu samotné stránky.
+    expect(breadcrumb.itemListElement[1]).not.toHaveProperty('item');
   });
 
   it('při chybě/nenalezení produktu marker NEvykreslí (žádné prerendrování 404)', async () => {

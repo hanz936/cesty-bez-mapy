@@ -1,7 +1,9 @@
 import { SITE_URL } from './blogSeo';
 import { ratingValueJsonLd } from './rating';
-import { productDetailPath } from '../constants';
+import { ROUTES, productDetailPath } from '../constants';
 import { isPagedPage, productReviewsPath } from '../constants/reviews';
+import { buildBreadcrumbJsonLd } from './breadcrumbs';
+import type { BreadcrumbListJsonLd, Crumb } from './breadcrumbs';
 import type { ProductForReviews } from '../lib/reviews';
 
 export interface ProductMetaProduct {
@@ -61,6 +63,8 @@ export interface ProductMeta {
   canonical: string;
   ogImage: string;
   jsonLd: ProductJsonLd;
+  /** Samostatný uzel, ne součást `Product` — `BreadcrumbList` je vlastní položka stránky. */
+  breadcrumbJsonLd: BreadcrumbListJsonLd;
 }
 
 /**
@@ -81,6 +85,43 @@ export function productDisplayName(product: { detail_title: string | null; title
  */
 export function productJsonLdId(slug: string, siteUrl: string = SITE_URL): string {
   return `${siteUrl}${productDetailPath(slug)}#product`;
+}
+
+/** Minimum, které oba buildery cest potřebují — sedí na `ProductMetaProduct` i `ProductForReviews`. */
+interface CrumbProduct {
+  detail_title: string | null;
+  title: string;
+  slug: string;
+}
+
+/**
+ * Cesta k detailu produktu. Obě položky jsou na stránce VIDĚT, jinak by je markup nesměl
+ * nést: „Cestovní průvodci" je tlačítko v hlavičce detailu a název produktu je `<h1>`.
+ * Právě proto tu cesta končí u produktu a nepřidává další úroveň — víc na stránce není.
+ */
+export function productDetailCrumbs(product: CrumbProduct): Crumb[] {
+  return [
+    { name: 'Cestovní průvodci', path: ROUTES.TRAVEL_GUIDES },
+    { name: productDisplayName(product) },
+  ];
+}
+
+/**
+ * Cesta na stránce recenzí. `product` smí být `null`: než doběhne `fetchProductForReviews`,
+ * název průvodce ještě neznáme a vypsat prázdnou položku by bylo horší než ji vynechat.
+ * Bez produktu se zároveň nestaví `buildProductReviewsMeta`, takže v tu chvíli neexistuje
+ * ani JSON-LD — zkrácená cesta se tedy nemá s čím rozejít a pořád zbývají dvě položky,
+ * což je Googlem požadované minimum.
+ *
+ * Poslední položka „Recenze" je bez `path` schválně — viz `breadcrumbs.ts`. Díky tomu je
+ * tenhle jediný seznam správný i na `/recenze/strana/N`.
+ */
+export function productReviewsCrumbs(product: CrumbProduct | null): Crumb[] {
+  return [
+    { name: 'Cestovní průvodci', path: ROUTES.TRAVEL_GUIDES },
+    ...(product ? [{ name: productDisplayName(product), path: productDetailPath(product.slug) }] : []),
+    { name: 'Recenze' },
+  ];
 }
 
 function toReviewJsonLd(
@@ -138,7 +179,14 @@ export function buildProductMeta(
     }
   }
 
-  return { title, description, canonical, ogImage: image, jsonLd };
+  return {
+    title,
+    description,
+    canonical,
+    ogImage: image,
+    jsonLd,
+    breadcrumbJsonLd: buildBreadcrumbJsonLd(productDetailCrumbs(product), siteUrl),
+  };
 }
 
 /**
@@ -174,6 +222,12 @@ export interface ProductReviewsMeta {
   robots?: string;
   /** Chybí, když produkt nemá recenze — `Product` bez review/aggregateRating/offers je neplatný. */
   jsonLd?: ProductReviewsJsonLd;
+  /**
+   * Na rozdíl od `jsonLd` je povinný i u produktu bez recenzí: drobečková navigace je
+   * na stránce vidět vždycky, takže markup je vždycky pravdivý. Že si ho Google
+   * u `noindex` stránky nepřečte, není důvod tvrdit něco jiného, než co tam stojí.
+   */
+  breadcrumbJsonLd: BreadcrumbListJsonLd;
 }
 
 export function buildProductReviewsMeta(
@@ -248,5 +302,8 @@ export function buildProductReviewsMeta(
     // odkazů je výchozí chování, takže `noindex, follow` je pro něj totéž co `noindex`.
     robots: count === 0 ? 'noindex' : undefined,
     jsonLd,
+    // Tatáž funkce, jakou si volá stránka pro vykreslení — viditelná cesta a markup
+    // proto nemůžou vydat jiný seznam.
+    breadcrumbJsonLd: buildBreadcrumbJsonLd(productReviewsCrumbs(product), siteUrl),
   };
 }

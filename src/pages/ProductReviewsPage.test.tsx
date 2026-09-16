@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { CartProvider } from '../contexts';
 
@@ -283,16 +283,56 @@ describe('ProductReviewsPage', () => {
     expect(document.activeElement).not.toBe(heading);
   });
 
-  it('odkazuje zpět na detail produktu', async () => {
+  it('drobečková navigace odkazuje zpět na detail produktu i na výpis průvodců', async () => {
+    // Nahradila odkaz „← Zpět na průvodce" (audit M-2). Cesta zpět na detail
+    // musí zůstat zachovaná — jen ji teď nese položka s názvem průvodce.
     fetchProductForReviewsMock.mockResolvedValue(product);
     fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
     renderAt('/cestovni-pruvodci/italie/recenze');
+    const nav = await screen.findByRole('navigation', { name: 'Drobečková navigace' });
     await waitFor(() =>
-      expect(screen.getByRole('link', { name: /zpět na průvodce/i })).toHaveAttribute(
+      expect(within(nav).getByRole('link', { name: 'Roadtrip po Itálii' })).toHaveAttribute(
         'href',
         '/cestovni-pruvodci/italie',
       ),
     );
+    expect(within(nav).getByRole('link', { name: 'Cestovní průvodci' })).toHaveAttribute(
+      'href',
+      '/cestovni-pruvodci',
+    );
+    // Poslední položka není odkaz — vedl by sám na sebe.
+    expect(within(nav).queryByRole('link', { name: 'Recenze' })).not.toBeInTheDocument();
+  });
+
+  it('viditelná cesta nese PŘESNĚ to, co stránka pošle v BreadcrumbList', async () => {
+    // Smysl celého nálezu M-2: Google zakazuje markovat obsah, který na stránce
+    // vidět není. Kdyby se jedna ze dvou stran změnila, spadne to tady.
+    fetchProductForReviewsMock.mockResolvedValue(product);
+    fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
+    const { container } = renderAt('/cestovni-pruvodci/italie/recenze');
+    const nav = await screen.findByRole('navigation', { name: 'Drobečková navigace' });
+    await waitFor(() => expect(within(nav).getAllByRole('listitem')).toHaveLength(3));
+
+    const videt = within(nav)
+      .getAllByRole('listitem')
+      .map((li) => li.textContent?.replace(/^\s*\/\s*/, '').trim());
+    // Blok hledáme podle typu, ne podle pořadí — stránka nese i Product a Organization.
+    const breadcrumb = [...container.querySelectorAll('script[type="application/ld+json"]')]
+      .map((s) => JSON.parse(s.textContent) as { '@type': string; itemListElement?: { name: string }[] })
+      .find((n) => n['@type'] === 'BreadcrumbList');
+    expect(breadcrumb?.itemListElement?.map((i) => i.name)).toEqual(videt);
+  });
+
+  it('dokud se produkt načítá, cesta nemá prázdnou položku', async () => {
+    // `product` je null → položka s názvem průvodce se vynechá. Dvě položky jsou
+    // pořád nad minimem Googlu a JSON-LD v tu chvíli neexistuje, takže se nemá
+    // s čím rozejít.
+    fetchProductForReviewsMock.mockReturnValue(new Promise(() => undefined));
+    fetchApprovedReviewsMock.mockReturnValue(new Promise(() => undefined));
+    renderAt('/cestovni-pruvodci/italie/recenze');
+    const nav = await screen.findByRole('navigation', { name: 'Drobečková navigace' });
+    expect(within(nav).getAllByRole('listitem').map((li) => li.textContent?.replace(/^\s*\/\s*/, '').trim()))
+      .toEqual(['Cestovní průvodci', 'Recenze']);
   });
 
   it('vykreslí perex a obrázek, protože je posílá do JSON-LD', async () => {

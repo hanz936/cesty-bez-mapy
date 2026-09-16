@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { buildProductMeta, buildProductReviewsMeta, productDisplayName } from './productSeo';
+import {
+  buildProductMeta,
+  buildProductReviewsMeta,
+  productDetailCrumbs,
+  productDisplayName,
+  productReviewsCrumbs,
+} from './productSeo';
 
 const product = {
   title: 'Toskánsko průvodce',
@@ -255,5 +261,95 @@ describe('buildProductReviewsMeta', () => {
     const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 2.5, reviews: reviewsFixture }, 'https://x.cz');
     expect(meta.title).toBe('Recenze — Roadtrip po Itálii na 20 dní');
     expect(meta.canonical).toBe('https://x.cz/cestovni-pruvodci/italie-roadtrip/recenze');
+  });
+});
+
+describe('BreadcrumbList (audit M-2)', () => {
+  // Pravidlo, které tyhle testy hlídají: markup smí popisovat jen cestu, kterou
+  // uživatel na stránce VIDÍ. Google: „Don't mark up content that is not visible
+  // to readers of the page." Proto se všude porovnává JSON-LD proti `*Crumbs()` —
+  // proti téže funkci, ze které se vykresluje viditelná drobečková navigace.
+
+  it('detail nese dvě položky: výpis průvodců a sám sebe', () => {
+    // Obojí je na detailu vidět — tlačítko „Cestovní průvodci" a název v <h1>.
+    // Dvě položky jsou zároveň Googlem požadované minimum.
+    const meta = buildProductMeta(product, undefined, 'https://x.cz');
+    expect(meta.breadcrumbJsonLd['@type']).toBe('BreadcrumbList');
+    expect(meta.breadcrumbJsonLd.itemListElement).toEqual([
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Cestovní průvodci',
+        item: 'https://x.cz/cestovni-pruvodci',
+      },
+      { '@type': 'ListItem', position: 2, name: 'Toskánsko: kompletní průvodce' },
+    ]);
+  });
+
+  it('detail: poslední položka nese TÝŽ název jako <h1>, ne interní title', () => {
+    const meta = buildProductMeta(product, undefined, 'https://x.cz');
+    const last = meta.breadcrumbJsonLd.itemListElement.at(-1);
+    expect(last?.name).toBe(productDisplayName(product));
+    expect(last?.name).not.toBe(product.title);
+  });
+
+  it('stránka recenzí nese tři položky a prostřední odkazuje na detail', () => {
+    const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: reviewsFixture }, 'https://x.cz');
+    expect(meta.breadcrumbJsonLd.itemListElement).toEqual([
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Cestovní průvodci',
+        item: 'https://x.cz/cestovni-pruvodci',
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Roadtrip po Itálii na 20 dní',
+        item: 'https://x.cz/cestovni-pruvodci/italie-roadtrip',
+      },
+      { '@type': 'ListItem', position: 3, name: 'Recenze' },
+    ]);
+  });
+
+  it('strana 2 má TOTÉŽ pořadí položek — poslední bez `item`, takže ukazuje sama na sebe', () => {
+    // Kdyby poslední položka `item` měla, mířila by na stranu 1 a odporovala by
+    // canonicalu strany 2, který ukazuje sám na sebe.
+    const page1 = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: reviewsFixture }, 'https://x.cz');
+    const page2 = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 2, reviews: reviewsFixture }, 'https://x.cz');
+    expect(page2.breadcrumbJsonLd).toEqual(page1.breadcrumbJsonLd);
+    expect(page2.breadcrumbJsonLd.itemListElement.at(-1)).not.toHaveProperty('item');
+    expect(page2.canonical).toBe('https://x.cz/cestovni-pruvodci/italie-roadtrip/recenze/strana/2');
+  });
+
+  it('markup nese PŘESNĚ to, co vykreslí viditelná navigace', () => {
+    // Tenhle test je smyslem celého nálezu M-2. Kdyby někdo změnil jen jednu ze
+    // dvou stran, spadne to tady.
+    const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: reviewsFixture }, 'https://x.cz');
+    expect(meta.breadcrumbJsonLd.itemListElement.map((i) => i.name)).toEqual(
+      productReviewsCrumbs(REVIEWS_PRODUCT).map((c) => c.name),
+    );
+    const detail = buildProductMeta(product, undefined, 'https://x.cz');
+    expect(detail.breadcrumbJsonLd.itemListElement.map((i) => i.name)).toEqual(
+      productDetailCrumbs(product).map((c) => c.name),
+    );
+  });
+
+  it('produkt bez recenzí breadcrumb MÁ, i když Product JSON-LD ne', () => {
+    // Navigace je na stránce vidět vždycky, takže markup je vždycky pravdivý —
+    // na rozdíl od `Product`, který bez recenzí nemá čím být platný.
+    const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: [] }, 'https://x.cz');
+    expect(meta.jsonLd).toBeUndefined();
+    expect(meta.robots).toBe('noindex');
+    expect(meta.breadcrumbJsonLd.itemListElement).toHaveLength(3);
+  });
+
+  it('bez načteného produktu vypadne prostřední položka, ne prázdný název', () => {
+    // Stav během načítání stránky recenzí. Dvě položky = pořád nad Googlem
+    // požadovaným minimem, a prázdný řádek se nikde neukáže.
+    expect(productReviewsCrumbs(null)).toEqual([
+      { name: 'Cestovní průvodci', path: '/cestovni-pruvodci' },
+      { name: 'Recenze' },
+    ]);
   });
 });
