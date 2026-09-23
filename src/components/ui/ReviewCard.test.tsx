@@ -15,34 +15,40 @@ describe('ReviewCard', () => {
   it('teaser ořezává přes line-clamp, ale bez pevné výšky boxu', () => {
     const { container } = render(<ReviewCard {...base} variant="teaser" />);
     const paragraph = screen.getByText(/Skvělý průvodce/);
-    expect(paragraph.className).toContain('line-clamp-6');
+    expect(paragraph).toHaveClass('line-clamp-6');
     // Pevná výška by výpustku znemožnila (128 px = 4,92 řádku při line-height 26 px).
-    expect(container.innerHTML).not.toContain('h-32');
+    // Hledáme celou třídu `h-32` v atributech `class`, ne podřetězec v `innerHTML` —
+    // ten by chytil i `max-h-32`, `h-320` nebo text samotné recenze (audit T-13).
+    expect(container.querySelector('[class~="h-32"]')).toBeNull();
   });
 
   it('full vykreslí celý text bez ořezu', () => {
     const long = 'A'.repeat(2000);
     const { container } = render(<ReviewCard {...base} text={long} variant="full" />);
     expect(screen.getByText(new RegExp(`^"?${'A'.repeat(50)}`))).toBeInTheDocument();
-    expect(container.innerHTML).not.toContain('line-clamp');
-    expect(container.innerHTML).not.toContain('h-32');
+    // `*=` schválně: nesmí tu být žádná varianta `line-clamp-*`. Pořád jen v atributech `class`.
+    expect(container.querySelector('[class*="line-clamp"]')).toBeNull();
+    expect(container.querySelector('[class~="h-32"]')).toBeNull();
   });
 
   it('full zalamuje nezalomitelný text, aby ho overflow-hidden neustřihl', () => {
     // Recenze běžně obsahují URL; bez zalomení by dlouhý token přetekl kartu.
     const url = `https://example.com/${'a'.repeat(300)}`;
     render(<ReviewCard {...base} text={url} variant="full" />);
-    expect(screen.getByText(new RegExp('^"?https://example')).className).toContain('wrap-break-word');
+    expect(screen.getByText(new RegExp('^"?https://example'))).toHaveClass('wrap-break-word');
   });
 
   it('teaser je výchozí režim', () => {
     render(<ReviewCard {...base} />);
-    expect(screen.getByText(/Skvělý průvodce/).className).toContain('line-clamp-6');
+    expect(screen.getByText(/Skvělý průvodce/)).toHaveClass('line-clamp-6');
   });
 
   it('karta nevnucuje pevnou výšku 400 px', () => {
     const { container } = render(<ReviewCard {...base} variant="full" />);
-    expect(container.innerHTML).not.toContain('h-[400px]');
+    // Nejdřív důkaz, že se karta vůbec vykreslila — jinak by negativní aserce
+    // prošla i na komponentě, která vrátí `null`.
+    expect(screen.getByText(/Skvělý průvodce/)).toBeInTheDocument();
+    expect(container.querySelector('[class~="h-[400px]"]')).toBeNull();
   });
 
   it('odznak ověření se vykreslí jen když verified', () => {

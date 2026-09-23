@@ -124,6 +124,16 @@ export function productReviewsCrumbs(product: CrumbProduct | null): Crumb[] {
   ];
 }
 
+/**
+ * Nadpis stránky recenzí — `<h1>` i základ `<title>` (ten k němu jen přidá číslo strany).
+ * Dřív si ho oba skládaly vlastním template literálem, takže změna oddělovače na jednom
+ * místě by `<h1>` a `<title>` tiše rozešla a sada by zůstala zelená (audit T-1, ověřeno
+ * mutací). `null` = produkt se ještě načítá; stejně jako u `productReviewsCrumbs`.
+ */
+export function productReviewsHeading(product: CrumbProduct | null): string {
+  return product ? `Recenze — ${productDisplayName(product)}` : 'Recenze';
+}
+
 function toReviewJsonLd(
   reviews: { author: string; rating: number; text: string; datePublished: string }[],
 ): ReviewJsonLd[] {
@@ -251,7 +261,7 @@ export function buildProductReviewsMeta(
   // nemůže zapomenout.
   const count = options.reviews.length > 0 ? (product.review_count ?? 0) : 0;
   const suffix = isPagedPage(options.page) ? ` (strana ${options.page})` : '';
-  const title = `Recenze — ${productTitle}${suffix}`;
+  const title = `${productReviewsHeading(product)}${suffix}`;
   const description = count > 0
     ? `Recenze od ověřených zákazníků k průvodci ${productTitle}. Přečti si, co říkají ti, kteří s ním už cestovali.`
     : `Průvodce ${productTitle} zatím nemá recenzi. Buď první, kdo se podělí o zkušenost.`;

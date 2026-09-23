@@ -111,7 +111,12 @@ const ProductDetail = () => {
 
         if ((data.review_count ?? 0) > 0) {
           try {
-            const page = await fetchApprovedReviews({ productId: data.id, limit: PRODUCT_REVIEWS_LIMIT, offset: 0 });
+            const page = await fetchApprovedReviews({
+              productId: data.id,
+              limit: PRODUCT_REVIEWS_LIMIT,
+              offset: 0,
+              withProduct: false,
+            });
             if (isMounted) {
               setReviewsRaw(page.reviews);
               setSeoReviews(page.reviews.map((r) => ({

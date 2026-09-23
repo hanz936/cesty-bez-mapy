@@ -7,6 +7,7 @@ import type { PublicReview } from '../../lib/reviews';
 import { formatReviewDate } from './formatReviewDate';
 import { ROUTES } from '../../constants';
 import { formatRatingCs } from '../../utils/rating';
+import { reviewCountLabel } from './reviewCountLabel';
 
 const PAGE_SIZE = 9;
 /** Souhrnné statistiky ukazujeme až od 3 schválených recenzí (do té doby by průměr byl zavádějící). */
@@ -30,6 +31,14 @@ const ReviewsSection = ({ className = '', onReadyChange }: ReviewsSectionProps) 
   // ustálí — jinak se do statického HTML zapíše loading stav. Přesně to se stalo
   // u /recenze, kde `<Layout ready>` bylo natvrdo. Při chybě připravenost NEohlásíme
   // vůbec: build má spadnout hlasitě, ne předgenerovat chybovou stránku.
+  //
+  // Efekt je VĚDOMÁ odchylka od react.dev („You Might Not Need an Effect" →
+  // Notifying parent components), rozhodnutí usera 2026-09-23 (audit T-8).
+  // Docs radí volat rodiče přímo tam, kde stav vzniká. Tady by to znamenalo
+  // hlásit ručně na každé úspěšné cestě a vést úsudek o chybě podruhé vedle
+  // stavu `error` — zapomenutá cesta = prerender čeká do timeoutu. Odvození
+  // ze stavu na jednom místě to vylučuje; cena je jeden render rodiče navíc
+  // na načtení sekce.
   useEffect(() => {
     onReadyChange?.(!loading && !error);
   }, [loading, error, onReadyChange]);
@@ -143,7 +152,8 @@ const ReviewsSection = ({ className = '', onReadyChange }: ReviewsSectionProps) 
               <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
                 <div className="text-3xl font-bold text-gray-800 mb-2">{stats.count}</div>
                 <div className="text-sm text-gray-500 uppercase tracking-wider">
-                  {stats.count === 1 ? 'Recenze' : stats.count < 5 ? 'Recenze' : 'Recenzí'}
+                  {/* Malé písmeno z helperu nevadí: velká písmena dělá `uppercase` výš. */}
+                  {reviewCountLabel(stats.count)}
                 </div>
               </div>
             </div>

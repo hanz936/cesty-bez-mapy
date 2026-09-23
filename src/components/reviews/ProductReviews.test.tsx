@@ -47,7 +47,7 @@ describe('ProductReviews', () => {
     });
     render(<MemoryRouter><ProductReviews productSlug="salzburg" /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText('Jana N.')).toBeInTheDocument());
-    expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 3, offset: 0 });
+    expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 3, offset: 0, withProduct: false });
   });
 
   it('shows error message (not fake empty state) when product lookup fails', async () => {
@@ -160,7 +160,7 @@ describe('ProductReviews', () => {
     // `variant="teaser"` se v ReviewCard promítá do `line-clamp-6` na odstavci s textem
     // recenze (ReviewCard.tsx) — `variant="full"` by místo toho dal celý text bez ořezu.
     const reviewText = await screen.findByText(/Skvělý průvodce\./);
-    expect(reviewText.className).toContain('line-clamp-6');
+    expect(reviewText).toHaveClass('line-clamp-6');
   });
 
   describe('prerender gating (stránka itineráře na míru)', () => {
@@ -232,7 +232,9 @@ describe('ProductReviews', () => {
           <ProductReviews productSlug="salzburg" preloaded={{ productId: 'p1', reviewCount: count, reviews }} />
         </MemoryRouter>,
       );
-      expect(container.querySelector('div.grid')?.className).toBe(expected[count]);
+      // `exact` = právě tahle sada tříd, ale bez ohledu na pořadí. Přesná shoda řetězce
+      // `className` by spadla i na pouhém přeházení tříd (audit T-13).
+      expect(container.querySelector('div.grid')).toHaveClass(expected[count], { exact: true });
       unmount();
     }
   });

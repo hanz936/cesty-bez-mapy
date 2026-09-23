@@ -77,6 +77,21 @@ describe('reviews data layer', () => {
     expect(eq).toHaveBeenCalledWith('product_id', 'p1');
   });
 
+  it('fetchApprovedReviews with withProduct: false drops the products embed', async () => {
+    // Stránky jednoho produktu název produktu zahodí (`productTitle={null}`), embed
+    // by jen navíc spustil join a RLS `products` (audit T-11). Bez přepínače zůstává
+    // embed zapnutý — `/recenze` ho potřebuje, viz první test.
+    const range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+    const eq = vi.fn().mockReturnValue({ range });
+    const orderById = vi.fn().mockReturnValue({ eq });
+    const order = vi.fn().mockReturnValue({ order: orderById });
+    const select = vi.fn().mockReturnValue({ order });
+    fromMock.mockReturnValue({ select });
+
+    await fetchApprovedReviews({ productId: 'p1', limit: 3, offset: 0, withProduct: false });
+    expect(select).toHaveBeenCalledWith(REVIEW_COLUMNS);
+  });
+
   it('fetchReviewStats computes count and average client-side', async () => {
     const select = vi.fn().mockResolvedValue({ data: [{ rating: 4 }, { rating: 5 }], error: null });
     fromMock.mockReturnValue({ select });

@@ -71,7 +71,7 @@ describe('ProductReviewsPage', () => {
     fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
     renderAt('/cestovni-pruvodci/italie/recenze');
     await waitFor(() =>
-      expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 10, offset: 0 }),
+      expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 10, offset: 0, withProduct: false }),
     );
   });
 
@@ -80,7 +80,7 @@ describe('ProductReviewsPage', () => {
     fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
     renderAt('/cestovni-pruvodci/italie/recenze/strana/2');
     await waitFor(() =>
-      expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 10, offset: 10 }),
+      expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 10, offset: 10, withProduct: false }),
     );
   });
 
@@ -95,7 +95,7 @@ describe('ProductReviewsPage', () => {
       expect(screen.getByTestId('pathname')).toHaveTextContent('/cestovni-pruvodci/italie/recenze/strana/2'),
     );
     await waitFor(() =>
-      expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 10, offset: 10 }),
+      expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 10, offset: 10, withProduct: false }),
     );
     // Nikdy se neptáme na stranu 99 (offset 980).
     expect(fetchApprovedReviewsMock).not.toHaveBeenCalledWith(
@@ -115,7 +115,7 @@ describe('ProductReviewsPage', () => {
       expect(screen.getByTestId('pathname').textContent).toBe('/cestovni-pruvodci/italie/recenze'),
     );
     await waitFor(() =>
-      expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 10, offset: 0 }),
+      expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 10, offset: 0, withProduct: false }),
     );
   });
 
@@ -132,7 +132,7 @@ describe('ProductReviewsPage', () => {
       expect(screen.getByTestId('pathname').textContent).toBe('/cestovni-pruvodci/italie/recenze'),
     );
     await waitFor(() =>
-      expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 10, offset: 0 }),
+      expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 10, offset: 0, withProduct: false }),
     );
   });
 
@@ -348,11 +348,18 @@ describe('ProductReviewsPage', () => {
     );
   });
 
-  it('produkt bez vlastního obrázku bere placeholder relativní cestou', async () => {
+  it.each([
+    ['null', null],
+    // Prázdný řetězec je důvod, proč stránka používá `||`, ne `??`: sloupec je
+    // nullable text bez CHECKu a `<img src="">` by prohlížeč řešil novým
+    // dotazem na samotnou stránku. Bez tohohle případu by „úklid" na `??`
+    // prošel celou sadou (audit T-4, ověřeno mutací).
+    ["'' (prázdný řetězec)", ''],
+  ])('produkt s image_url = %s bere placeholder relativní cestou', async (_label, imageUrl) => {
     // Absolutní URL by u placeholderu mířila na produkční doménu, která je do launche
     // za Basic auth — obrázek by se v preview vůbec nenačetl. V JSON-LD absolutní
     // zůstává, tam ji Google potřebuje.
-    fetchProductForReviewsMock.mockResolvedValue(product);
+    fetchProductForReviewsMock.mockResolvedValue({ ...product, image_url: imageUrl });
     fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
     renderAt('/cestovni-pruvodci/italie/recenze');
     await waitFor(() =>
@@ -361,6 +368,21 @@ describe('ProductReviewsPage', () => {
         '/images/placeholder-guide.jpg',
       ),
     );
+  });
+
+  it.each([
+    ['/cestovni-pruvodci/italie/recenze', ''],
+    ['/cestovni-pruvodci/italie/recenze/strana/2', ' (strana 2)'],
+  ])('<h1> a <title> na %s říkají totéž, <title> přidá jen číslo strany', async (path, suffix) => {
+    // Oba řetězce skládá `productReviewsHeading`. Dřív měl každý vlastní
+    // template literál a změna oddělovače v jednom z nich prošla celou sadou
+    // (audit T-1, ověřeno mutací).
+    fetchProductForReviewsMock.mockResolvedValue(product);
+    fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
+    renderAt(path);
+    const heading = await screen.findByRole('heading', { level: 1, name: /Roadtrip po Itálii/ });
+    expect(heading.textContent).toBe('Recenze — Roadtrip po Itálii');
+    await waitFor(() => expect(document.title).toBe(`${heading.textContent}${suffix} | Cesty bez mapy`));
   });
 
   it('JSON-LD datePublished počítá pražské datum, ne UTC řez', async () => {

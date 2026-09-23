@@ -51,6 +51,15 @@ const ProductReviews = ({ productSlug, className = '', preloaded, onReadyChange 
   // ustálí — jinak se do statického HTML zapíše loading stav. Přesně to se stalo
   // u /recenze, kde `<Layout ready>` bylo natvrdo. Při chybě připravenost NEohlásíme
   // vůbec: build má spadnout hlasitě, ne předgenerovat chybovou stránku.
+  //
+  // Efekt je VĚDOMÁ odchylka od react.dev („You Might Not Need an Effect" →
+  // Notifying parent components), rozhodnutí usera 2026-09-23 (audit T-8).
+  // Docs radí volat rodiče přímo tam, kde stav vzniká. Tady by to znamenalo
+  // hlásit ručně na každé úspěšné cestě (recenze, žádné recenze, produkt
+  // nenalezen) a vést úsudek o chybě podruhé vedle stavu `error` — zapomenutá
+  // cesta = prerender čeká do timeoutu. U `preloaded` by se navíc neohlásilo
+  // nic, protože `load()` vůbec neběží. Odvození ze stavu na jednom místě to
+  // vylučuje; cena je jeden render rodiče navíc na načtení sekce.
   useEffect(() => {
     onReadyChange?.(!loading && !error);
   }, [loading, error, onReadyChange]);
@@ -83,7 +92,12 @@ const ProductReviews = ({ productSlug, className = '', preloaded, onReadyChange 
         }
         setReviewCount(product.review_count ?? 0);
         if ((product.review_count ?? 0) > 0) {
-          const page = await fetchApprovedReviews({ productId: product.id, limit: PRODUCT_REVIEWS_LIMIT, offset: 0 });
+          const page = await fetchApprovedReviews({
+            productId: product.id,
+            limit: PRODUCT_REVIEWS_LIMIT,
+            offset: 0,
+            withProduct: false,
+          });
           if (isMounted) setReviews(page.reviews);
         }
       } catch (err) {

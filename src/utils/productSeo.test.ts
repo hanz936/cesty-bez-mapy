@@ -36,9 +36,12 @@ describe('buildProductMeta', () => {
     expect(m.jsonLd.offers.availability).toBe('https://schema.org/InStock');
     expect(m.jsonLd.offers.url).toBe('https://x.cz/cestovni-pruvodci/toskansko');
   });
-  it('fallback obrázku, když image_url chybí', () => {
-    const m = buildProductMeta({ ...product, image_url: null }, undefined, 'https://x.cz');
+  // `''` je důvod, proč builder používá `||`, ne `??` — sloupec je nullable text bez
+  // CHECKu. Bez toho případu by „úklid" na `??` prošel sadou (audit T-4, ověřeno mutací).
+  it.each([null, ''])('fallback obrázku, když image_url je %j', (imageUrl) => {
+    const m = buildProductMeta({ ...product, image_url: imageUrl }, undefined, 'https://x.cz');
     expect(m.ogImage).toBe('https://x.cz/images/placeholder-guide.jpg');
+    expect(m.jsonLd.image).toEqual(['https://x.cz/images/placeholder-guide.jpg']);
   });
 });
 
@@ -123,6 +126,17 @@ describe('productDisplayName', () => {
 });
 
 describe('buildProductReviewsMeta', () => {
+  // Stejné pravidlo jako u `buildProductMeta` výš — a stejná mutace by ho jinak tiše vrátila.
+  it.each([null, ''])('fallback obrázku, když image_url je %j', (imageUrl) => {
+    const meta = buildProductReviewsMeta(
+      { ...REVIEWS_PRODUCT, image_url: imageUrl },
+      { page: 1, reviews: reviewsFixture },
+      'https://x.cz',
+    );
+    expect(meta.ogImage).toBe('https://x.cz/images/placeholder-guide.jpg');
+    expect(meta.jsonLd?.image).toEqual(['https://x.cz/images/placeholder-guide.jpg']);
+  });
+
   it('JSON-LD je Product BEZ offers (stránka není prodejní)', () => {
     const meta = buildProductReviewsMeta(REVIEWS_PRODUCT, { page: 1, reviews: reviewsFixture }, 'https://x.cz');
     expect(meta.jsonLd?.['@type']).toBe('Product');

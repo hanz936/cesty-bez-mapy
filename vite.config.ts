@@ -172,6 +172,12 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
+    // Časová zóna připnutá pro všechny testy. Web ukotvuje data recenzí na
+    // Europe/Prague (formatReviewDate.ts) a testy to ověřují — jenže na stroji,
+    // který SÁM běží v pražské zóně, by prošly i bez ukotvení a chyba by vyplula
+    // až v CI (ubuntu-latest = UTC). Ověřeno mutací: bez `timeZone` v kódu
+    // a bez tohohle řádku lokálně 414/414 zelených, s ním 4 pády.
+    env: { TZ: 'UTC' },
     css: true,
     // Edge Function tests use https:// imports and run under `deno test`, not Vitest.
     exclude: ['**/node_modules/**', '**/dist/**', 'supabase/functions/**'],

@@ -100,6 +100,19 @@ describe('ReviewsSection', () => {
     expect(screen.getByText('4,7')).toBeInTheDocument();
   });
 
+  it.each([
+    [3, 'recenze'],
+    [5, 'recenzí'],
+  ])('počet %i v souhrnu skloňuje sdílený reviewCountLabel („%s")', async (count, label) => {
+    // Dřív tu stál vlastní ternár vedle helperu — oprava pravidla v `reviewCountLabel`
+    // by detail i stránku recenzí opravila, `/recenze` ne (audit T-3, ověřeno mutací).
+    fetchApprovedReviewsMock.mockResolvedValue({ reviews: [REVIEW], total: count });
+    fetchReviewStatsMock.mockResolvedValue({ count, average: 4.7 });
+    render(<MemoryRouter><ReviewsSection /></MemoryRouter>);
+    const countBox = (await screen.findByText(String(count))).parentElement;
+    expect(countBox).toHaveTextContent(new RegExp(`^${count}${label}$`));
+  });
+
   describe('prerender gating (P3-A)', () => {
     it('připravenost ohlásí až po doběhnutí načítání, ne hned', async () => {
       fetchApprovedReviewsMock.mockResolvedValue({ reviews: [REVIEW], total: 1 });

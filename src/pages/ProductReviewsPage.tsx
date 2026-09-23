@@ -12,11 +12,15 @@ import { REVIEWS_PAGE_SIZE, clampPage, isPagedPage, productReviewsPath, reviewPa
 import { BASE_PATH } from '../constants';
 import { fetchApprovedReviews, fetchProductForReviews } from '../lib/reviews';
 import type { ProductForReviews, PublicReview } from '../lib/reviews';
-import { buildProductReviewsMeta, productDisplayName, productReviewsCrumbs } from '../utils/productSeo';
+import { buildProductReviewsMeta, productDisplayName, productReviewsCrumbs, productReviewsHeading } from '../utils/productSeo';
 import NotFound from './NotFound';
 
 const ProductReviewsPage = () => {
-  const { slug, strana } = useParams();
+  // `useParams()` typuje každou hodnotu jako `string | undefined`. Obě routy stránky
+  // (`ROUTES.PRODUCT_REVIEWS` i `PRODUCT_REVIEWS_PAGED`) `:slug` nesou vždy, `:strana` jen ta
+  // druhá — proto aserce na jednom místě, stejně jako v `BlogPostDetail`, místo `!`
+  // rozesetých po volacích místech (audit T-9).
+  const { slug, strana } = useParams() as { slug: string; strana?: string };
   const navigationType = useNavigationType();
   const [product, setProduct] = useState<ProductForReviews | null>(null);
   const [reviews, setReviews] = useState<PublicReview[]>([]);
@@ -86,7 +90,7 @@ const ProductReviewsPage = () => {
       setNotFound(false);
       setRedirectTo(null);
       try {
-        const found = await fetchProductForReviews(slug!);
+        const found = await fetchProductForReviews(slug);
         if (!isMounted) return;
         if (!found) {
           setNotFound(true);
@@ -104,7 +108,7 @@ const ProductReviewsPage = () => {
         // každém přesměrování znovu natáhl produkt a k rozhodnutí nic nepřidává.
         const canonicalStrana = isPagedPage(currentPage) ? String(currentPage) : undefined;
         if (strana !== canonicalStrana) {
-          setRedirectTo(productReviewsPath(slug!, currentPage));
+          setRedirectTo(productReviewsPath(slug, currentPage));
           return;
         }
         setPage(currentPage);
@@ -117,6 +121,7 @@ const ProductReviewsPage = () => {
           productId: found.id,
           limit: REVIEWS_PAGE_SIZE,
           offset: (currentPage - 1) * REVIEWS_PAGE_SIZE,
+          withProduct: false,
         });
         if (isMounted) setReviews(result.reviews);
       } catch (err) {
@@ -219,7 +224,8 @@ const ProductReviewsPage = () => {
           tabIndex={-1}
           className="text-3xl sm:text-4xl font-bold text-green-800 mt-6 mb-4 focus:outline-none focus:ring-2 focus:ring-green-800 focus:ring-offset-2 rounded"
         >
-          {productTitle ? `Recenze — ${productTitle}` : 'Recenze'}
+          {/* Tatáž funkce skládá i `<title>` v `buildProductReviewsMeta`. */}
+          {productReviewsHeading(product)}
         </h1>
 
         {/* Souhrn se řídí `effectiveCount`, ne `review_count` — jinak by nad prázdným
@@ -290,7 +296,7 @@ const ProductReviewsPage = () => {
             <ReviewsPagination
               currentPage={page}
               totalPages={totalPages}
-              buildHref={(target) => productReviewsPath(slug!, target)}
+              buildHref={(target) => productReviewsPath(slug, target)}
               className="mt-10"
             />
           </>

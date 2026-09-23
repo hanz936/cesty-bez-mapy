@@ -52,6 +52,13 @@ const RatingStars = ({
             <StarIcon
               className={`${size} ${filledClassName} absolute top-0 left-0`}
               style={{ clipPath: isHalf ? 'inset(0 50% 0 0)' : 'none' }}
+              // Testovací háček v produkčním HTML vědomě (rozhodnutí usera 2026-09-23,
+              // audit T-12). Půl hvězda nemá roli ani text, podle kterých by šla najít,
+              // a všechna dnešní použití řádek skrývají přes `decorative`. Náhrada by
+              // musela hledat podle `style` nebo tříd — a to Testing Library výslovně
+              // označuje za horší: testid jsou „way better than querying based on DOM
+              // structure or styling css class names" (docs ByTestId). Posílat je
+              // do produkce je podle jejich FAQ v pořádku.
               data-testid={isHalf ? 'half-star' : undefined}
             />
           )}

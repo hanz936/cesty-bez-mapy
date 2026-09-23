@@ -14,8 +14,11 @@ export interface PublicReview {
   rating: number;
   review_text: string;
   created_at: string;
-  /** null = produkt už není přes RLS dostupný (deaktivovaný/smazaný) */
-  products: { title: string; slug: string } | null;
+  /**
+   * null = produkt už není přes RLS dostupný (deaktivovaný/smazaný).
+   * Chybí úplně, když se volalo s `withProduct: false` — embed se vůbec neposlal.
+   */
+  products?: { title: string; slug: string } | null;
 }
 
 export interface ReviewRequestProduct {
@@ -41,8 +44,16 @@ export async function fetchApprovedReviews(opts: {
    * 2026-08-31). A 416 při prerenderu shodí `waitForSelector` → celý build.
    */
   withCount?: boolean;
+  /**
+   * Přibalit ke každé recenzi `products (title, slug)`. Výchozí `true` — potřebuje to
+   * `/recenze`, kde karta jmenuje produkt. Stránky JEDNOHO produktu ho vypínají:
+   * název mají v nadpisu, kartám posílají `productTitle={null}` a embed by u každého
+   * dotazu jen navíc spustil join a RLS politiku `products` (audit T-11).
+   */
+  withProduct?: boolean;
 }): Promise<{ reviews: PublicReview[]; total: number }> {
-  const columns = `${REVIEW_COLUMNS}, products ( title, slug )`;
+  const withProduct = opts.withProduct ?? true;
+  const columns = withProduct ? `${REVIEW_COLUMNS}, products ( title, slug )` : REVIEW_COLUMNS;
   let query = opts.withCount
     ? supabase.from('reviews').select(columns, { count: 'exact' })
     : supabase.from('reviews').select(columns);

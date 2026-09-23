@@ -225,6 +225,8 @@ describe('ProductDetail per-route SEO + Product JSON-LD + marker (SEO-03)', () =
       productId: 'prod-1',
       limit: PRODUCT_REVIEWS_LIMIT,
       offset: 0,
+      // Detail název produktu z embedu nepotřebuje (audit T-11).
+      withProduct: false,
     });
   });
 

@@ -17,7 +17,7 @@ import { REVIEWS_DISCLOSURE } from '../components/reviews/disclosure';
  * refund token ruší. Kdyby se mechanismus změnil, musí se změnit i tenhle text.
  * Finální znění schvaluje Jana.
  */
-export function ReviewsVerificationContent() {
+function ReviewsVerificationContent() {
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="text-3xl sm:text-4xl font-bold text-black mb-6">Jak ověřujeme recenze</h1>
