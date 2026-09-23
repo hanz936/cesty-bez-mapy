@@ -15,6 +15,27 @@ import type { ProductForReviews, PublicReview } from '../lib/reviews';
 import { buildProductReviewsMeta, productDisplayName, productReviewsCrumbs, productReviewsHeading } from '../utils/productSeo';
 import NotFound from './NotFound';
 
+/** Výsledek dotazu na produkt, vždy s adresou (`slug`), ke které patří. */
+type ProductResult =
+  | { slug: string; status: 'found'; product: ProductForReviews }
+  | { slug: string; status: 'notFound' }
+  | { slug: string; status: 'error' };
+
+/** Výsledek dotazu na recenze; `key` = produkt + strana, pro které se ptalo. */
+type ReviewsResult =
+  | { key: string; productId: string; status: 'ok'; reviews: PublicReview[] }
+  | { key: string; productId: string; status: 'error' };
+
+function reportLoadError(err: unknown) {
+  // Rozsah mimo data (416) se sem už nedostane — `fetchApprovedReviews` ho
+  // překládá na prázdný výsledek. Obal na Error tu ale zůstává: PostgREST
+  // umí odpovědět chybou s prázdným tělem, ze které postgrest-js vyrobí
+  // prostý objekt bez stacku, a Sentry by z toho udělal
+  // „Non-Error exception captured" bez jakékoli informace.
+  const cause = err instanceof Error ? err : new Error(JSON.stringify(err));
+  Sentry.captureException(cause, { tags: { area: 'reviews', component: 'ProductReviewsPage' } });
+}
+
 const ProductReviewsPage = () => {
   // `useParams()` typuje každou hodnotu jako `string | undefined`. Obě routy stránky
   // (`ROUTES.PRODUCT_REVIEWS` i `PRODUCT_REVIEWS_PAGED`) `:slug` nesou vždy, `:strana` jen ta
@@ -22,15 +43,51 @@ const ProductReviewsPage = () => {
   // rozesetých po volacích místech (audit T-9).
   const { slug, strana } = useParams() as { slug: string; strana?: string };
   const navigationType = useNavigationType();
-  const [product, setProduct] = useState<ProductForReviews | null>(null);
-  const [reviews, setReviews] = useState<PublicReview[]>([]);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [notFound, setNotFound] = useState(false);
-  const [redirectTo, setRedirectTo] = useState<string | null>(null);
+  // Výsledky obou dotazů si pamatujeme i s klíčem, ke kterému patří (slug, resp.
+  // produkt + strana). Jestli se právě načítá, se pak nedrží v dalším stavu, ale
+  // odvodí při renderu porovnáním klíče s adresou — takže stránka nikdy neukáže
+  // produkt z předchozí adresy a efekty nemusí nic nulovat (react.dev, „You Might
+  // Not Need an Effect": co jde spočítat při renderu, nepatří do stavu).
+  const [productResult, setProductResult] = useState<ProductResult | null>(null);
+  const [reviewsResult, setReviewsResult] = useState<ReviewsResult | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const isFirstRender = useRef(true);
+
+  const productLoaded = productResult?.slug === slug ? productResult : null;
+  const product = productLoaded?.status === 'found' ? productLoaded.product : null;
+  const count = product?.review_count ?? 0;
+  // Stránkování NEOŘEZÁVÁME na `MAX_PRERENDERED_REVIEW_PAGES` [4. kolo]. Strop je
+  // jen limit prerenderu, ne limit produktu — kdybychom o něj zkrátili odkazy,
+  // uživatel by se nad 200 recenzemi na hlubší strany vůbec nedostal. Nad stropem
+  // tedy vzniknou odkazy na strany bez statického HTML; crawler tam dostane
+  // skořápku a obsah uvidí až po vykonání JavaScriptu. Je to vědomý kompromis
+  // ve prospěch uživatele. Prerender na překročení stropu upozorní v logu
+  // (Task 10), takže se strop dá včas zvednout.
+  const totalPages = reviewPageRange(count).totalPages;
+  // Strana se počítá z adresy, ne drží ve stavu (audit T-6). Dřív ji nastavoval
+  // efekt až po doběhnutí dotazu, takže po kliku na jinou stranu `<title>`
+  // i `canonical` ještě chvíli popisovaly tu předchozí.
+  const page = clampPage(strana, totalPages);
+  // Adresa neodpovídá platné straně (mimo rozsah, nečíselná, nebo /strana/1)
+  // → přesměrujeme, ať tentýž obsah nežije pod víc adresami. Rozhodnout jde až
+  // se známým produktem, protože rozsah stran určuje jeho počet recenzí.
+  const canonicalStrana = isPagedPage(page) ? String(page) : undefined;
+  const redirectTo = product && strana !== canonicalStrana ? productReviewsPath(slug, page) : null;
+  // Recenze se ptáme jen u produktu s recenzemi. Klíč nese už ořezanou stranu,
+  // takže na přesměrovávané adrese (/strana/99) jde dotaz rovnou na cílovou
+  // stranu a po přesměrování se klíč nezmění — nic se neptá dvakrát ani mimo rozsah.
+  const reviewsKey = product && count > 0 ? `${product.id}:${page}` : null;
+  const reviewsLoaded = reviewsKey !== null && reviewsResult?.key === reviewsKey ? reviewsResult : null;
+  const loading = !productLoaded || (reviewsKey !== null && !reviewsLoaded);
+  const error = productLoaded?.status === 'error' || reviewsLoaded?.status === 'error';
+  // Mezi stranami TÉHOŽ produktu zůstávají zobrazené poslední načtené recenze, dokud
+  // nedorazí nové — seznam je během načítání stejně skrytý, ale souhrn hodnocení
+  // nahoře se řídí jejich počtem a jinak by při každém přepnutí strany problikl.
+  // Recenze jiného produktu se neukážou nikdy.
+  const reviews =
+    count > 0 && reviewsResult?.status === 'ok' && reviewsResult.productId === product?.id
+      ? reviewsResult.reviews
+      : [];
 
   useEffect(() => {
     // Fokus přesouváme jen po skutečném přepnutí strany UVNITŘ téhle stránky.
@@ -51,11 +108,13 @@ const ProductReviewsPage = () => {
     // renderují tentýž typ, React je odsesouhlasí na stejné pozici), takže si
     // `isFirstRender` mezi stranami udrží hodnotu — ověřeno spuštěním.
     //
+    // Závislost je `strana` z adresy, ne odvozená `page`: ta se při přímém vstupu
+    // na /strana/2 vyšplhá z 1 na 2, jakmile doběhne produkt (dřív ho rozsah stran
+    // nezná), a efekt by zbytečně běžel znovu. `strana` se mění jen s adresou.
+    //
     // NEPOUŽÍVAT `location.key === 'default'`: klíč je 'default' jen na mountu
     // kanonické adresy. Po přesměrování z /strana/99 je náhodný a po F5 přežije
     // v `history.state`, takže by guard v obou případech neplatil (ověřeno spuštěním).
-    // Stejně tak nejde vyjít ze změny `page` — ta se z 1 na 2 vyšplhá i při přímém
-    // vstupu na /strana/2, jakmile doběhne načtení dat.
     //
     // `NavigationType.Push`, ne řetězec `'PUSH'`: `useNavigationType()` vrací enum
     // `Action` (re-exportovaný jako `NavigationType`) a porovnání s literálem shodí
@@ -66,7 +125,7 @@ const ProductReviewsPage = () => {
     }
     if (navigationType !== NavigationType.Push) return;
     headingRef.current?.focus();
-  }, [page, navigationType]);
+  }, [strana, navigationType]);
 
   // `StrictMode` (main.tsx) simuluje remount: v dev módu proběhne mount → cleanup →
   // mount znovu. `isFirstRender` je `useRef`, takže simulovaný remount ho neresetuje —
@@ -82,59 +141,21 @@ const ProductReviewsPage = () => {
     [],
   );
 
+  // Dva efekty, protože jde o dva nezávislé procesy (react.dev, „Lifecycle of
+  // Reactive Effects": „Each Effect in your code should represent a separate and
+  // independent synchronization process"). Produkt závisí jen na `slug`, takže se
+  // při přepnutí strany už znovu nenačítá — dřív to byly 2 dotazy na stranu
+  // místo 1 (audit T-7).
   useEffect(() => {
     let isMounted = true;
     async function load() {
-      setLoading(true);
-      setError(false);
-      setNotFound(false);
-      setRedirectTo(null);
       try {
         const found = await fetchProductForReviews(slug);
         if (!isMounted) return;
-        if (!found) {
-          setNotFound(true);
-          return;
-        }
-        setProduct(found);
-
-        const count = found.review_count ?? 0;
-        const totalPages = reviewPageRange(count).totalPages;
-        const currentPage = clampPage(strana, totalPages);
-
-        // Adresa neodpovídá platné straně (mimo rozsah, nečíselná, nebo /strana/1)
-        // → přesměrujeme, ať tentýž obsah nežije pod víc adresami. Porovnáváme
-        // parametr, ne `location.pathname`: pathname v závislostech efektu by při
-        // každém přesměrování znovu natáhl produkt a k rozhodnutí nic nepřidává.
-        const canonicalStrana = isPagedPage(currentPage) ? String(currentPage) : undefined;
-        if (strana !== canonicalStrana) {
-          setRedirectTo(productReviewsPath(slug, currentPage));
-          return;
-        }
-        setPage(currentPage);
-
-        if (count === 0) {
-          setReviews([]);
-          return;
-        }
-        const result = await fetchApprovedReviews({
-          productId: found.id,
-          limit: REVIEWS_PAGE_SIZE,
-          offset: (currentPage - 1) * REVIEWS_PAGE_SIZE,
-          withProduct: false,
-        });
-        if (isMounted) setReviews(result.reviews);
+        setProductResult(found ? { slug, status: 'found', product: found } : { slug, status: 'notFound' });
       } catch (err) {
-        if (isMounted) setError(true);
-        // Rozsah mimo data (416) se sem už nedostane — `fetchApprovedReviews` ho
-        // překládá na prázdný výsledek. Obal na Error tu ale zůstává: PostgREST
-        // umí odpovědět chybou s prázdným tělem, ze které postgrest-js vyrobí
-        // prostý objekt bez stacku, a Sentry by z toho udělal
-        // „Non-Error exception captured" bez jakékoli informace.
-        const cause = err instanceof Error ? err : new Error(JSON.stringify(err));
-        Sentry.captureException(cause, { tags: { area: 'reviews', component: 'ProductReviewsPage' } });
-      } finally {
-        if (isMounted) setLoading(false);
+        if (isMounted) setProductResult({ slug, status: 'error' });
+        reportLoadError(err);
       }
     }
     // eslint-disable-next-line @typescript-eslint/no-floating-promises -- fire-and-forget load v useEffect
@@ -142,14 +163,39 @@ const ProductReviewsPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [slug, strana]);
+  }, [slug]);
+
+  const productId = product?.id;
+  useEffect(() => {
+    if (reviewsKey === null || productId === undefined) return;
+    let isMounted = true;
+    async function load(key: string, forProduct: string) {
+      try {
+        const result = await fetchApprovedReviews({
+          productId: forProduct,
+          limit: REVIEWS_PAGE_SIZE,
+          offset: (page - 1) * REVIEWS_PAGE_SIZE,
+          withProduct: false,
+        });
+        if (isMounted) setReviewsResult({ key, productId: forProduct, status: 'ok', reviews: result.reviews });
+      } catch (err) {
+        if (isMounted) setReviewsResult({ key, productId: forProduct, status: 'error' });
+        reportLoadError(err);
+      }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- fire-and-forget load v useEffect
+    load(reviewsKey, productId);
+    return () => {
+      isMounted = false;
+    };
+  }, [reviewsKey, productId, page]);
 
   // Ani jedna z těchhle dvou větví nevykreslí Layout s `ready`, takže je prerender
   // neuloží — `waitForSelector('[data-prerender-ready]')` vyprší a build spadne.
   // Je to ZÁMĚR: obě jsou během buildu dosažitelné jen závodem (produkt se deaktivuje
   // nebo mu ubudou recenze mezi načtením seznamu rout a návštěvou stránky). Hlasitý
   // pád je lepší než tiše nasazená 404 nebo přesměrování na platné adrese.
-  if (notFound) return <NotFound />;
+  if (productLoaded?.status === 'notFound') return <NotFound />;
   // `replace`, aby se neplatná adresa nezanesla do historie prohlížeče. Pozor: je to
   // history.replaceState, ne `window.location` — Googlebot to nevidí jako přesměrování,
   // ale jako obsah pod PŮVODNÍ adresou. Proto tyhle adresy nikde neodkazujeme ani
@@ -160,15 +206,6 @@ const ProductReviewsPage = () => {
   // dřív, než ji renderující crawler stihne vidět (ověřeno spuštěním).
   if (redirectTo) return <Navigate to={redirectTo} replace />;
 
-  const count = product?.review_count ?? 0;
-  // Stránkování NEOŘEZÁVÁME na `MAX_PRERENDERED_REVIEW_PAGES` [4. kolo]. Strop je
-  // jen limit prerenderu, ne limit produktu — kdybychom o něj zkrátili odkazy,
-  // uživatel by se nad 200 recenzemi na hlubší strany vůbec nedostal. Nad stropem
-  // tedy vzniknou odkazy na strany bez statického HTML; crawler tam dostane
-  // skořápku a obsah uvidí až po vykonání JavaScriptu. Je to vědomý kompromis
-  // ve prospěch uživatele. Prerender na překročení stropu upozorní v logu
-  // (Task 10), takže se strop dá včas zvednout.
-  const totalPages = reviewPageRange(count).totalPages;
   // Kolik recenzí smíme TVRDIT. `count` je agregát z jiného dotazu; když se rozejde
   // se skutečně vrácenými recenzemi, nesmí stránka zároveň psát „zatím nemá recenzi"
   // a ukazovat souhrn ze dvanácti. Stránkování zůstává na `count` schválně —

@@ -101,6 +101,8 @@ describe('ProductReviewsPage', () => {
     expect(fetchApprovedReviewsMock).not.toHaveBeenCalledWith(
       expect.objectContaining({ offset: 980 }),
     );
+    // Klíč dotazu nese už ořezanou stranu → přesměrování ho nezmění a dotaz se neopakuje.
+    expect(fetchApprovedReviewsMock).toHaveBeenCalledTimes(1);
   });
 
   it('nečíselnou stranu přesměruje na první', async () => {
@@ -219,6 +221,102 @@ describe('ProductReviewsPage', () => {
       expect(screen.getByTestId('pathname')).toHaveTextContent('/cestovni-pruvodci/italie/recenze/strana/2'),
     );
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 })));
+  });
+
+  it('přepnutí strany znovu NEnačítá produkt — jen recenze', async () => {
+    // Produkt a recenze mají každý svůj efekt; produkt závisí jen na `slug`.
+    // Dřív jeden efekt se závislostí na straně stál 2 dotazy na každé přepnutí (audit T-7).
+    fetchProductForReviewsMock.mockResolvedValue(product);
+    fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
+    renderAt('/cestovni-pruvodci/italie/recenze');
+    fireEvent.click(await screen.findByRole('link', { name: 'Strana 2' }));
+    await waitFor(() =>
+      expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 10, offset: 10, withProduct: false }),
+    );
+    expect(fetchProductForReviewsMock).toHaveBeenCalledTimes(1);
+    expect(fetchApprovedReviewsMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('po kliku na jinou stranu popisují <title> i canonical novou stranu hned, ne až po dotazu', async () => {
+    // Strana se odvozuje z adresy při renderu. Dřív ji nastavoval efekt až po
+    // doběhnutí dotazu, takže během načítání ukazovaly titulek i canonical tu
+    // předchozí, ačkoli adresní řádek už byl jinde (audit T-6).
+    fetchProductForReviewsMock.mockResolvedValue(product);
+    fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
+    renderAt('/cestovni-pruvodci/italie/recenze/strana/2');
+    // Na odkaz čekat zvlášť: titulek naskočí už s produktem, stránkování až s recenzemi.
+    const strana1 = await screen.findByRole('link', { name: 'Strana 1' });
+    expect(document.title).toBe('Recenze — Roadtrip po Itálii (strana 2) | Cesty bez mapy');
+
+    // Další dotaz na recenze nikdy nedoběhne — všechno níž platí BĚHEM načítání.
+    fetchApprovedReviewsMock.mockReturnValue(new Promise(() => undefined));
+    fireEvent.click(strana1);
+    await waitFor(() =>
+      expect(screen.getByTestId('pathname').textContent).toBe('/cestovni-pruvodci/italie/recenze'),
+    );
+    expect(screen.getByText('Načítám recenze…')).toBeInTheDocument();
+    expect(document.title).toBe('Recenze — Roadtrip po Itálii | Cesty bez mapy');
+    expect(document.querySelector('link[rel="canonical"]')?.getAttribute('href')).toMatch(
+      /\/cestovni-pruvodci\/italie\/recenze$/,
+    );
+  });
+
+  it('přechod na recenze jiného produktu neukáže, dokud se načítá, ten předchozí', async () => {
+    // Výsledek dotazu nese svůj `slug`; stránka ho použije jen pro adresu, ke
+    // které patří. Jinak by pod novou adresou chvíli stál nadpis i JSON-LD
+    // předchozího průvodce.
+    fetchProductForReviewsMock.mockImplementation((slug) =>
+      slug === 'italie' ? Promise.resolve(product) : new Promise(() => undefined),
+    );
+    fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
+    render(
+      <CartProvider>
+        <MemoryRouter initialEntries={['/cestovni-pruvodci/italie/recenze']}>
+          <Link to="/cestovni-pruvodci/salzburg/recenze">Salzburg</Link>
+          <Routes>
+            <Route path="/cestovni-pruvodci/:slug/recenze" element={<ProductReviewsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </CartProvider>,
+    );
+    await screen.findByRole('heading', { level: 1, name: 'Recenze — Roadtrip po Itálii' });
+
+    fireEvent.click(screen.getByRole('link', { name: 'Salzburg' }));
+    await waitFor(() => expect(fetchProductForReviewsMock).toHaveBeenLastCalledWith('salzburg'));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Recenze');
+    // Celá stránka i hlavička — všechny bloky JSON-LD, titulek, drobečková navigace.
+    expect(document.documentElement.textContent).not.toContain('Itálii');
+  });
+
+  it('recenze předchozího produktu se nepřenesou k novému, dokud se jeho recenze načítají', async () => {
+    // Mezi stranami téhož produktu stránka nechává poslední načtené recenze (souhrn
+    // hodnocení tak neproblikne). U JINÉHO produktu by tatáž úspora vydala JSON-LD
+    // nového produktu s recenzemi toho starého — proto výsledek nese `productId`.
+    const salzburg = { ...product, id: 'p2', slug: 'salzburg', title: 'Salzburg', detail_title: 'Salzburg na víkend' };
+    fetchProductForReviewsMock.mockImplementation((slug) =>
+      Promise.resolve(slug === 'italie' ? product : salzburg),
+    );
+    fetchApprovedReviewsMock.mockImplementation((opts) =>
+      (opts as { productId: string }).productId === 'p1'
+        ? Promise.resolve({ reviews: [{ ...review('r1'), reviewer_name: 'Autorka z Itálie' }], total: 12 })
+        : new Promise(() => undefined),
+    );
+    render(
+      <CartProvider>
+        <MemoryRouter initialEntries={['/cestovni-pruvodci/italie/recenze']}>
+          <Link to="/cestovni-pruvodci/salzburg/recenze">Salzburg</Link>
+          <Routes>
+            <Route path="/cestovni-pruvodci/:slug/recenze" element={<ProductReviewsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </CartProvider>,
+    );
+    await screen.findByText('Autorka z Itálie');
+
+    fireEvent.click(screen.getByRole('link', { name: 'Salzburg' }));
+    await screen.findByRole('heading', { level: 1, name: 'Recenze — Salzburg na víkend' });
+    await waitFor(() => expect(fetchApprovedReviewsMock).toHaveBeenLastCalledWith(expect.objectContaining({ productId: 'p2' })));
+    expect(document.documentElement.textContent).not.toContain('Autorka z Itálie');
   });
 
   it('přesměrování z neplatné strany fokus NEsebere', async () => {
