@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(55);
+SELECT plan(58);
 
 -- Deploy-hook helper hlasi WARNING, kdyz chybi vault secret `vercel_deploy_hook` —
 -- v lokalni testovaci DB nikdy neni. Vlastni test toho chovani je v 05_deploy_hook.
@@ -13,6 +13,14 @@ SELECT has_trigger('public'::name, 'reviews'::name, 'trg_reviews_refresh_product
 select has_function('public'::name, 'notify_vercel_reviews_change'::name, 'deploy-hook funkce pro recenze existuje');
 select has_trigger('public'::name, 'reviews'::name, 'trg_reviews_deploy_hook'::name, 'reviews mají deploy-hook trigger');
 
+-- Obrana do hloubky (audit F8): že ven jdou jen schválené recenze, drží VÝHRADNĚ RLS —
+-- filtr `status` v dotazu webu nejde, `anon` na sloupec `status` nemá SELECT (401/42501).
+-- Chování politik ověřují aserce níž; tahle hlídá, že žádná další (permisivní) politika
+-- nepřibude, protože by se s těmi stávajícími sečetla přes OR.
+select policies_are('public', 'reviews',
+  array['reviews_public_select', 'reviews_authenticated_select', 'reviews_admin_update', 'reviews_admin_delete'],
+  'reviews mají přesně čtyři známé politiky');
+
 -- Advisor 0028/0029: trigger-only SECURITY DEFINER funkce nesmi byt spustitelna
 -- pres RPC anon/authenticated rolemi; trigger samotny EXECUTE volajiciho nekontroluje
 -- (agregacni asserty nize to dokazuji) — migrace 20260716181000
@@ -20,6 +28,10 @@ SELECT is( has_function_privilege('anon', 'public.refresh_product_rating()', 'EX
            false, 'anon nema EXECUTE na refresh_product_rating' );
 SELECT is( has_function_privilege('authenticated', 'public.refresh_product_rating()', 'EXECUTE'),
            false, 'authenticated nema EXECUTE na refresh_product_rating' );
+select is( has_function_privilege('anon', 'public.notify_vercel_reviews_change()', 'EXECUTE'),
+           false, 'anon nemá EXECUTE na notify_vercel_reviews_change' );
+select is( has_function_privilege('authenticated', 'public.notify_vercel_reviews_change()', 'EXECUTE'),
+           false, 'authenticated nemá EXECUTE na notify_vercel_reviews_change' );
 
 -- Stráž agregátů (migrace 20260901194427). Tytéž advisor 0028/0029 grants.
 select has_function('public'::name, 'reject_manual_rating_write'::name, 'stráž agregátů hodnocení existuje');

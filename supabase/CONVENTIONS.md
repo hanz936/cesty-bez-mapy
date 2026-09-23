@@ -36,7 +36,9 @@ Závazný standard pojmenování pro Postgres schéma (`public`). Vynucováno pg
 ## Typy a komentáře
 - `text` (ne `varchar`), `jsonb` (ne `json`), `timestamptz` (ne `timestamp`).
 - Enumy: `text + CHECK`, povolené hodnoty v komentáři sloupce. Žádné native `enum` typy.
-- Komentáře **anglicky**; každá tabulka + netriviální sloupec má `COMMENT`.
+- `COMMENT ON` **anglicky**; každá tabulka + netriviální sloupec má `COMMENT`. Inline
+  komentáře `--` v migracích smějí být česky, stejně jako komentáře v kódu repa (tak je
+  psaná baseline i řada pozdějších migrací; zpřesněno při auditu 2026-09-23, nález F9).
 
 ## Vynucování (pgTAP guard)
 
@@ -53,7 +55,7 @@ v CI `.github/workflows/db-lint.yml`) mechanicky vynucuje:
 8. každá public tabulka má `COMMENT`.
 
 Mimo strojové vynucování (drží se dokumentací): plural tabulek (lingvistické),
-anglické komentáře a obsah komentářů u CHECK/enum sloupců.
+anglické `COMMENT ON` a obsah komentářů u CHECK/enum sloupců.
 
 ## Generované TS typy pro edge funkce
 `supabase/functions/_shared/database.types.ts` je generovaný (`npm run gen:types`).

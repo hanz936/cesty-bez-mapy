@@ -4,6 +4,11 @@ import { supabase } from './supabase';
 /**
  * Recenze mají column-level GRANT jen na těchto 6 sloupců pro anon —
  * `select('*')` by vrátil 42501. VŽDY používej explicitní výčet.
+ *
+ * Totéž platí pro filtry: `.eq('status', 'approved')` nejde, `status` mezi nimi
+ * není (401 / 42501, změřeno proti produkci 2026-09-23, audit F8). Že ven jdou
+ * jen schválené recenze, drží VÝHRADNĚ RLS — a pgTAP v `04_reviews` hlídá, že
+ * se k její politice nepřidá další (`policies_are`) ani nezmění podmínka.
  */
 export const REVIEW_COLUMNS = 'id, product_id, reviewer_name, rating, review_text, created_at';
 
@@ -59,6 +64,11 @@ export async function fetchApprovedReviews(opts: {
     : supabase.from('reviews').select(columns);
   // `id` jako rozhodující druhý klíč: bez něj může offsetové stránkování při
   // shodných `created_at` řádek zopakovat nebo přeskočit.
+  // Posun MEZI dvěma dotazy tím ale zastavit nejde: řadí se podle odeslání, ne
+  // schválení, takže když se během čtení schválí starší recenze, zařadí se doprostřed
+  // a jedna se na další straně zopakuje. Vědomě přijato (audit F10, rozhodnutí usera
+  // 2026-09-23): keyset by rozbil adresovatelné /strana/N, na kterých stojí prerender,
+  // sitemapa i canonical, a web se po každém schválení stejně přestaví.
   query = query.order('created_at', { ascending: false }).order('id', { ascending: false });
   if (opts.productId) {
     query = query.eq('product_id', opts.productId);
@@ -74,7 +84,10 @@ export async function fetchApprovedReviews(opts: {
   return { reviews: (data ?? []) as unknown as PublicReview[], total: count ?? 0 };
 }
 
-/** Celkový počet + průměr schválených recenzí (RLS pustí jen approved). Objem je malý — počítáme client-side. */
+/**
+ * Celkový počet + průměr schválených recenzí. Jen schválené pustí RLS — filtr
+ * v dotazu nejde, viz `REVIEW_COLUMNS`. Objem je malý — počítáme client-side.
+ */
 export async function fetchReviewStats(): Promise<{ count: number; average: number }> {
   const { data, error } = await supabase.from('reviews').select('rating');
   if (error) throw error;

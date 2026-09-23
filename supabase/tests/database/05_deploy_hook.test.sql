@@ -1,5 +1,5 @@
 begin;
-select plan(18);
+select plan(20);
 
 -- ── Struktura ────────────────────────────────────────────────
 select has_table('public'::name, 'deploy_hook_dispatches'::name);
@@ -18,6 +18,10 @@ select is( has_function_privilege('anon', 'public.collect_deploy_hook_results()'
            false, 'anon nemá EXECUTE na collect_deploy_hook_results' );
 select is( has_function_privilege('authenticated', 'public.collect_deploy_hook_results()', 'EXECUTE'),
            false, 'authenticated nemá EXECUTE na collect_deploy_hook_results' );
+select is( has_function_privilege('anon', 'public.notify_vercel_blog_publish()', 'EXECUTE'),
+           false, 'anon nemá EXECUTE na notify_vercel_blog_publish' );
+select is( has_function_privilege('authenticated', 'public.notify_vercel_blog_publish()', 'EXECUTE'),
+           false, 'authenticated nemá EXECUTE na notify_vercel_blog_publish' );
 
 -- Baseline dává `ALTER DEFAULT PRIVILEGES … GRANT ALL ON TABLES TO anon`, takže odebrání
 -- práv musí být výslovné — tohle je test, že se na to nezapomnělo.
@@ -40,6 +44,10 @@ insert into public.orders (id, customer_email, total_amount, status)
 values ('00000000-0000-0000-0000-0000000000f1', 'hook-test1@example.com', 100, 'completed'),
        ('00000000-0000-0000-0000-0000000000f2', 'hook-test2@example.com', 100, 'completed'),
        ('00000000-0000-0000-0000-0000000000f3', 'hook-test3@example.com', 100, 'completed');
+
+-- Přidání živého produktu samo vyžádá rebuild (trigger katalogu, testuje ho 06), a tím by
+-- se všechny změny níž jen svezly. Počítání tady začíná až od recenzí.
+delete from public.deploy_hook_dispatches;
 
 -- ── Hromadná změna = jediný požadavek (nález R-2) ────────────
 -- Tři schválené recenze jedním příkazem: přesně to dělá hromadná akce v adminu
