@@ -18,7 +18,8 @@ export const PRODUCT_REVIEWS_LIMIT = 3;
 /**
  * Strop pro počet prerenderovaných stran recenzí na jeden produkt. Každá strana
  * je jedna návštěva headless Chromia navíc; hlubší strany zůstanou dostupné,
- * jen se nepředgenerují ani neuvedou v sitemapě.
+ * jen se nepředgenerují — a tím ani neuvedou v sitemapě, která se skládá
+ * z předgenerovaných stránek (`scripts/sitemap.mjs`).
  */
 export const MAX_PRERENDERED_REVIEW_PAGES = 20;
 
@@ -50,12 +51,12 @@ export function productReviewsPath(slug: string, page = 1): string {
 }
 
 /**
- * Kolik stran recenzí produkt celkem má a kolik z nich se má prerenderovat/uvést
- * v sitemapě (strop `MAX_PRERENDERED_REVIEW_PAGES`). Jediné místo, kde žije
- * `Math.ceil`/`Math.min` pár — `prerender.mjs` i `sitemap.mjs` z něj jen čtou,
- * takže matematika stránkování nemůže mezi oběma skripty zdvojeně zestárnout.
+ * Kolik stran recenzí produkt celkem má a kolik z nich se má prerenderovat
+ * (strop `MAX_PRERENDERED_REVIEW_PAGES`). Jediné místo, kde žije `Math.ceil`/`Math.min`
+ * pár — `prerender.mjs` z něj jen čte. Sitemapa ho nepotřebuje: skládá se z toho,
+ * co prerender opravdu vyrobil (`scripts/sitemap.mjs`, nález M-3).
  *
- * `reviewCount` smí být `null`/`undefined`: skripty ho berou přímo ze Supabase
+ * `reviewCount` smí být `null`/`undefined`: prerender ho bere přímo ze Supabase
  * (`products.review_count`), kde je to nullable sloupec — pojistka `?? 0` proto
  * patří sem, na jedno místo, které ji garantuje pro každého volajícího, ne
  * duplicitně na každé volací místo.

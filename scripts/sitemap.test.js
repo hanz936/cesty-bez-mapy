@@ -1,7 +1,9 @@
 // @vitest-environment node
-import { describe, it, expect } from 'vitest';
-import { buildSitemap, xmlEscape, collectSitemapPaths } from './sitemap.mjs';
-import { MAX_PRERENDERED_REVIEW_PAGES } from '../src/constants/reviews.ts';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { buildSitemap, writeSitemap, xmlEscape } from './sitemap.mjs';
 
 describe('xmlEscape', () => {
   it('escapuje & < > " \'', () => {
@@ -20,20 +22,73 @@ describe('buildSitemap', () => {
   });
 });
 
-describe('collectSitemapPaths', () => {
-  it('obsahuje produkty i jejich routy recenzí včetně dalších stran', () => {
-    const paths = collectSitemapPaths([], [{ slug: 'italie', review_count: 25 }]);
-    expect(paths).toContain('/cestovni-pruvodci/italie');
-    expect(paths).toContain('/cestovni-pruvodci/italie/recenze');
-    expect(paths).toContain('/cestovni-pruvodci/italie/recenze/strana/3');
+describe('writeSitemap — sitemapa z hotového dist/ (M-3)', () => {
+  /** @type {string[]} */
+  const dirs = [];
+  afterEach(() => {
+    for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
   });
-  it('produkt bez recenzí do sitemapy stránku recenzí nedává (nese noindex)', () => {
-    const paths = collectSitemapPaths([], [{ slug: 'x', review_count: 0 }]);
-    expect(paths).toContain('/cestovni-pruvodci/x');
-    expect(paths).not.toContain('/cestovni-pruvodci/x/recenze');
+
+  /** @param {Record<string, string>} files relativní cesta → obsah */
+  const makeDist = (files) => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'sitemap-'));
+    dirs.push(dir);
+    for (const [rel, html] of Object.entries(files)) {
+      const file = path.join(dir, rel);
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(file, html);
+    }
+    return dir;
+  };
+  const INDEXABLE = '<html><head><title>Stránka</title></head><body></body></html>';
+  const NOINDEX = '<html><head><title>Prázdné recenze</title><meta name="robots" content="noindex"/></head><body></body></html>';
+
+  it('uvádí předgenerované stránky bez noindex, seřazené; noindex a skořápku vynechá', async () => {
+    const dir = makeDist({
+      'index.html': INDEXABLE,
+      'kontakt/index.html': INDEXABLE,
+      'cestovni-pruvodci/italie/index.html': INDEXABLE,
+      'cestovni-pruvodci/italie/recenze/index.html': INDEXABLE,
+      'cestovni-pruvodci/italie/recenze/strana/2/index.html': INDEXABLE,
+      // produkt bez recenzí: stránka recenzí existuje, ale nese noindex
+      'cestovni-pruvodci/rakousko/index.html': INDEXABLE,
+      'cestovni-pruvodci/rakousko/recenze/index.html': NOINDEX,
+      'app-shell.html': INDEXABLE,
+    });
+
+    const paths = await writeSitemap(dir, 'https://x.cz');
+
+    expect(paths).toEqual([
+      '/',
+      '/cestovni-pruvodci/italie',
+      '/cestovni-pruvodci/italie/recenze',
+      '/cestovni-pruvodci/italie/recenze/strana/2',
+      '/cestovni-pruvodci/rakousko',
+      '/kontakt',
+    ]);
+    const xml = readFileSync(path.join(dir, 'sitemap.xml'), 'utf8');
+    expect([...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1])).toEqual(paths.map((p) => `https://x.cz${p}`));
+    expect(xml).not.toContain('rakousko/recenze');
+    expect(xml).not.toContain('app-shell');
   });
-  it('neslibuje strany nad stropem prerenderu', () => {
-    const paths = collectSitemapPaths([], [{ slug: 'velky', review_count: 500 }]);
-    expect(paths).not.toContain(`/cestovni-pruvodci/velky/recenze/strana/${MAX_PRERENDERED_REVIEW_PAGES + 1}`);
+
+  it('databázi nepotřebuje: projde i bez Supabase proměnných', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', '');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
+    try {
+      const dir = makeDist({ 'index.html': INDEXABLE });
+      await expect(writeSitemap(dir, 'https://x.cz')).resolves.toEqual(['/']);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('skript na databázi nesahá (žádný import contentSlugs)', () => {
+    // Obě strany (prerender i sitemapa) dřív ptaly Supabase zvlášť, pár minut po sobě,
+    // a verify-dist pak build shodil na jejich neshodě. Druhý dotaz se sem nesmí vrátit.
+    const source = readFileSync('scripts/sitemap.mjs', 'utf8');
+    const imports = source.match(/^import\b[^;]*;/gm) ?? [];
+    expect(imports.length).toBeGreaterThan(0);
+    expect(imports.filter((line) => /contentSlugs|supabase/i.test(line))).toEqual([]);
   });
 });

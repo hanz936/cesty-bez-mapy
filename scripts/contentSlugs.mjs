@@ -1,4 +1,9 @@
-/** Sdílené REST dotazy na publikované slugy (prerender + sitemap). Node prostředí. */
+/**
+ * REST dotazy na publikované slugy pro prerender. Node prostředí.
+ *
+ * Sitemapa se na databázi neptá — skládá se z hotového `dist/` (`sitemap.mjs`), takže
+ * se s prerenderem nemůže rozejít o obsah, který se mezi dvěma dotazy změnil (nález M-3).
+ */
 
 /**
  * Řádek `blog_posts`, jak ho vrací dotaz ve `fetchBlogSlugs`.
@@ -51,12 +56,12 @@ export function fetchBlogSlugs() {
 }
 
 /**
- * Aktivní produkty pro prerender, sitemapu a routy recenzí.
+ * Aktivní produkty pro prerender (detaily a routy recenzí).
  *
  * Prázdná odpověď je tvrdá chyba, ne platný výsledek. `getJson` vyhodí jen na
  * `!res.ok`, takže `200 []` (změna RLS pro anon roli, hromadná deaktivace,
  * výpadek schema-cache PostgRESTu) projde jako legitimní data a celý zbytek
- * řetězu — `collectRoutes` → prerender → sitemapa → `verify-dist` — se prostě
+ * řetězu — `collectRoutes` → prerender → sitemapa z `dist/` → `verify-dist` — se prostě
  * dohodne na menším světě a ohlásí úspěch. Vznikl by zelený build, který nasadí
  * web bez jediné stránky produktu, a sitemapa ty adresy Googlu oznámí jako
  * smazané.

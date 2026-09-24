@@ -34,7 +34,7 @@ export const ROUTES = {
 
 /**
  * Cesta detailu produktu. Builder sedí vedle patternu schválně: `ROUTES.PRODUCT_DETAIL`
- * je tentýž tvar pro router, tohle je tentýž tvar pro odkazy, sitemapu a prerender —
+ * je tentýž tvar pro router, tohle je tentýž tvar pro odkazy a prerender —
  * a že se ty dva nerozejdou, hlídá drift test v `routes.test.ts`. Dokud se cesta psala
  * ručně na devíti místech, přejmenování segmentu prošlo celou sadou zeleně.
  *

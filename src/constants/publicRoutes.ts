@@ -1,11 +1,12 @@
 import { ROUTES } from './routes.ts';
 
 /**
- * Veřejné, indexovatelné statické routy (jediný zdroj pravdy pro prerender,
- * sitemap a per-route meta). NEobsahuje transakční/soukromé routy
- * (objednávka, potvrzení, stažení, dotazník/náhled itineráře) ani 404.
+ * Veřejné, indexovatelné statické routy (jediný zdroj pravdy pro prerender
+ * a per-route meta; sitemapa se skládá z předgenerovaných stránek, takže je
+ * z nich odvozená). NEobsahuje transakční/soukromé routy (objednávka,
+ * potvrzení, stažení, dotazník/náhled itineráře) ani 404.
  * `title` je holý (komponenta SeoTags připojí „ | Cesty bez mapy"); copy lze
- * doladit s Janou před launchem. `/` je v registru kvůli prerenderu+sitemap,
+ * doladit s Janou před launchem. `/` je v registru kvůli prerenderu (a tím sitemapě),
  * ale `Home.tsx` si meta vykresluje sám (vlastní texty, ne přes SeoTags) —
  * title/description zde jsou jen dokumentační.
  */

@@ -8,15 +8,14 @@ import path from 'node:path';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { PUBLIC_PAGES } from '../src/constants/publicRoutes.ts';
 import {
-  isNoindex,
   missingStaticPages,
   originProblems,
   pageProblems,
-  routeForFile,
   shellProblems,
   sitemapPaths,
   verifyDist,
 } from './verify-dist.mjs';
+import { writeSitemap } from './sitemap.mjs';
 
 /** @param {string} href */
 const canonical = (href) => `<link rel="canonical" href="${href}"/>`;
@@ -24,26 +23,10 @@ const canonical = (href) => `<link rel="canonical" href="${href}"/>`;
 const page = (route, extra = '') =>
   `<html><head><title>Stránka</title>${canonical(`https://www.cestybezmapy.cz${route}`)}${extra}</head><body></body></html>`;
 
-describe('routeForFile', () => {
-  it('mapuje soubor zpátky na routu (opak outputPathForRoute)', () => {
-    expect(routeForFile('index.html')).toBe('/');
-    expect(routeForFile('kontakt/index.html')).toBe('/kontakt');
-    expect(routeForFile('cestovni-pruvodci/italie/recenze/index.html')).toBe('/cestovni-pruvodci/italie/recenze');
-  });
-});
-
 describe('sitemapPaths', () => {
   it('vytáhne cesty, ne celé URL', () => {
     const xml = '<urlset><url><loc>https://www.cestybezmapy.cz/</loc></url><url><loc>https://www.cestybezmapy.cz/kontakt</loc></url></urlset>';
     expect(sitemapPaths(xml)).toEqual(['/', '/kontakt']);
-  });
-});
-
-describe('isNoindex', () => {
-  it('pozná robots meta s noindex', () => {
-    expect(isNoindex('<meta name="robots" content="noindex"/>')).toBe(true);
-    expect(isNoindex('<meta name="robots" content="index,follow"/>')).toBe(false);
-    expect(isNoindex('<html><head></head></html>')).toBe(false);
   });
 });
 
@@ -172,6 +155,41 @@ describe('verifyDist nad vzorovým dist/', () => {
     // hlídá jen to, co sitemapa slibuje, a prázdná neslibuje nic.
     const dir = makeDist({ skip: PUBLIC_PAGES.map((p) => p.path), sitemap: [] });
     await expect(verifyDist(dir)).rejects.toThrow('statická stránka / v dist/ chybí');
+  });
+
+  it('indexovatelnou stránku, kterou sitemapa neuvádí, najde (kontrola v obou směrech)', async () => {
+    const routes = PUBLIC_PAGES.map((p) => p.path).filter((r) => r !== '/kontakt');
+    const dir = makeDist({ sitemap: routes });
+    await expect(verifyDist(dir)).rejects.toThrow(
+      /^Kontrola dist\/ našla 1 závad:\n {2}- stránka \/kontakt je indexovatelná, ale sitemapa ji neuvádí$/,
+    );
+  });
+
+  it('stránka s noindex v sitemapě chybět smí — a uvedená v ní být nesmí', async () => {
+    const dir = makeDist();
+    const file = path.join(dir, 'cestovni-pruvodci/italie/recenze/index.html');
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, page('/cestovni-pruvodci/italie/recenze', '<meta name="robots" content="noindex"/>'));
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    await expect(verifyDist(dir)).resolves.toBeUndefined();
+
+    const locs = [...PUBLIC_PAGES.map((p) => p.path), '/cestovni-pruvodci/italie/recenze']
+      .map((r) => `<url><loc>${SITE}${r}</loc></url>`)
+      .join('');
+    writeFileSync(path.join(dir, 'sitemap.xml'), `<urlset>${locs}</urlset>`);
+    await expect(verifyDist(dir)).rejects.toThrow('sitemapa uvádí /cestovni-pruvodci/italie/recenze, ale stránka nese noindex');
+  });
+
+  it('sitemapa, kterou z dist/ složí `sitemap.mjs`, kontrolou projde (build krok po kroku)', async () => {
+    const dir = makeDist({ sitemap: [] });
+    const file = path.join(dir, 'cestovni-pruvodci/rakousko/recenze/index.html');
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, page('/cestovni-pruvodci/rakousko/recenze', '<meta name="robots" content="noindex"/>'));
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    await writeSitemap(dir, SITE);
+
+    await expect(verifyDist(dir)).resolves.toBeUndefined();
   });
 
   it('chybějící statickou stránku najde, i když ji nezmiňuje ani sitemapa', async () => {

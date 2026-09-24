@@ -1,13 +1,21 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { PUBLIC_PAGES } from '../src/constants/publicRoutes.ts';
-import { productDetailPath } from '../src/constants/routes.ts';
-import { productReviewsPath, reviewPageRange } from '../src/constants/reviews.ts';
-import { fetchBlogSlugs, fetchProductSlugs } from './contentSlugs.mjs';
+import { indexablePages } from './distPages.mjs';
 
-/** @typedef {import('./contentSlugs.mjs').BlogSlugRow} BlogSlugRow */
-/** @typedef {import('./contentSlugs.mjs').ProductSlugRow} ProductSlugRow */
-
+/**
+ * `dist/sitemap.xml` z HOTOVÉHO buildu: uvádí přesně ty předgenerované stránky, které
+ * nenesou noindex (rozhodnutí usera k nálezu M-3 z finální revize).
+ *
+ * Dřív se sitemapa skládala z vlastního dotazu do Supabase, pár minut po dotazu
+ * prerenderu. Mezi nimi mohla přibýt první schválená recenze, aktivovat se produkt
+ * nebo vyjít naplánovaný článek — a `verify-dist` pak build shodil, protože se obě
+ * strany neshodly. Z `dist/` žádný závod není: sitemapa slibuje jen to, co opravdu
+ * vzniklo. Stejně to dělá `@astrojs/sitemap` (skládá ji ze stránek, které se postavily).
+ *
+ * Databázi ani proměnné prostředí nepotřebuje (`VITE_SITE_URL` je volitelná), takže
+ * `npm run sitemap` jde pustit nad existujícím `dist/`.
+ */
+const DIST = 'dist';
 const SITE_URL = process.env.VITE_SITE_URL || 'https://www.cestybezmapy.cz';
 
 /**
@@ -43,40 +51,21 @@ export function buildSitemap(paths, siteUrl = SITE_URL) {
 }
 
 /**
- * Cesty do sitemapy. Stránka recenzí se uvádí jen u produktů, které recenzi mají —
- * prázdná nese noindex, a do sitemapy patří jen adresy, které chceme ve výsledcích.
- * Hlubší strany mají stejný strop jako prerender, aby sitemapa neslibovala adresy,
- * které nemají statické HTML.
- *
- * @param {BlogSlugRow[] | null | undefined} posts
- * @param {ProductSlugRow[] | null | undefined} products
- * @returns {string[]}
+ * Zapíše `sitemap.xml` do `dir` ze stránek, které tam už leží.
+ * Adresář je parametr kvůli testu nad malým vzorovým `dist/`.
+ * @param {string} [dir]
+ * @param {string} [siteUrl]
+ * @returns {Promise<string[]>} cesty, které sitemapa uvádí
  */
-export function collectSitemapPaths(posts, products) {
-  const paths = [
-    ...PUBLIC_PAGES.map((p) => p.path),
-    ...(posts || []).map((p) => `/inspirace/${p.slug}`),
-  ];
-  for (const product of products || []) {
-    paths.push(productDetailPath(product.slug));
-    const { totalPages, prerenderedPages } = reviewPageRange(product.review_count);
-    if (totalPages === 0) continue;
-    paths.push(productReviewsPath(product.slug));
-    for (let page = 2; page <= prerenderedPages; page++) {
-      paths.push(productReviewsPath(product.slug, page));
-    }
-  }
+export async function writeSitemap(dir = DIST, siteUrl = SITE_URL) {
+  const paths = await indexablePages(dir);
+  await fs.writeFile(path.posix.join(dir, 'sitemap.xml'), buildSitemap(paths, siteUrl), 'utf8');
   return paths;
 }
 
 async function run() {
-  const [posts, products] = await Promise.all([fetchBlogSlugs(), fetchProductSlugs()]);
-  const paths = collectSitemapPaths(posts, products);
-  const xml = buildSitemap(paths);
-  const out = path.posix.join('dist', 'sitemap.xml');
-  await fs.mkdir(path.dirname(out), { recursive: true });
-  await fs.writeFile(out, xml, 'utf8');
-  console.log(`✓ sitemap.xml: ${new Set(paths).size} URL → ${out}`);
+  const paths = await writeSitemap();
+  console.log(`✓ sitemap.xml: ${paths.length} URL z předgenerovaných stránek → ${path.posix.join(DIST, 'sitemap.xml')}`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

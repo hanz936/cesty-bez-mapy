@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { PUBLIC_PAGES } from '../src/constants/publicRoutes.ts';
 import { canonicalHref, pathOf } from './prerender.mjs';
+import { indexFiles, isNoindex, routeForFile } from './distPages.mjs';
 
 /**
  * Kontrola hotového `dist/` po buildu.
@@ -31,26 +32,6 @@ const TURNSTILE_FIELD = 'cf-turnstile-response';
  */
 export function sitemapPaths(xml) {
   return [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => pathOf(m[1]));
-}
-
-/**
- * Routa, pod kterou se soubor servíruje. Opak `outputPathForRoute`.
- * @param {string} relPath napr. 'kontakt/index.html'
- * @returns {string}
- */
-export function routeForFile(relPath) {
-  const dir = path.posix.dirname(relPath.replaceAll(path.sep, '/'));
-  return dir === '.' ? '/' : `/${dir}`;
-}
-
-/**
- * Má stránka `<meta name="robots">` s noindex?
- * @param {string} html
- * @returns {boolean}
- */
-export function isNoindex(html) {
-  const tag = html.match(/<meta\b[^>]*\bname="robots"[^>]*>/i)?.[0];
-  return /noindex/i.test(tag ?? '');
 }
 
 /**
@@ -135,22 +116,6 @@ export function missingStaticPages(present) {
 }
 
 /**
- * Všechny `index.html` pod adresářem, relativně k němu.
- * @param {string} dir
- * @param {string} [prefix]
- * @returns {Promise<string[]>}
- */
-async function indexFiles(dir, prefix = '') {
-  const found = [];
-  for (const entry of await fs.readdir(path.posix.join(dir, prefix), { withFileTypes: true })) {
-    const rel = prefix ? path.posix.join(prefix, entry.name) : entry.name;
-    if (entry.isDirectory()) found.push(...(await indexFiles(dir, rel)));
-    else if (entry.name === 'index.html') found.push(rel);
-  }
-  return found;
-}
-
-/**
  * Zkontroluje hotový `dist/` a při závadách vyhodí se seznamem všech najednou.
  * Adresář je parametr kvůli testu nad malým vzorovým `dist/` — skutečný vzniká jen
  * při plném buildu, který CI spustit nemůže.
@@ -178,14 +143,24 @@ export async function verifyDist(dir = DIST) {
   if (shell === null) problems.push(`chybí ${SHELL} — rewrite by servíroval prerenderovanou homepage`);
   else problems.push(...shellProblems(shell));
 
+  // Sitemapu skládá `sitemap.mjs` z téhož `dist/` (sdílený `distPages.mjs`), takže se
+  // obě strany shodnou z konstrukce — závod dvou dotazů do databáze, kvůli kterému tu
+  // build padal, je pryč (nález M-3). Kontrola zůstává jako pojistka proti vadnému
+  // kroku sitemapy (nespuštěný, spuštěný nad starým `dist/`, rozbitý filtr), a proto
+  // v obou směrech.
   const xml = await fs.readFile(path.posix.join(dir, 'sitemap.xml'), 'utf8');
-  for (const route of sitemapPaths(xml)) {
+  const listed = sitemapPaths(xml);
+  for (const route of listed) {
     const html = byRoute.get(route);
     // Sitemapa slibuje adresy, které chceme ve výsledcích vyhledávání. Chybějící
     // soubor znamená měkkou 404 (rewrite podá skořápku), noindex znamená, že si
     // sitemapa a stránka protiřečí.
     if (html === undefined) problems.push(`sitemapa uvádí ${route}, ale soubor pro ni v dist/ není`);
     else if (isNoindex(html)) problems.push(`sitemapa uvádí ${route}, ale stránka nese noindex`);
+  }
+  const listedSet = new Set(listed);
+  for (const [route, html] of byRoute) {
+    if (!isNoindex(html) && !listedSet.has(route)) problems.push(`stránka ${route} je indexovatelná, ale sitemapa ji neuvádí`);
   }
 
   if (problems.length > 0) {
