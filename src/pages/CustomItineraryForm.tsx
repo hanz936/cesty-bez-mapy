@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
+import PageTitle from '../components/common/PageTitle';
 import { Input, TextArea, MultiStepForm, CustomCheckbox, CustomRadio, TurnstileField } from '../components/ui';
 import { ROUTES } from '../constants';
 import { BASE_PATH } from '../constants/app';
@@ -1139,6 +1140,7 @@ const CustomItineraryForm = React.memo(() => {
 
   return (
     <Layout>
+      <PageTitle title="Dotazník k itineráři na míru" />
       {/* Toast Notification */}
       {notification.show && (
         <div className={`fixed top-4 right-4 z-50 max-w-sm p-4 rounded-lg shadow-lg transition-all duration-300 ${

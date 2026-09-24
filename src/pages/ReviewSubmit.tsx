@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, type KeyboardEvent } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
+import PageTitle from '../components/common/PageTitle';
 import { getReviewRequest, submitReview } from '../lib/reviews';
 import type { ReviewRequestContext, ReviewRequestProduct } from '../lib/reviews';
 import { ROUTES } from '../constants';
@@ -171,6 +172,7 @@ const ReviewSubmit = () => {
 
   return (
     <Layout ready>
+      <PageTitle title="Napsat recenzi" noindex />
       <div className="max-w-3xl mx-auto px-5 py-16">
         <h1 className="text-3xl font-bold text-green-800 mb-4">Napsat recenzi</h1>
 

@@ -10,6 +10,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
+import PageTitle from '../components/common/PageTitle';
 import { Button } from '../components/ui';
 import { ROUTES } from '../constants';
 import { useCart } from '../contexts';
@@ -143,6 +144,7 @@ async function getFunctionErrorMessage(fnError: EdgeFunctionError | null | undef
 // Loading komponenta
 const LoadingState = () => (
   <Layout>
+    <PageTitle title="Potvrzení objednávky" noindex />
     <div className="min-h-screen bg-white flex items-center justify-center">
       <div className="text-center px-4">
         <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-700 mb-4"></div>
@@ -161,6 +163,7 @@ interface ErrorStateProps {
 // Error komponenta
 const ErrorState = ({ message, onRetry }: ErrorStateProps) => (
   <Layout>
+    <PageTitle title="Potvrzení objednávky" noindex />
     <div className="min-h-screen bg-white flex items-center justify-center">
       <div className="text-center px-4 max-w-md">
         <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -423,6 +426,7 @@ const OrderConfirmation = React.memo(() => {
 
   return (
     <Layout>
+      <PageTitle title="Potvrzení objednávky" noindex />
       <div className="min-h-screen bg-white">
         {/* Hero Success Section */}
         <section className="py-12 lg:py-20 px-4 sm:px-6 lg:px-8">

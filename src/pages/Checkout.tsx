@@ -7,6 +7,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
+import PageTitle from '../components/common/PageTitle';
 import { Button, TurnstileField } from '../components/ui';
 import { BillingForm } from '../components/cart/BillingForm.jsx';
 import type { BillingFormValue } from '../components/cart/BillingForm.jsx';
@@ -187,6 +188,7 @@ const Checkout = React.memo(() => {
   if (cartItems.length === 0) {
     return (
       <Layout>
+        <PageTitle title="Dokončení objednávky" noindex />
         <div className="min-h-screen bg-white flex items-center justify-center">
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-700 mb-4"></div>
@@ -199,6 +201,7 @@ const Checkout = React.memo(() => {
 
   return (
     <Layout>
+      <PageTitle title="Dokončení objednávky" noindex />
       <div className="min-h-screen bg-white">
         {/* Header Section */}
         <section className="relative pt-6 pb-8 bg-white border-b border-gray-200">

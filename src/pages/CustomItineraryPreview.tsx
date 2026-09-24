@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
+import PageTitle from '../components/common/PageTitle';
 import { Button } from '../components/ui';
 import { ROUTES } from '../constants';
 import { supabase } from '../lib/supabase';
@@ -163,6 +164,7 @@ const CustomItineraryPreview = () => {
   if (loading) {
     return (
       <Layout>
+        <PageTitle title="Tvůj cestovní profil" noindex />
         <div className="min-h-screen bg-white flex items-center justify-center px-4">
           <div className="max-w-2xl w-full text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
@@ -176,6 +178,7 @@ const CustomItineraryPreview = () => {
   if (error || !request) {
     return (
       <Layout>
+        <PageTitle title="Tvůj cestovní profil" noindex />
         <div className="min-h-screen bg-white flex items-center justify-center px-4">
           <div className="max-w-2xl w-full text-center">
             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -204,6 +207,7 @@ const CustomItineraryPreview = () => {
 
   return (
     <Layout>
+      <PageTitle title="Tvůj cestovní profil" noindex />
       {/* Print/Screen Buttons - Hidden in print */}
       <div className="print:hidden sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">

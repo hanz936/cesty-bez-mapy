@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
+import PageTitle from '../components/common/PageTitle';
 import { supabase } from '../lib/supabase';
 
 interface DownloadItem {
@@ -106,6 +107,7 @@ export default function Stahnout() {
 
   return (
     <Layout>
+      <PageTitle title="Ke stažení" noindex />
       <div className="min-h-[60vh] bg-[#f7f5f0] flex items-start justify-center px-4 py-16">
         <div className="max-w-xl w-full bg-white rounded-lg shadow-sm px-8 py-12">
           {state.status === 'loading' && (
