@@ -7,7 +7,7 @@ const base = {
   rating: 5,
   text: 'Skvělý průvodce.',
   productTitle: null,
-  date: 'červenec 2026',
+  createdAt: '2026-07-01T10:00:00.000Z',
   verified: true,
 };
 
@@ -60,12 +60,13 @@ describe('ReviewCard', () => {
 
   it('rating se vykreslí s českou desetinnou čárkou', () => {
     render(<ReviewCard {...base} />);
-    expect(screen.getByText('5,0')).toBeInTheDocument();
+    expect(screen.getByText('5,0 z 5')).toBeInTheDocument();
   });
 
-  it('hodnocení má vedle hvězd i větu pro odečítač, ale vizuálně zůstává holé číslo', () => {
+  it('hodnocení má vedle hvězd větu pro odečítač a jmenovatel „z 5“ je vidět i očima', () => {
     // Bez tohohle přečte odečítač v seznamu recenzí jen „5,0“ a číslo splyne
-    // s datem i cenou — měřítko („z 5“) nese pouze obrázek hvězd.
+    // s datem i cenou. Jmenovatel je vidět i očima: prázdné hvězdy mají vůči bílé
+    // 1,47 : 1 a škálu by jinak nesly samy (audit A-9).
     const { container } = render(<ReviewCard {...base} />);
 
     // Přes skrytý úvod, ne přes „5,0“: `getByText` porovnává jen PŘÍMÉ textové
@@ -75,15 +76,32 @@ describe('ReviewCard', () => {
     expect(label).not.toBeNull();
     expect(label!.textContent).toBe('Hodnocení 5,0 z 5');
 
-    // Oko vidí pořád jen „5,0“ — oprava nesmí nic přikreslit.
+    // Oko vidí číslo i měřítko, jen bez úvodního „Hodnocení“.
     const visible = Array.from(label!.childNodes)
       .filter((node) => !(node instanceof HTMLElement && node.className.includes('sr-only')))
       .map((node) => node.textContent)
       .join('');
-    expect(visible).toBe('5,0');
+    expect(visible).toBe('5,0 z 5');
 
     // Deset hvězd bez názvu by se za tou větou přečetlo jako deset prázdných obrázků.
     expect(label!.previousElementSibling?.getAttribute('aria-hidden')).toBe('true');
     expect(container.querySelectorAll('[aria-hidden="true"] svg')).toHaveLength(10);
+  });
+
+  it('karta je samostatný celek — `<article>`', () => {
+    // Audit A-5: hranici mezi recenzemi ohlásí VoiceOver i JAWS. Počet nese obalový
+    // seznam u volajícího (NVDA články ve výchozím nastavení neohlašuje).
+    render(<ReviewCard {...base} />);
+    expect(screen.getByRole('article')).toHaveTextContent('Skvělý průvodce.');
+  });
+
+  it('datum je v `<time>` a strojová podoba je tentýž pražský den jako text', () => {
+    // 22:30 UTC 1. 7. je v Praze už 2. 7. (letní čas, +2). Text i `datetime` vznikají
+    // z jednoho `createdAt`, takže se rozejít nemůžou — kdyby jeden z nich vzal UTC
+    // (`slice(0, 10)`), ukázal by 1. 7. (audit A-6).
+    const { container } = render(<ReviewCard {...base} createdAt="2026-07-01T22:30:00.000Z" />);
+    const time = container.querySelector('time');
+    expect(time).toHaveAttribute('datetime', '2026-07-02');
+    expect(time).toHaveTextContent('2. července 2026');
   });
 });

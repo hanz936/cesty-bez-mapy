@@ -43,12 +43,30 @@ describe('ProductRatingSummary', () => {
   });
 
   it('bez href je souhrn srozumitelný i bez hvězdiček', () => {
-    // Hvězdičky jsou aria-hidden a `·` taky, takže bez skrytých fragmentů by
-    // odečítač přečetl jen „5,0 12 recenzí“ — bez informace, že jde o hodnocení
-    // z pěti. Varianta s href tenhle problém nemá, tam význam nese aria-label.
+    // Hvězdičky jsou aria-hidden a `·` taky, takže bez skrytého úvodu by
+    // odečítač přečetl jen „5,0 z 5 12 recenzí“ — bez slova, že jde o hodnocení.
+    // Varianta s href tenhle problém nemá, tam význam nese aria-label.
     renderIn(<ProductRatingSummary average={5} count={12} />);
     expect(screen.getByText('Hodnocení')).toBeInTheDocument();
-    expect(screen.getByText('z 5,')).toBeInTheDocument();
+    // Čárka za „z 5" je jen pro odečítač — oddělí měřítko od počtu recenzí.
+    expect(screen.getByText('z 5').textContent).toBe('z 5,');
+  });
+
+  it('jmenovatel „z 5" je vidět i očima, v obou variantách', () => {
+    // Bez něj by škálu nesly jen prázdné hvězdy s kontrastem 1,47 : 1 (audit A-9).
+    // Hledá se viditelný text — `sr-only` fragmenty se vynechají.
+    const visibleText = (root: HTMLElement) =>
+      Array.from(root.querySelectorAll('span'))
+        .filter((el) => !el.closest('.sr-only') && !el.closest('[aria-hidden="true"]'))
+        .map((el) => Array.from(el.childNodes).filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent).join(''))
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const { container, unmount } = renderIn(<ProductRatingSummary average={4.6} count={12} />);
+    expect(visibleText(container)).toBe('4,6 z 5 12 recenzí');
+    unmount();
+    const linked = renderIn(<ProductRatingSummary average={4.6} count={12} href="/x/recenze" />);
+    expect(visibleText(linked.container)).toBe('4,6 z 5 12 recenzí');
   });
 
   it('hvězdičky se kreslí ze zaokrouhlené hodnoty, ne ze syrového průměru', () => {

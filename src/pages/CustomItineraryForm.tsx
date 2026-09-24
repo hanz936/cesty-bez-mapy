@@ -1167,7 +1167,7 @@ const CustomItineraryForm = React.memo(() => {
         <section className="relative pt-6 pb-12 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Breadcrumb */}
-            <nav className="mb-8">
+            <nav aria-label="Zpět" className="mb-8">
               <button
                 onClick={handleBackToItinerary}
                 className="flex items-center text-sm sm:text-base text-gray-600 hover:text-green-700 transition-colors group"

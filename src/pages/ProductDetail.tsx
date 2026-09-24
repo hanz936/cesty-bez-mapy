@@ -349,8 +349,10 @@ const ProductDetail = () => {
         {/* Hero Section with Breadcrumb */}
         <section className="relative pt-6 pb-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            {/* Breadcrumb */}
-            <nav className="mb-8">
+            {/* Breadcrumb — viditelný protějšek `BreadcrumbList` (A7). Jméno stejné jako
+                u `Breadcrumbs` na stránce recenzí; bez něj by na stránce byly dva
+                nepojmenované `<nav>` (audit A-7). */}
+            <nav aria-label="Drobečky" className="mb-8">
               <button
                 onClick={handleBackToGuides}
                 className="flex items-center text-sm sm:text-base text-gray-600 hover:text-green-700 transition-colors group"

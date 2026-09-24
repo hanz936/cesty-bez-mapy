@@ -81,13 +81,14 @@ const GuideCard = ({ guide, onCardClick }: GuideCardProps) => {
           {guide.reviewCount > 0 && (
             <div className="flex items-center gap-2">
               {/* Bez `decorative` a skrytých fragmentů přečte odečítač „4,7 závorka 12 závorka" —
-                  ani slovo „hodnocení", ani slovo „recenzí". Vizuální podoba „4,7 (12)" zůstává
-                  beze změny, závorka jde jen do `aria-hidden`. WCAG 2.2 SC 1.1.1 a 1.3.1. */}
+                  ani slovo „hodnocení", ani slovo „recenzí". Závorka jde jen do `aria-hidden`.
+                  WCAG 2.2 SC 1.1.1 a 1.3.1. „z 5" je vidět i očima: hvězdy (žlutá 1,57 : 1,
+                  prázdná 1,24 : 1 vůči bílé) by škálu jinak nesly samy (SC 1.4.11, audit A-9). */}
               <RatingStars rating={roundRating(guide.rating)} filledClassName="text-yellow-400" emptyClassName="text-gray-200" decorative />
               <span className="text-sm text-gray-600 font-medium">
                 <span className="sr-only">Hodnocení </span>
-                {formatRatingCs(guide.rating)}
-                <span className="sr-only"> z 5, {guide.reviewCount} {reviewCountLabel(guide.reviewCount)}</span>
+                {formatRatingCs(guide.rating)} z 5
+                <span className="sr-only">, {guide.reviewCount} {reviewCountLabel(guide.reviewCount)}</span>
                 <span aria-hidden="true"> ({guide.reviewCount})</span>
               </span>
             </div>
@@ -634,12 +635,14 @@ const TravelGuides = () => {
                   aria-label="Vyhledávání průvodců"
                 />
 
-                {/* Clear button - right (show only when has value) */}
+                {/* Clear button - right (show only when has value)
+                    `gray-500` (4,84 : 1), ne `gray-400` (2,60 : 1): tlačítko je jen ikona
+                    (WCAG 2.2 SC 1.4.11 chce 3 : 1, nález N-A10-4). */}
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={handleClearSearch}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-gray-600 transition-colors"
                     aria-label="Vymazat vyhledávání"
                   >
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -29,12 +29,18 @@ const ProductRatingSummary = ({ average, count, href, className = '' }: ProductR
   // Skryté fragmenty dávají větě smysl tam, kde souhrn není odkaz (hvězdičky
   // i oddělovač jsou aria-hidden). Ve variantě s href jsou zbytečné — `aria-label`
   // na <Link> přebíjí přístupný název celého podstromu, takže by se jen zdvojily.
+  // „z 5" je vidět i očima: jinak by škálu nesly jen prázdné hvězdy s kontrastem
+  // 1,47 : 1 vůči bílé. Ztmavit je nejde — šedá s 3 : 1 vůči bílé splyne s plnou
+  // zelenou hvězdou. S textem jsou hvězdy jen opakováním (výjimka WCAG 2.2 SC 1.4.11,
+  // audit A-9).
   const body = (
     <>
       <RatingStars rating={roundedAverage} className="items-center gap-0.5" decorative />
       {!href && <span className="sr-only">Hodnocení </span>}
       <span className="font-semibold text-gray-900">{formattedAverage}</span>
-      {!href && <span className="sr-only"> z 5,</span>}
+      <span className="text-gray-600">
+        z 5{!href && <span className="sr-only">,</span>}
+      </span>
       <span className="text-gray-500" aria-hidden="true">·</span>
       <span className="text-gray-600">{label}</span>
     </>

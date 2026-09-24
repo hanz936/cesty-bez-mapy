@@ -20,7 +20,7 @@ const Button = React.memo(({
   className = '',
   ...props
 }: ButtonProps) => {
-  const baseClasses = "font-medium rounded-lg transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 cursor-pointer";
+  const baseClasses = "font-medium rounded-lg transition-colors duration-300 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-offset-2 cursor-pointer";
 
   const variants = {
     primary: "bg-green-800 hover:bg-green-900 text-white focus-visible:ring-green-500",

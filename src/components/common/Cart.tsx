@@ -62,9 +62,11 @@ const CartItem = React.memo(({ item, onRemove }: CartItemProps) => {
           <span className="text-lg font-bold text-green-800">
             {item.price.toLocaleString()} Kč
           </span>
+          {/* `gray-500` (4,84 : 1), ne `gray-400` (2,60 : 1): tlačítko je jen ikona, takže
+              ji musí být vidět aspoň na 3 : 1 (WCAG 2.2 SC 1.4.11, nález N-A10-4). */}
           <button
             onClick={() => onRemove(item.id)}
-            className="text-gray-400 hover:text-red-500 transition-colors p-1"
+            className="text-gray-500 hover:text-red-500 transition-colors p-1"
             aria-label={`Odebrat ${item.title} z košíku`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

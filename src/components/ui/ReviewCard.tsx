@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import RatingStars from './RatingStars';
 import { formatRatingCs } from '../../utils/rating';
+import { formatReviewDate, reviewDateIso } from '../reviews/formatReviewDate';
 
 interface ReviewCardProps {
   name: string;
@@ -8,8 +9,12 @@ interface ReviewCardProps {
   text: string;
   /** Název recenzovaného produktu; null když produkt už není veřejně dostupný */
   productTitle: string | null;
-  /** Formátované datum, např. "1. července 2026" */
-  date: string;
+  /**
+   * `created_at` recenze (ISO). Viditelné datum i `dateTime` pro `<time>` vznikají
+   * až tady, z téhož údaje — kdyby je volající posílal zvlášť, mohly by se rozejít
+   * (audit A-6, rozhodnutí usera 2026-09-24).
+   */
+  createdAt: string;
   /** true = recenze z ověřeného nákupu (u nás vždy — sběr je token-only) */
   verified: boolean;
   /**
@@ -25,13 +30,17 @@ const ReviewCard = memo(({
   rating,
   text,
   productTitle,
-  date,
+  createdAt,
   verified,
   variant = 'teaser',
   className = ''
 }: ReviewCardProps) => {
   return (
-    <div className={`bg-white rounded-3xl p-8 lg:p-10 transition-all duration-500 border border-gray-100 group relative overflow-hidden backdrop-blur-sm flex flex-col ${className}`.trim()}>
+    // `<article>`: každá recenze je samostatný celek (MDN uvádí právě uživatelské
+    // recenze jako vzor). Počet a hranice v seznamu ale nese až obalový `<ul role="list">`
+    // u volajícího — NVDA články ve výchozím nastavení neohlašuje (`reportArticles`
+    // default false), seznamy ano. Audit A-5, WCAG 2.2 SC 1.3.1.
+    <article className={`bg-white rounded-3xl p-8 lg:p-10 transition-all duration-500 border border-gray-100 group relative overflow-hidden backdrop-blur-sm flex flex-col ${className}`.trim()}>
 
       {/* Elegant gradient border */}
       <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-gray-50/30 via-transparent to-gray-50/30 pointer-events-none"></div>
@@ -50,12 +59,15 @@ const ReviewCard = memo(({
       <div className="relative z-10 flex items-center justify-start mb-6 flex-shrink-0 pr-12">
         <div className="flex items-center gap-1.5">
           {/* `decorative` skryje hvězdy před odečítačem a vedle nich se rozsvítí věta.
-              Bez toho zbyde v seznamu recenzí holé „5,0", které splyne s cenou i datem:
-              deset SVG hvězd nese informaci „ze škály do 5" jen opticky. WCAG 2.2 SC 1.1.1
-              a 1.3.1. Stejný vzor drží `ProductRatingSummary` — tady se na něj zapomnělo. */}
+              Bez toho zbyde v seznamu recenzí holé „5,0", které splyne s cenou i datem.
+              Jmenovatel „z 5" je vidět i očima: prázdné hvězdy mají vůči bílé 1,47 : 1
+              a jako jediné by nesly, že škála končí pětkou. Ztmavit je nejde — šedá,
+              která by měla 3 : 1 vůči bílé, splyne s plnou zelenou hvězdou. S textem
+              jsou hvězdy jen opakováním a výjimka SC 1.4.11 platí. WCAG 2.2 SC 1.1.1,
+              1.3.1 a 1.4.11, audit A-9. Stejný vzor drží `ProductRatingSummary`. */}
           <RatingStars rating={rating} size="w-3.5 h-3.5" className="gap-1.5" decorative />
           <span className="ml-2 text-xs font-medium text-gray-500 tracking-wide">
-            <span className="sr-only">Hodnocení </span>{formatRatingCs(rating)}<span className="sr-only"> z 5</span>
+            <span className="sr-only">Hodnocení </span>{formatRatingCs(rating)} z 5
           </span>
         </div>
         {verified && (
@@ -97,10 +109,12 @@ const ReviewCard = memo(({
           </div>
         </div>
         <div className="text-right">
-          <span className="text-xs text-gray-600 font-medium">{date}</span>
+          <time dateTime={reviewDateIso(createdAt)} className="text-xs text-gray-600 font-medium">
+            {formatReviewDate(createdAt)}
+          </time>
         </div>
       </div>
-    </div>
+    </article>
   );
 });
 

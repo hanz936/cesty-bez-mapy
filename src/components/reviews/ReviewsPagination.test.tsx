@@ -114,4 +114,14 @@ describe('ReviewsPagination', () => {
       expect(gap.closest('li')).toHaveAttribute('aria-hidden', 'true');
     });
   });
+
+  it('výpustka má čitelný kontrast (`gray-500`, ne `gray-400`)', () => {
+    // `gray-400` má vůči bílé 2,60 : 1, `gray-500` 4,84 : 1 (audit A-10). Výpustka je
+    // jediný vizuální signál, že se strany přeskakují. jsdom CSS nenačítá — třída.
+    renderAt(10, 30);
+    screen.getAllByText('…').forEach((gap) => {
+      expect(gap.closest('li')).toHaveClass('text-gray-500');
+      expect(gap.closest('li')).not.toHaveClass('text-gray-400');
+    });
+  });
 });

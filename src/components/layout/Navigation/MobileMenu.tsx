@@ -37,7 +37,7 @@ const MobileMenu = forwardRef<HTMLDivElement, MobileMenuProps>(({ isMenuOpen, on
               <Link 
                 ref={index === 0 ? firstMenuItemRef : null}
                 to={item.href}
-                className="block px-6 py-4 text-black font-semibold text-base md:text-lg hover:bg-gray-50 active:bg-gray-100 hover:text-green-600 transition-colors duration-200 rounded-lg mx-2 focus:outline-none touch-manipulation focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
+                className="block px-6 py-4 text-black font-semibold text-base md:text-lg hover:bg-gray-50 active:bg-gray-100 hover:text-green-600 transition-colors duration-200 rounded-lg mx-2 focus:outline-hidden touch-manipulation focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
                 onClick={onClose}
                 // eslint-disable-next-line @typescript-eslint/no-empty-function -- pre-existing no-op touch handler (iOS Safari :active/touch workaround), preserved as-is
                 onTouchStart={() => {}}
@@ -64,7 +64,7 @@ const MobileMenu = forwardRef<HTMLDivElement, MobileMenuProps>(({ isMenuOpen, on
               target="_blank" 
               rel="noopener noreferrer"
               aria-label="Sleduj mě na Instagramu @cestybezmapy"
-              className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors duration-200 rounded-lg mx-2 focus:outline-none touch-manipulation focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
+              className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors duration-200 rounded-lg mx-2 focus:outline-hidden touch-manipulation focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
               onClick={onClose}
               // eslint-disable-next-line @typescript-eslint/no-empty-function -- pre-existing no-op touch handler (iOS Safari :active/touch workaround), preserved as-is
               onTouchStart={() => {}}

@@ -50,7 +50,10 @@ const ReviewsPagination = ({ currentPage, totalPages, buildHref, className = '' 
         )}
         {items.map((item, index) =>
           item === 'gap' ? (
-            <li key={`gap-${index}`} className="px-1 text-gray-400" aria-hidden="true">
+            // `gray-500` (4,84 : 1), ne `gray-400` (2,60 : 1): výpustka je jediný vizuální
+            // signál, že se strany přeskakují. Audit A-10, stejná volba jako oddělovač
+            // v `Breadcrumbs`.
+            <li key={`gap-${index}`} className="px-1 text-gray-500" aria-hidden="true">
               …
             </li>
           ) : (

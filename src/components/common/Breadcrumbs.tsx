@@ -13,13 +13,16 @@ interface BreadcrumbsProps {
  *
  * `<nav>` je pojmenovaný schválně: na stránce už jeden orientační bod `nav` je
  * (navigace v `Layout`) a dva nepojmenované se v odečítači nedají rozlišit.
+ * Jméno je „Drobečky", ne „Drobečková navigace": čtečka roli ohlásí sama, takže by
+ * zaznělo „navigace" dvakrát (MDN, role navigation: „omitting the term navigation").
+ * Stejné jméno nesou jednopoložkové drobečky na detailu produktu a itineráře.
  * Oddělovač „/" je `aria-hidden` — hierarchii nese seznam, přečítat ho nahlas
  * by bylo jen šumem navíc. Poslední položka není odkaz (vedl by sám na sebe)
  * a nese `aria-current="page"`.
  */
 export default function Breadcrumbs({ crumbs, className = '' }: BreadcrumbsProps) {
   return (
-    <nav aria-label="Drobečková navigace" className={className}>
+    <nav aria-label="Drobečky" className={className}>
       <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
         {crumbs.map((crumb, index) => (
           <li key={crumb.path ?? '#aktualni'} className="flex items-center gap-x-2">

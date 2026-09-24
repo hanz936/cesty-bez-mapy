@@ -37,7 +37,7 @@ class NavigationErrorBoundary extends React.Component<NavigationErrorBoundaryPro
   render() {
     if (this.state.hasError) {
       return (
-        <nav className="bg-white px-4 md:px-8 h-20 xl:h-24 flex items-center justify-center">
+        <nav aria-label="Hlavní menu" className="bg-white px-4 md:px-8 h-20 xl:h-24 flex items-center justify-center">
           <p className="text-gray-600">Navigation temporarily unavailable</p>
         </nav>
       );
@@ -70,7 +70,10 @@ const Navigation = () => {
   }, []);
 
   return (
-    <nav className="bg-white px-4 md:px-8 flex items-center justify-between z-50 relative h-20 xl:h-24" role="navigation">
+    // Jméno je nutné: na stránce je `<nav>` víc (patička, drobečky, stránkování) a APG chce,
+    // aby se daly rozlišit. Bez slova „navigace" — čtečka roli ohlásí sama (MDN, role
+    // navigation). `role="navigation"` nepřidávat, `<nav>` ho má implicitně. Audit A-7.
+    <nav aria-label="Hlavní menu" className="bg-white px-4 md:px-8 flex items-center justify-between z-50 relative h-20 xl:h-24">
       <Logo />
 
       <MobileMenuToggle 

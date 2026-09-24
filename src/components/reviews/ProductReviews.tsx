@@ -4,7 +4,6 @@ import * as Sentry from '@sentry/react';
 import ReviewCard from '../ui/ReviewCard';
 import { fetchApprovedReviews } from '../../lib/reviews';
 import type { PublicReview } from '../../lib/reviews';
-import { formatReviewDate } from './formatReviewDate';
 import { supabase } from '../../lib/supabase';
 import { PRODUCT_REVIEWS_LIMIT, productReviewsPath } from '../../constants/reviews';
 
@@ -144,21 +143,23 @@ const ProductReviews = ({ productSlug, className = '', preloaded, onReadyChange 
 
         {!error && reviewCount > 0 && (
           <>
-            <div className={`grid gap-6 mx-auto ${columns}`}>
+            {/* Seznam s `role="list"` ze stejného důvodu jako v `ReviewsSection`. */}
+            <ul role="list" className={`grid gap-6 mx-auto ${columns}`}>
               {reviews.map((review) => (
-                <ReviewCard
-                  key={review.id}
-                  name={review.reviewer_name}
-                  rating={review.rating}
-                  text={review.review_text}
-                  productTitle={null}
-                  date={formatReviewDate(review.created_at)}
-                  verified
-                  variant="teaser"
-                  className="h-full shadow-md"
-                />
+                <li key={review.id}>
+                  <ReviewCard
+                    name={review.reviewer_name}
+                    rating={review.rating}
+                    text={review.review_text}
+                    productTitle={null}
+                    createdAt={review.created_at}
+                    verified
+                    variant="teaser"
+                    className="h-full shadow-md"
+                  />
+                </li>
               ))}
-            </div>
+            </ul>
             <div className="text-center mt-8">
               <Link to={productReviewsPath(productSlug)} className="text-green-800 font-medium underline">
                 Všechny recenze ({reviewCount})

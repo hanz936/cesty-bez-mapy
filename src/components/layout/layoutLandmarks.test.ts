@@ -34,6 +34,14 @@ const BANNER_ROLE = /role=["']banner["']/;
  */
 const MAIN_LANDMARK = /<main[\s>]|role=["']main["']/;
 
+/**
+ * Otevírací tag orientačního bodu navigace — `<nav …>` i `<… role="navigation">`.
+ * `[^>]*` stačí: žádný `<nav>` v repu nemá v atributech výraz s `>`. Tag v komentáři
+ * je psaný v backtickách, proto `(?<!`)` — jinak by strážce hlásil komentáře.
+ */
+const NAVIGATION_TAG = /(?<!`)<nav\b[^>]*>|(?<!`)<[a-z]+\b[^>]*role=["']navigation["'][^>]*>/g;
+const HAS_NAME = /\saria-label(?:ledby)?=/;
+
 function sourceFiles(): string[] {
   return readdirSync(SRC, { recursive: true, encoding: 'utf8' })
     .filter((file) => /\.tsx?$/.test(file) && !file.includes('.test.'))
@@ -89,5 +97,33 @@ describe('orientační body dokumentu', () => {
     const offenders = sourceFiles().filter((file) => BANNER_ROLE.test(readFileSync(`${SRC}/${file}`, 'utf8')));
 
     expect(offenders).toEqual([]);
+  });
+
+  it('každá navigace má jméno', () => {
+    // ARIA APG, Landmark Regions: „If a page includes more than one `navigation`
+    // landmark, each should have a unique label." Na každé stránce je jich víc
+    // (hlavní menu + dvě v patičce), takže platí vždycky. Nepojmenované byly hlavní
+    // menu a pět zpětných odkazů (audit A-7). Render test to nechytí — jsdom `nav`
+    // bez jména vykreslí a `getAllByRole('navigation')` ho vrátí.
+    const offenders = sourceFiles().flatMap((file) =>
+      Array.from(readFileSync(`${SRC}/${file}`, 'utf8').matchAll(NAVIGATION_TAG))
+        .map((match) => match[0])
+        .filter((tag) => !HAS_NAME.test(tag))
+        .map((tag) => `${file}: ${tag}`),
+    );
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('strážce navigací opravdu vidí všechny `<nav>` v repu', () => {
+    // Bez tohohle by rozbitý regulární výraz, který nenajde nic, nechal předchozí
+    // test zelený navždy. 10 = hlavní menu, jeho záložní podoba, patička, drobečky,
+    // stránkování a pět zpětných odkazů na stránkách.
+    const count = sourceFiles().reduce(
+      (sum, file) => sum + Array.from(readFileSync(`${SRC}/${file}`, 'utf8').matchAll(NAVIGATION_TAG)).length,
+      0,
+    );
+
+    expect(count).toBe(10);
   });
 });

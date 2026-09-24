@@ -141,7 +141,7 @@ const BlogPostDetail = () => {
         )}
 
         <article className="max-w-2xl mx-auto px-5 py-10">
-          <nav className="mb-6">
+          <nav aria-label="Zpět" className="mb-6">
             <Link to={ROUTES.INSPIRATION} className="text-sm text-gray-600 hover:text-green-700">
               ← Inspirace na cesty
             </Link>

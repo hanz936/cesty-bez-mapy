@@ -7,12 +7,12 @@ import ReviewCard from '../components/ui/ReviewCard';
 import ReviewsPagination from '../components/reviews/ReviewsPagination';
 import ProductRatingSummary from '../components/reviews/ProductRatingSummary';
 import Breadcrumbs from '../components/common/Breadcrumbs';
-import { formatReviewDate, reviewDateIso } from '../components/reviews/formatReviewDate';
+import { reviewDateIso } from '../components/reviews/formatReviewDate';
 import { REVIEWS_PAGE_SIZE, clampPage, isPagedPage, productReviewsPath, reviewPageRange } from '../constants/reviews';
 import { BASE_PATH } from '../constants';
 import { fetchApprovedReviews, fetchProductForReviews } from '../lib/reviews';
 import type { ProductForReviews, PublicReview } from '../lib/reviews';
-import { buildProductReviewsMeta, productDisplayName, productReviewsCrumbs, productReviewsHeading } from '../utils/productSeo';
+import { buildProductReviewsMeta, productReviewsCrumbs, productReviewsHeading } from '../utils/productSeo';
 import NotFound from './NotFound';
 
 /** Výsledek dotazu na produkt, vždy s adresou (`slug`), ke které patří. */
@@ -211,7 +211,6 @@ const ProductReviewsPage = () => {
   // a ukazovat souhrn ze dvanácti. Stránkování zůstává na `count` schválně —
   // prázdný stav pagination stejně nevykresluje a přepočet by hnul přesměrováním.
   const effectiveCount = reviews.length > 0 ? count : 0;
-  const productTitle = product ? productDisplayName(product) : '';
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string image_url must fall through to fallback, stejně jako v buildProductReviewsMeta
   const imageSrc = product?.image_url || `${BASE_PATH}/images/placeholder-guide.jpg`;
   const meta = product
@@ -259,7 +258,7 @@ const ProductReviewsPage = () => {
         <h1
           ref={headingRef}
           tabIndex={-1}
-          className="text-3xl sm:text-4xl font-bold text-green-800 mt-6 mb-4 focus:outline-none focus:ring-2 focus:ring-green-800 focus:ring-offset-2 rounded"
+          className="text-3xl sm:text-4xl font-bold text-green-800 mt-6 mb-4 focus:outline-hidden focus:ring-2 focus:ring-green-800 focus:ring-offset-2 rounded"
         >
           {/* Tatáž funkce skládá i `<title>` v `buildProductReviewsMeta`. */}
           {productReviewsHeading(product)}
@@ -282,14 +281,18 @@ const ProductReviewsPage = () => {
             přes `BASE_PATH` tenhle cross-origin dotaz obchází; pro produkt
             s vlastním `image_url` je hodnota stejná jako v JSON-LD, protože ten
             samotný sloupec je už absolutní URL do Storage. `loading="lazy"` schválně
-            chybí — obrázek je nad ohybem, hned pod nadpisem. */}
+            chybí — obrázek je nad ohybem, hned pod nadpisem.
+            `alt=""` schválně: popis „Průvodce X" by jen zopakoval `<h1>` těsně nad ním
+            (WCAG 2.2 SC 1.1.1, výjimka pro nadbytečný obrázek; audit A-11). Vidět zůstává,
+            takže JSON-LD `image` dál odpovídá stránce; popis pro vyhledávání obrázků
+            nese tentýž obrázek na detailu produktu. */}
         {product?.hero_subtitle?.trim() && (
           <p className="text-lg text-gray-700 mb-6">{product.hero_subtitle}</p>
         )}
         {meta && (
           <img
             src={imageSrc}
-            alt={`Průvodce ${productTitle}`}
+            alt=""
             className="w-full max-h-64 object-cover rounded-2xl mb-8"
           />
         )}
@@ -314,7 +317,9 @@ const ProductReviewsPage = () => {
 
         {!loading && !error && count > 0 && reviews.length > 0 && (
           <>
-            <ul className="space-y-6">
+            {/* `role="list"`: bez něj Preflight (`list-style: none`) seznam ve VoiceOveru
+                ztratí a s ním i ohlášený počet recenzí na straně. Audit A-5. */}
+            <ul role="list" className="space-y-6">
               {reviews.map((review) => (
                 <li key={review.id}>
                   <ReviewCard
@@ -322,7 +327,7 @@ const ProductReviewsPage = () => {
                     rating={review.rating}
                     text={review.review_text}
                     productTitle={null}
-                    date={formatReviewDate(review.created_at)}
+                    createdAt={review.created_at}
                     verified
                     variant="full"
                     className="shadow-md"

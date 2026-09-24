@@ -133,7 +133,7 @@ const NewsletterForm = ({ location = 'footer' }: NewsletterFormProps) => {
               }
             }}
             placeholder="tvuj@email.cz"
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent bg-white text-black placeholder-gray-400"
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-green-600 focus:border-transparent bg-white text-black placeholder-gray-400"
             disabled={status === 'loading'}
             aria-invalid={(status === 'error' || errorMsg) ? true : undefined}
             aria-describedby={(status === 'error' || errorMsg) ? 'newsletter-error' : undefined}
@@ -159,7 +159,7 @@ const NewsletterForm = ({ location = 'footer' }: NewsletterFormProps) => {
         <button
           type="submit"
           disabled={status === 'loading' || !token}
-          className="w-full mt-3 px-4 py-2 text-sm font-semibold text-white bg-green-800 rounded-lg hover:bg-green-700 transition-colors duration-300 motion-reduce:transition-none disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
+          className="w-full mt-3 px-4 py-2 text-sm font-semibold text-white bg-green-800 rounded-lg hover:bg-green-700 transition-colors duration-300 motion-reduce:transition-none disabled:opacity-60 disabled:cursor-not-allowed focus:outline-hidden focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
         >
           {status === 'loading' ? (
             <span className="flex items-center justify-center gap-2">
@@ -179,7 +179,9 @@ const NewsletterForm = ({ location = 'footer' }: NewsletterFormProps) => {
           Odhlásit se můžete kdykoli.{' '}
           <Link
             to={ROUTES.PRIVACY}
-            className="text-green-700 hover:text-green-800 underline transition-colors duration-300 motion-reduce:transition-none focus:outline-none"
+            // Stejný prstenec jako ostatní odkazy v patičce; dřív tu byl jen vypnutý
+            // obrys bez náhrady (WCAG 2.2 SC 2.4.7, nález N-A10-1).
+            className="text-green-700 hover:text-green-800 underline transition-colors duration-300 motion-reduce:transition-none rounded focus:outline-hidden focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
           >
             Ochrana údajů
           </Link>

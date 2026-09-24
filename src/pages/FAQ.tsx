@@ -111,10 +111,13 @@ const FAQItem = ({ item, index, isOpen, onToggle, onSalzburgClick }: FAQItemProp
   const panelId = `faq-panel-${index}`;
   return (
     <div className="last:border-b-0 group">
+      {/* Prstenec fokusu `inset`: seznam otázek má `overflow-hidden`, vnější prstenec
+          by oříznul. Dřív tu byl jen vypnutý obrys bez náhrady, takže fokus
+          nebyl vidět ani v běžném režimu (WCAG 2.2 SC 2.4.7, nález N-A10-1). */}
       <button
         id={`faq-btn-${index}`}
         onClick={onToggle}
-        className={`w-full px-6 py-6 text-left transition-all duration-300 focus:outline-none relative ${
+        className={`w-full px-6 py-6 text-left transition-all duration-300 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-600 relative ${
           isOpen
             ? 'bg-gradient-to-r from-green-50/50 to-green-50/30'
             : 'hover:bg-gradient-to-r hover:from-green-50/30 hover:to-green-50/20'

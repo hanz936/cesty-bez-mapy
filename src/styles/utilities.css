@@ -1,8 +1,13 @@
 /* Tailwind CSS v4 Custom Utilities */
 
-/* Focus ring utility - používá se 20+ krát */
+/* Focus ring utility - používá se 20+ krát
+ * `outline-hidden`, ne holé vypnutí obrysu: prstenec je `box-shadow` a ten prohlížeč v režimu
+ * vynucených barev (vysoký kontrast Windows) vynuluje. `outline-hidden` obrys schová jen
+ * mimo tento režim, v něm ho vrátí — jinak by fokus nebyl vidět vůbec (WCAG 2.2 SC 2.4.7,
+ * audit A-8; dokumentace Tailwindu v4, outline-style). Jen na `focus:` — bez varianty by
+ * v tom režimu svítil obrys na každém prvku trvale. */
 @utility focus-ring {
-  @apply outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2;
+  @apply focus:outline-hidden focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2;
 }
 
 /* Card hover effect - používá se 8+ krát */

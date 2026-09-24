@@ -45,9 +45,14 @@ describe('ProductReviews', () => {
       }],
       total: 1,
     });
-    render(<MemoryRouter><ProductReviews productSlug="salzburg" /></MemoryRouter>);
+    const { container } = render(<MemoryRouter><ProductReviews productSlug="salzburg" /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText('Jana N.')).toBeInTheDocument());
     expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 3, offset: 0, withProduct: false });
+    // Audit A-5: karty jsou seznam, ne holá mřížka. Atribut, ne `getByRole('list')`: jsdom CSS nenačítá, takže `<ul>` má roli
+    // seznamu vždycky a test by prošel i bez `role="list"`, na kterém VoiceOver závisí.
+    const list = container.querySelector('ul.grid');
+    expect(list).toHaveAttribute('role', 'list');
+    expect(list!.querySelectorAll(':scope > li > article')).toHaveLength(1);
   });
 
   it('shows error message (not fake empty state) when product lookup fails', async () => {
@@ -234,7 +239,7 @@ describe('ProductReviews', () => {
       );
       // `exact` = právě tahle sada tříd, ale bez ohledu na pořadí. Přesná shoda řetězce
       // `className` by spadla i na pouhém přeházení tříd (audit T-13).
-      expect(container.querySelector('div.grid')).toHaveClass(expected[count], { exact: true });
+      expect(container.querySelector('ul.grid')).toHaveClass(expected[count], { exact: true });
       unmount();
     }
   });

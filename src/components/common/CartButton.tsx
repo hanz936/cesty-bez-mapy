@@ -31,7 +31,7 @@ const CartButton = React.memo(({ onClick }: CartButtonProps) => {
   return (
     <button
       onClick={handleClick}
-      className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
+      className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
       aria-label={`Otevřít košík (${itemCount} ${itemCount === 1 ? 'položka' : itemCount < 5 ? 'položky' : 'položek'})`}
     >
       {/* Košík ikona */}

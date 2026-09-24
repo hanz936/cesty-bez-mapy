@@ -13,8 +13,10 @@
  * Notino, Mountfield, Dr. Max, Aurio, Fleppi) rozhodl: ZŮSTÁVÁ JEN PATIČKA, riziko
  * „přímo tam" přijímá vědomě. Nejde o přehlédnutí — neotevírat bez nového podnětu.
  *
- * Na formuláři pro vložení recenze povinnost neleží — tam se záměrně
- * nezobrazuje (rozhodnutí usera 2026-07-17). Finální znění schvaluje Jana.
+ * Na formuláři pro vložení recenze povinnost neleží (§ 5a odst. 5 míří na zveřejněné
+ * recenze), text se tam proto nezobrazuje (rozhodnutí usera 2026-07-17). Od 2026-09-24
+ * tam ale vede odkaz na `/overovani-recenzi` — rozhodnutí usera po auditu B-5: ISO 20488
+ * doporučuje informovat pisatele o moderaci ještě před odesláním. Finální znění schvaluje Jana.
  */
 export const REVIEWS_DISCLOSURE =
   'Recenze píšou jen ověření zákazníci přes odkaz, který posíláme e-mailem po nákupu. ' +

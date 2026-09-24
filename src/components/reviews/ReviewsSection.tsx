@@ -4,7 +4,6 @@ import * as Sentry from '@sentry/react';
 import ReviewCard from '../ui/ReviewCard';
 import { fetchApprovedReviews, fetchReviewStats } from '../../lib/reviews';
 import type { PublicReview } from '../../lib/reviews';
-import { formatReviewDate } from './formatReviewDate';
 import { ROUTES } from '../../constants';
 import { formatRatingCs } from '../../utils/rating';
 import { reviewCountLabel } from './reviewCountLabel';
@@ -112,20 +111,24 @@ const ReviewsSection = ({ className = '', onReadyChange }: ReviewsSectionProps) 
 
       {!loading && !error && reviews.length > 0 && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Seznam, ne holá mřížka: čtečka ohlásí počet recenzí a hranici mezi nimi.
+              `role="list"` je nutný — Preflight dává `list-style: none` a takový seznam
+              VoiceOver jako seznam neohlásí (dokumentace Tailwindu). Audit A-5. */}
+          <ul role="list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {reviews.map((review) => (
-              <ReviewCard
-                key={review.id}
-                name={review.reviewer_name}
-                rating={review.rating}
-                text={review.review_text}
-                productTitle={review.products?.title ?? null}
-                date={formatReviewDate(review.created_at)}
-                verified
-                className="h-full shadow-md hover:shadow-lg"
-              />
+              <li key={review.id}>
+                <ReviewCard
+                  name={review.reviewer_name}
+                  rating={review.rating}
+                  text={review.review_text}
+                  productTitle={review.products?.title ?? null}
+                  createdAt={review.created_at}
+                  verified
+                  className="h-full shadow-md hover:shadow-lg"
+                />
+              </li>
             ))}
-          </div>
+          </ul>
 
           {reviews.length < total && (
             <div className="text-center mt-10">

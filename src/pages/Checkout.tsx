@@ -204,7 +204,7 @@ const Checkout = React.memo(() => {
         <section className="relative pt-6 pb-8 bg-white border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Breadcrumb */}
-            <nav className="mb-6">
+            <nav aria-label="Zpět" className="mb-6">
               <button
                 onClick={handleBackToShop}
                 className="flex items-center text-sm sm:text-base text-gray-600 hover:text-green-700 transition-colors group"

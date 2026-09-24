@@ -36,6 +36,17 @@ const LocationSpy = () => {
 // který volá `useCart()`. Bez providera to vyhodí a spadne to do NavigationErrorBoundary —
 // testy sice projdou, ale testovaly by jiný strom, než jaký běží v produkci
 // (a každý test by vypsal plný React error stack). Stejně to řeší ProductDetail.seo.test.tsx.
+/**
+ * Náhledový obrázek pod nadpisem. Má `alt=""` (audit A-11 — popis by jen zopakoval
+ * `<h1>`), takže roli `img` nemá a podle jména ho najít nejde. Je to jediný `<img>`
+ * v hlavní oblasti; karty recenzí kreslí hvězdy jako SVG.
+ */
+function heroImage(): HTMLImageElement {
+  const images = screen.getByRole('main').querySelectorAll('img');
+  expect(images).toHaveLength(1);
+  return images[0];
+}
+
 function renderAt(path: string) {
   return render(
     <CartProvider>
@@ -73,6 +84,18 @@ describe('ProductReviewsPage', () => {
     await waitFor(() =>
       expect(fetchApprovedReviewsMock).toHaveBeenCalledWith({ productId: 'p1', limit: 10, offset: 0, withProduct: false }),
     );
+  });
+
+  it('recenze jsou seznam s `role="list"` a každá karta je `<article>`', async () => {
+    // Audit A-5. Atribut, ne `getByRole('list')`: jsdom CSS nenačítá, takže `<ul>` má roli
+    // seznamu vždycky a test by prošel i bez `role="list"`, na kterém VoiceOver závisí.
+    fetchProductForReviewsMock.mockResolvedValue(product);
+    fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1'), review('r2')], total: 12 });
+    const { container } = renderAt('/cestovni-pruvodci/italie/recenze');
+    await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(2));
+    const list = container.querySelector('ul.space-y-6');
+    expect(list).toHaveAttribute('role', 'list');
+    expect(list!.querySelectorAll(':scope > li > article')).toHaveLength(2);
   });
 
   it('strana 2 načítá s offsetem 10', async () => {
@@ -175,9 +198,7 @@ describe('ProductReviewsPage', () => {
     // falešně nejednoznačný.
     expect(container.querySelector('ul.space-y-6')).toBeNull();
     expect(container.querySelector('nav[aria-label="Stránkování recenzí"]')).toBeNull();
-    // A hlavně: nad prázdným stavem nesmí svítit souhrn „4,5 · 12 recenzí". Text
-    // a souhrn by si protiřečily a `SeoTags` by tentýž rozpor poslal do JSON-LD.
-    // A hlavně: nad prázdným stavem nesmí svítit souhrn „5,0 · 12 recenzí". Text
+    // A hlavně: nad prázdným stavem nesmí svítit souhrn „5,0 z 5 · 12 recenzí". Text
     // a souhrn by si protiřečily a `SeoTags` by tentýž rozpor poslal do JSON-LD.
     expect(screen.queryByText(/12 recenz/)).toBeNull();
     expect(screen.queryByText('5,0')).toBeNull();
@@ -387,7 +408,7 @@ describe('ProductReviewsPage', () => {
     fetchProductForReviewsMock.mockResolvedValue(product);
     fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
     renderAt('/cestovni-pruvodci/italie/recenze');
-    const nav = await screen.findByRole('navigation', { name: 'Drobečková navigace' });
+    const nav = await screen.findByRole('navigation', { name: 'Drobečky' });
     await waitFor(() =>
       expect(within(nav).getByRole('link', { name: 'Roadtrip po Itálii' })).toHaveAttribute(
         'href',
@@ -408,7 +429,7 @@ describe('ProductReviewsPage', () => {
     fetchProductForReviewsMock.mockResolvedValue(product);
     fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
     const { container } = renderAt('/cestovni-pruvodci/italie/recenze');
-    const nav = await screen.findByRole('navigation', { name: 'Drobečková navigace' });
+    const nav = await screen.findByRole('navigation', { name: 'Drobečky' });
     await waitFor(() => expect(within(nav).getAllByRole('listitem')).toHaveLength(3));
 
     const videt = within(nav)
@@ -428,7 +449,7 @@ describe('ProductReviewsPage', () => {
     fetchProductForReviewsMock.mockReturnValue(new Promise(() => undefined));
     fetchApprovedReviewsMock.mockReturnValue(new Promise(() => undefined));
     renderAt('/cestovni-pruvodci/italie/recenze');
-    const nav = await screen.findByRole('navigation', { name: 'Drobečková navigace' });
+    const nav = await screen.findByRole('navigation', { name: 'Drobečky' });
     expect(within(nav).getAllByRole('listitem').map((li) => li.textContent?.replace(/^\s*\/\s*/, '').trim()))
       .toEqual(['Cestovní průvodci', 'Recenze']);
   });
@@ -440,10 +461,9 @@ describe('ProductReviewsPage', () => {
     fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
     renderAt('/cestovni-pruvodci/italie/recenze');
     await waitFor(() => expect(screen.getByText('20 dní')).toBeInTheDocument());
-    expect(screen.getByRole('img', { name: /Průvodce Roadtrip po Itálii/ })).toHaveAttribute(
-      'src',
-      'https://cdn.example/i.jpg',
-    );
+    expect(heroImage()).toHaveAttribute('src', 'https://cdn.example/i.jpg');
+    // Prázdný `alt`, ne chybějící: bez atributu by čtečka přečetla název souboru.
+    expect(heroImage()).toHaveAttribute('alt', '');
   });
 
   it.each([
@@ -461,10 +481,7 @@ describe('ProductReviewsPage', () => {
     fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review('r1')], total: 12 });
     renderAt('/cestovni-pruvodci/italie/recenze');
     await waitFor(() =>
-      expect(screen.getByRole('img', { name: /Průvodce Roadtrip po Itálii/ })).toHaveAttribute(
-        'src',
-        '/images/placeholder-guide.jpg',
-      ),
+      expect(heroImage()).toHaveAttribute('src', '/images/placeholder-guide.jpg'),
     );
   });
 

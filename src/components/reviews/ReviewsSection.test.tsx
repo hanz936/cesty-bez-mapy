@@ -80,9 +80,14 @@ describe('ReviewsSection', () => {
   it('renders reviews with verified badge, stats hidden under threshold', async () => {
     fetchApprovedReviewsMock.mockResolvedValue({ reviews: [REVIEW], total: 1 });
     fetchReviewStatsMock.mockResolvedValue({ count: 1, average: 5 });
-    render(<MemoryRouter><ReviewsSection /></MemoryRouter>);
+    const { container } = render(<MemoryRouter><ReviewsSection /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText('Jana N.')).toBeInTheDocument());
     expect(screen.getByText('Ověřeno nákupem')).toBeInTheDocument();
+    // Audit A-5: karty jsou seznam, ne holá mřížka. Atribut, ne `getByRole('list')`: jsdom CSS nenačítá, takže `<ul>` má roli
+    // seznamu vždycky a test by prošel i bez `role="list"`, na kterém VoiceOver závisí.
+    const list = container.querySelector('ul.grid');
+    expect(list).toHaveAttribute('role', 'list');
+    expect(list!.querySelectorAll(':scope > li > article')).toHaveLength(1);
     // Disclosure se od 2026-08-29 u recenzí nezobrazuje — má vlastní stránku
     // `/overovani-recenzi`, na kterou vede odkaz z patičky (rozhodnutí usera).
     expect(screen.queryByText(/ověření zákazníci/)).not.toBeInTheDocument();

@@ -91,7 +91,7 @@ const QuizQuestion = ({ question, index, total, selectedIndex, onSelect, onBack,
           ref={headingRef}
           tabIndex={-1}
           id={headingId}
-          className="mb-6 text-center text-2xl font-extrabold tracking-tight text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.5)] focus:outline-none sm:text-3xl xl:text-5xl xl:leading-tight xl:tall:mb-9"
+          className="mb-6 text-center text-2xl font-extrabold tracking-tight text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.5)] focus:outline-hidden sm:text-3xl xl:text-5xl xl:leading-tight xl:tall:mb-9"
         >
           <span className="sr-only">
             Otázka {index + 1} z {total}:{' '}

@@ -51,8 +51,57 @@ describe('ReviewSubmit', () => {
     renderPage('?token=123e4567-e89b-42d3-a456-426614174000');
     await waitFor(() => expect(screen.getByText('Salzburg na víkend')).toBeInTheDocument());
     expect(screen.getByDisplayValue('Jana Nováková')).toBeInTheDocument();
-    // disclosure se na formuláři záměrně nezobrazuje (povinný je jen u zobrazených recenzí)
+    // Text disclosure se na formuláři nezobrazuje (povinný je jen u zobrazených recenzí),
+    // ale odkaz na něj ano — ISO 20488 radí říct pisateli o moderaci před odesláním
+    // (rozhodnutí usera 2026-09-24, audit B-5).
     expect(screen.queryByText(/ověření zákazníci/)).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Ověřování recenzí' })).toHaveAttribute('href', '/overovani-recenzi');
+  });
+
+  it('počítadlo znaků má čitelný kontrast (`gray-500`, ne `gray-400`)', async () => {
+    // Počítadlo je text („0/2000 (min. 10)") a `gray-400` má vůči bílé jen 2,60 : 1,
+    // WCAG 2.2 SC 1.4.3 chce 4,5 : 1; `gray-500` má 4,84 : 1. jsdom CSS nenačítá — třída.
+    getReviewRequestMock.mockResolvedValue({
+      ok: true,
+      data: {
+        customer_name: null,
+        products: [{ product_id: 'p1', title: 'Salzburg', image_url: null, already_reviewed: false }],
+      },
+    });
+    renderPage('?token=123e4567-e89b-42d3-a456-426614174000');
+    const counter = await screen.findByText(/^0\/\d+ \(min\. \d+\)$/);
+    expect(counter).toHaveClass('text-gray-500');
+    expect(counter).not.toHaveClass('text-gray-400');
+  });
+
+  it('nevybraná hvězda je obrys, vybraná plná — stav nenese jen barva', async () => {
+    // Bledá výplň `gray-300` měla vůči bílé 1,47 : 1, takže před prvním klikem nebyl
+    // ovládací prvek skoro vidět (WCAG 2.2 SC 1.4.11, nález N-A10-2). jsdom CSS nenačítá,
+    // proto se ověřují třídy, ne vypočtený vzhled.
+    getReviewRequestMock.mockResolvedValue({
+      ok: true,
+      data: {
+        customer_name: null,
+        products: [{ product_id: 'p1', title: 'Salzburg', image_url: null, already_reviewed: false }],
+      },
+    });
+    renderPage('?token=123e4567-e89b-42d3-a456-426614174000');
+    await waitFor(() => expect(screen.getAllByRole('radio')).toHaveLength(5));
+    const stars = screen.getAllByRole('radio');
+    const icon = (star: HTMLElement) => star.querySelector('svg')!;
+
+    for (const star of stars) {
+      expect(icon(star)).toHaveClass('text-gray-500', 'fill-none', 'stroke-current');
+    }
+
+    fireEvent.click(stars[2]); // 3 hvězdičky
+    for (const star of stars.slice(0, 3)) {
+      expect(icon(star)).toHaveClass('text-green-800');
+      expect(icon(star)).not.toHaveClass('fill-none');
+    }
+    for (const star of stars.slice(3)) {
+      expect(icon(star)).toHaveClass('text-gray-500', 'fill-none', 'stroke-current');
+    }
   });
 
   it('supports APG radio-group keyboard pattern (roving tabindex + arrow selection)', async () => {

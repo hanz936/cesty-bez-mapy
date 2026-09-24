@@ -20,7 +20,7 @@ describe('Breadcrumbs', () => {
   it('je pojmenovaný orientační bod se seznamem položek', () => {
     // Bez názvu by se v odečítači nedal odlišit od hlavní navigace v Layoutu.
     renderCrumbs();
-    const nav = screen.getByRole('navigation', { name: 'Drobečková navigace' });
+    const nav = screen.getByRole('navigation', { name: 'Drobečky' });
     expect(within(nav).getAllByRole('listitem')).toHaveLength(3);
   });
 

@@ -65,7 +65,16 @@ const StarPicker = ({ value, onChange, disabled }: { value: number; onChange: (v
           onKeyDown={handleKeyDown}
           className="p-1 disabled:opacity-50"
         >
-          <StarIcon className={`w-8 h-8 ${star <= value ? 'text-green-800' : 'text-gray-300'} transition-colors`} />
+          {/* Nevybraná hvězda je obrys, ne bledá výplň: `gray-300` měla vůči bílé 1,47 : 1,
+              takže před prvním klikem nebyl ovládací prvek skoro vidět (WCAG 2.2 SC 1.4.11,
+              nález N-A10-2). Ztmavit výplň nejde — `gray-500` má vůči zelené vybrané hvězdě
+              taky jen 1,47 : 1 a stavy by splynuly. Obrys `gray-500` má vůči bílé 4,84 : 1
+              a vybranou od nevybrané odliší tvar (plná × obrys), ne jen barva. */}
+          <StarIcon
+            className={`w-8 h-8 transition-colors ${
+              star <= value ? 'text-green-800' : 'text-gray-500 fill-none stroke-current stroke-[1.5] [stroke-linejoin:round]'
+            }`}
+          />
         </button>
       ))}
     </div>
@@ -178,9 +187,19 @@ const ReviewSubmit = () => {
 
         {!loading && context && (
           <>
-            <p className="text-gray-600 mb-8">
+            <p className="text-gray-600 mb-4">
               Díky, že si najdeš chvilku! Napiš pár vět o tom, jak se ti s průvodcem cestovalo. Recenze vyjde
               pod jménem, které vyplníš níže.
+            </p>
+            {/* Jednou pro všechny produkty v objednávce, ne u každého tlačítka „Odeslat" —
+                u víc průvodců by se věta opakovala. Rozhodnutí usera 2026-09-24 (audit B-5),
+                znění schvaluje Jana. Viz `disclosure.ts`. */}
+            <p className="text-sm text-gray-600 mb-8">
+              Co před zveřejněním kontrolujeme, popisuje stránka{' '}
+              <Link to={ROUTES.REVIEWS_VERIFICATION} className="text-green-800 underline">
+                Ověřování recenzí
+              </Link>
+              .
             </p>
 
             <label className="block mb-8">
@@ -190,7 +209,7 @@ const ReviewSubmit = () => {
                 value={reviewerName}
                 maxLength={100}
                 onChange={(e) => setReviewerName(e.target.value)}
-                className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-green-800 focus:outline-none"
+                className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-green-800 focus:outline-hidden"
               />
             </label>
 
@@ -222,9 +241,11 @@ const ReviewSubmit = () => {
                           aria-label={`Text recenze: ${product.title}`}
                           placeholder="Jak se ti s průvodcem cestovalo? Co ti nejvíc pomohlo?"
                           onChange={(e) => updateForm(product.product_id, { text: e.target.value, error: null })}
-                          className="mt-4 block w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-green-800 focus:outline-none"
+                          className="mt-4 block w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-green-800 focus:outline-hidden"
                         />
-                        <div className="mt-1 text-xs text-gray-400 text-right">
+                        {/* `gray-500`, ne `gray-400`: počítadlo je text a `gray-400` má vůči bílé
+                            jen 2,60 : 1 (WCAG 2.2 SC 1.4.3 chce 4,5 : 1). */}
+                        <div className="mt-1 text-xs text-gray-500 text-right">
                           {form.text.trim().length}/{MAX_TEXT} (min. {MIN_TEXT})
                         </div>
                         {form.error && <p className="mt-2 text-sm text-red-600">{form.error}</p>}
