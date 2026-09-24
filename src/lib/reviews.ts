@@ -1,5 +1,6 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { roundRating } from '../utils/rating';
 
 /**
  * Recenze mají column-level GRANT jen na těchto 6 sloupců pro anon —
@@ -93,7 +94,8 @@ export async function fetchReviewStats(): Promise<{ count: number; average: numb
   if (error) throw error;
   const ratings = (data ?? []).map((r) => r.rating);
   const count = ratings.length;
-  const average = count === 0 ? 0 : Math.round((ratings.reduce((a, b) => a + b, 0) / count) * 10) / 10;
+  // Zaokrouhluje sdílená `roundRating` — jediný zdroj zaokrouhlení hodnocení (viz src/utils/rating.ts).
+  const average = count === 0 ? 0 : roundRating(ratings.reduce((a, b) => a + b, 0) / count);
   return { count, average };
 }
 

@@ -9,7 +9,15 @@ vi.mock('./supabase', () => ({
   },
 }));
 
+// Průchozí obal kolem skutečné `roundRating` — test níže ověřuje, že průměr jde přes ni
+// (jediný zdroj zaokrouhlení), ne přes vlastní `Math.round` se stejným výsledkem.
+vi.mock('../utils/rating', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils/rating')>();
+  return { ...actual, roundRating: vi.fn(actual.roundRating) };
+});
+
 import { FunctionsHttpError } from '@supabase/supabase-js';
+import { roundRating } from '../utils/rating';
 import { fetchApprovedReviews, fetchReviewStats, getReviewRequest, submitReview, REVIEW_COLUMNS } from './reviews';
 
 describe('reviews data layer', () => {
@@ -97,6 +105,18 @@ describe('reviews data layer', () => {
     fromMock.mockReturnValue({ select });
     const stats = await fetchReviewStats();
     expect(stats).toEqual({ count: 2, average: 4.5 });
+  });
+
+  it('fetchReviewStats zaokrouhluje průměr sdílenou roundRating (M-8)', async () => {
+    // 11 recenzí se součtem 50 → přesně 4,5454… → zobrazeno 4,5 (ne 4,6 z dvojího zaokrouhlení)
+    const ratings = [5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 4].map((rating) => ({ rating }));
+    const select = vi.fn().mockResolvedValue({ data: ratings, error: null });
+    fromMock.mockReturnValue({ select });
+
+    const stats = await fetchReviewStats();
+
+    expect(stats).toEqual({ count: 11, average: 4.5 });
+    expect(vi.mocked(roundRating)).toHaveBeenCalledWith(50 / 11);
   });
 
   it('submitReview maps edge error payload', async () => {
