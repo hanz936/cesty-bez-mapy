@@ -65,6 +65,12 @@ const ProductDetail = () => {
   // Když isolovaný fetch recenzí selže, `preloaded` se NEPŘEDÁVÁ — ProductReviews si udělá vlastní
   // fetch (a případně ukáže poctivou chybovou hlášku) místo tichého prázdného gridu.
   const [reviewsFetchFailed, setReviewsFetchFailed] = useState(false);
+  // Prerender: stránka nesmí ohlásit připravenost dřív, než se ustálí sekce recenzí. S `preloaded`
+  // to ProductReviews ohlásí hned; když preload selhal, načítá si recenze sama a do té doby vrací
+  // null — bez tohohle by se detail předgeneroval bez sekce recenzí (nález M-6). Když selže i její
+  // vlastní fetch, připravenost neohlásí vůbec a build spadne nahlas (stejně jako
+  // CustomItineraryDetail). ProductReviews při odmontování `false` nehlásí → reset při novém fetchi.
+  const [reviewsReady, setReviewsReady] = useState(false);
   const galleryRef = useRef<HTMLDivElement>(null);
 
   // Fetch product data from Supabase
@@ -77,6 +83,7 @@ const ProductDetail = () => {
         setError(null);
         setNotFoundSlug(null);
         setReviewsFetchFailed(false);
+        setReviewsReady(false);
         // SPA nav mezi produkty: bez resetu by JSON-LD (a `preloaded` pro ProductReviews)
         // nesly recenze predchoziho produktu, kdyz novy fetch selze nebo produkt recenze nema.
         setReviewsRaw([]);
@@ -350,7 +357,7 @@ const ProductDetail = () => {
   const isFree = product.price === 0;
 
   return (
-    <Layout ready={!loading && !!product}>
+    <Layout ready={!loading && !!product && reviewsReady}>
       {product && (
         <SeoTags
           meta={buildProductMeta(
@@ -696,6 +703,7 @@ const ProductDetail = () => {
                 ? undefined
                 : { productId: product.id, reviewCount: product.review_count ?? 0, reviews: reviewsRaw }
             }
+            onReadyChange={setReviewsReady}
           />
         )}
 

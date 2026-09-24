@@ -205,7 +205,11 @@ describe('ProductDetail per-route SEO + Product JSON-LD + marker (SEO-03)', () =
   it('výpadek recenzí neshodí stránku — produkt se vykreslí a JSON-LD nese aggregateRating bez review', async () => {
     const builder = makeBuilder({ data: { ...fixtureProduct, average_rating: 4.5, review_count: 2 }, error: null });
     fromMock.mockReturnValue(builder);
-    fetchApprovedReviewsMock.mockRejectedValue(new Error('reviews down'));
+    // Selže jen preload; vlastní fetch ProductReviews (druhé volání) projde — jinak by
+    // stránka připravenost neohlásila vůbec (viz testy M-6 níže).
+    fetchApprovedReviewsMock
+      .mockRejectedValueOnce(new Error('reviews down'))
+      .mockResolvedValue({ reviews: [], total: 2 });
 
     const { container } = renderProductDetail();
 
@@ -234,6 +238,63 @@ describe('ProductDetail per-route SEO + Product JSON-LD + marker (SEO-03)', () =
       expect.anything(),
       expect.objectContaining({ tags: { area: 'reviews', component: 'ProductDetail' } }),
     );
+  });
+
+  describe('připravenost pro prerender čeká na sekci recenzí (M-6)', () => {
+    const reviewedProduct = { ...fixtureProduct, average_rating: 4.5, review_count: 1 };
+    const review = {
+      id: 'r1',
+      rating: 5,
+      review_text: 'Skvělý itinerář, prošli jsme ho celý.',
+      reviewer_name: 'Petra',
+      created_at: '2026-08-01T10:00:00.000Z',
+    };
+
+    it('preload selže a vlastní fetch sekce ještě běží → marker NENÍ; doběhne → marker je', async () => {
+      fromMock.mockReturnValue(makeBuilder({ data: reviewedProduct, error: null }));
+      let resolveOwnFetch: (value: unknown) => void = () => undefined;
+      fetchApprovedReviewsMock
+        .mockRejectedValueOnce(new Error('preload down'))
+        .mockReturnValueOnce(new Promise((resolve) => { resolveOwnFetch = resolve; }));
+
+      const { container } = renderProductDetail();
+
+      // Stránka produktu už je vykreslená (h1), sekce recenzí se teprve načítá.
+      await screen.findByRole('heading', { level: 1, name: 'Toskánsko na 7 dní' });
+      await waitFor(() => expect(fetchApprovedReviewsMock).toHaveBeenCalledTimes(2));
+      expect(container.querySelector('[data-prerender-ready="true"]')).toBeNull();
+      expect(screen.queryByRole('region', { name: 'Recenze produktu' })).toBeNull();
+
+      resolveOwnFetch({ reviews: [review], total: 1 });
+
+      await waitFor(() => {
+        expect(container.querySelector('[data-prerender-ready="true"]')).not.toBeNull();
+      });
+      expect(screen.getByRole('region', { name: 'Recenze produktu' })).toHaveTextContent('Skvělý itinerář');
+    });
+
+    it('preload selže a selže i vlastní fetch sekce → marker nikdy (build spadne nahlas)', async () => {
+      fromMock.mockReturnValue(makeBuilder({ data: reviewedProduct, error: null }));
+      fetchApprovedReviewsMock.mockRejectedValue(new Error('reviews down'));
+
+      const { container } = renderProductDetail();
+
+      expect(await screen.findByText('Recenze se nepodařilo načíst. Zkus to prosím později.')).toBeInTheDocument();
+      expect(container.querySelector('[data-prerender-ready="true"]')).toBeNull();
+    });
+
+    it('preload projde → marker je, sekce recenzí je ve stránce, žádný druhý fetch', async () => {
+      fromMock.mockReturnValue(makeBuilder({ data: reviewedProduct, error: null }));
+      fetchApprovedReviewsMock.mockResolvedValue({ reviews: [review], total: 1 });
+
+      const { container } = renderProductDetail();
+
+      await waitFor(() => {
+        expect(container.querySelector('[data-prerender-ready="true"]')).not.toBeNull();
+      });
+      expect(screen.getByRole('region', { name: 'Recenze produktu' })).toHaveTextContent('Skvělý itinerář');
+      expect(fetchApprovedReviewsMock).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('prázdný detail_title vypíše v <h1> interní název produktu', async () => {
