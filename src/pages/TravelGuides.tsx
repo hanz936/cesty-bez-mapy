@@ -12,7 +12,7 @@ import { BASE_PATH, ROUTES, productDetailPath } from '../constants';
 import { supabase } from '../lib/supabase';
 import type { Tables } from '../types/database.types';
 import { reviewCountLabel } from '../components/reviews/reviewCountLabel';
-import { hasAnyReviews, visibleSortOptions } from './travelGuidesFilters';
+import { hasAnyReviews, matchesRatingRange, visibleSortOptions } from './travelGuidesFilters';
 
 interface GuideCardProps {
   guide: ReturnType<typeof mapProductToGuide>;
@@ -413,14 +413,8 @@ const TravelGuides = () => {
   // Spočítej produkty pro každý rating range (useMemo pro cached computed value)
   const ratingRangesWithCount = useMemo(() => {
     return ratingRanges.map(range => {
-      const count = products.filter(product => {
-        const rating = product.rating || 0;
-        if (range.exact) {
-          return rating === range.minRating; // Exact match pro "5 hvězdiček"
-        } else {
-          return rating >= range.minRating; // Range match pro "4.5+" atd.
-        }
-      }).length;
+      // Zaokrouhlený rating — stejné číslo, jaké ukazuje karta (viz `matchesRatingRange`)
+      const count = products.filter(product => matchesRatingRange(product.rating, range)).length;
 
       return {
         ...range,
@@ -545,15 +539,11 @@ const TravelGuides = () => {
     // 4. Filtrování podle rating ranges (jen když jsou reálné recenze — jinak by filtr byl neviditelný, ale funkční)
     if (showRatingFilter && selectedRatingRanges.length > 0) {
       filtered = filtered.filter(product => {
-        const rating = product.rating || 0;
         return selectedRatingRanges.some(rangeId => {
           const range = ratingRanges.find(r => r.id === rangeId);
           if (!range) return false;
-          if (range.exact) {
-            return rating === range.minRating; // Exact match pro "5 hvězdiček"
-          } else {
-            return rating >= range.minRating; // Range match pro "4.5+" atd.
-          }
+          // Zaokrouhlený rating — stejné číslo, jaké ukazuje karta (viz `matchesRatingRange`)
+          return matchesRatingRange(product.rating, range);
         });
       });
     }
