@@ -311,6 +311,8 @@ export type Database = {
           error_message: string | null
           id: string
           request_id: number | null
+          retry_allowed_at: string | null
+          retry_of: string | null
           skip_reason: string | null
           source: string
           status_code: number | null
@@ -322,6 +324,8 @@ export type Database = {
           error_message?: string | null
           id?: string
           request_id?: number | null
+          retry_allowed_at?: string | null
+          retry_of?: string | null
           skip_reason?: string | null
           source: string
           status_code?: number | null
@@ -333,12 +337,22 @@ export type Database = {
           error_message?: string | null
           id?: string
           request_id?: number | null
+          retry_allowed_at?: string | null
+          retry_of?: string | null
           skip_reason?: string | null
           source?: string
           status_code?: number | null
           transaction_id?: unknown
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "deploy_hook_dispatches_retry_of_fkey"
+            columns: ["retry_of"]
+            isOneToOne: false
+            referencedRelation: "deploy_hook_dispatches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       download_tokens: {
         Row: {
