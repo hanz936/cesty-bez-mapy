@@ -2,19 +2,20 @@
 // Tento soubor testuje čisté helpery z prerender.mjs, který importuje `vite`
 // (esbuild). esbuild má invariant `TextEncoder().encode() instanceof Uint8Array`,
 // jenž v jsdom realmu selže → helpery testujeme v node prostředí.
-import { describe, it, expect, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import {
-  BLOCKED_HOST,
   buildShellHtml,
   canonicalHref,
+  captureRouteWithRetry,
   collectRoutes,
   createPrerenderPage,
   explainStuckPage,
   NOT_FOUND_MARKER,
   outputPathForRoute,
   pathOf,
+  RetryableRouteError,
   validateHtml,
 } from './prerender.mjs';
 import { MAX_PRERENDERED_REVIEW_PAGES } from '../src/constants/reviews.ts';
@@ -219,10 +220,32 @@ describe('buildShellHtml', () => {
   });
 });
 
+/**
+ * Lokální HTTP server pro testy v opravdovém Chromiu — ať testy nezávisí na internetu.
+ * @param {(req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => void} handler
+ * @returns {Promise<{ origin: string, close: () => Promise<void> }>}
+ */
+async function startServer(handler) {
+  const server = createServer(handler);
+  await new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => resolve(undefined));
+  });
+  const { port } = /** @type {import('node:net').AddressInfo} */ (server.address());
+  return {
+    origin: `http://127.0.0.1:${port}`,
+    close: () =>
+      new Promise((resolve) => {
+        // Zadržené odpovědi (test na vypršený `goto`) by jinak `close` blokovaly.
+        server.closeAllConnections();
+        server.close(() => resolve(undefined));
+      }),
+  };
+}
+
 describe('createPrerenderPage', () => {
-  it('v opravdovém Chromiu zahodí captchu a vlastní požadavek pustí', async () => {
-    // Tohle je jediná automatická brána, která tu řádku hlídá: CI prerender vůbec
-    // nespouští (`npx vite build`), takže její smazání by se jinak poznalo až
+  it('v opravdovém Chromiu pustí jen povolené originy, zbytek zahodí', async () => {
+    // Tohle je jediná automatická brána, která omezení sítě hlídá: CI prerender vůbec
+    // nespouští (`npx vite build`), takže jeho smazání by se jinak poznalo až
     // spadlým produkčním buildem na Vercelu — přesně jak se to od 18. 8. dělo.
     //
     // Test schválně nepoužívá dvojníka `page`/`route`: dvojník by zůstal zelený i
@@ -230,23 +253,22 @@ describe('createPrerenderPage', () => {
     // Změřeno: celé kolo stojí ~0,7 s (spuštění prohlížeče 0,47 s) a Chromium už
     // v CI je — stahuje ho `scripts/postinstall.mjs` při `npm ci`.
     //
-    // „Povolená" adresa míří na lokální server, aby test nezávisel na internetu.
+    // Dva povolené servery zastupují preview a Supabase; třetí běží na stejném hostu,
+    // jen na jiném portu — a musí projít sítem, protože se povoluje origin, ne host.
     const { chromium } = await import('playwright');
     /** @type {string[]} */
     const doruceno = [];
-    const server = createServer((req, res) => {
-      doruceno.push(req.url ?? '');
+    /** @param {string} jmeno */
+    const js = (jmeno) => startServer((req, res) => {
+      doruceno.push(`${jmeno}${req.url ?? ''}`);
       res.writeHead(200, { 'content-type': 'text/javascript' });
       res.end('/* ok */');
     });
-    await new Promise((resolve) => {
-      server.listen(0, '127.0.0.1', () => resolve(undefined));
-    });
-    const { port } = /** @type {import('node:net').AddressInfo} */ (server.address());
+    const [preview, supabase, cizi] = await Promise.all([js('preview'), js('supabase'), js('cizi')]);
 
     const browser = await chromium.launch();
     try {
-      const page = await createPrerenderPage(browser);
+      const page = await createPrerenderPage(browser, [`${preview.origin}/`, `${supabase.origin}/rest/v1`]);
       /** @type {{ url: string; duvod: string }[]} */
       const zahozeno = [];
       page.on('requestfailed', (request) =>
@@ -254,8 +276,11 @@ describe('createPrerenderPage', () => {
       );
 
       await page.setContent(
-        `<script src="https://${BLOCKED_HOST}/turnstile/v0/api.js"></script>` +
-          `<script src="http://127.0.0.1:${port}/vlastni.js"></script>`,
+        '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>' +
+          '<script defer src="https://cloud.umami.is/script.js"></script>' +
+          `<script src="${cizi.origin}/cizi.js"></script>` +
+          `<script src="${preview.origin}/vlastni.js"></script>` +
+          `<script src="${supabase.origin}/rest/v1/products"></script>`,
         { waitUntil: 'load' },
       );
 
@@ -265,15 +290,137 @@ describe('createPrerenderPage', () => {
       // kde na challenges.cloudflare.com stejně není vidět — třeba v běhu bez sítě.
       // Chromium k tomu připojuje příponu (naměřeno `net::ERR_BLOCKED_BY_CLIENT.Inspector`),
       // takže porovnáváme začátek — přípona se smí změnit, rozlišovací síla zůstává.
-      const captcha = zahozeno.filter((r) => r.url.includes(BLOCKED_HOST));
-      expect(captcha.map((r) => r.url)).toEqual([`https://${BLOCKED_HOST}/turnstile/v0/api.js`]);
-      expect(captcha[0].duvod).toMatch(/^net::ERR_BLOCKED_BY_CLIENT/);
-      expect(doruceno).toEqual(['/vlastni.js']);
+      expect(zahozeno.map((r) => r.url).sort()).toEqual(
+        [
+          'https://challenges.cloudflare.com/turnstile/v0/api.js',
+          'https://cloud.umami.is/script.js',
+          `${cizi.origin}/cizi.js`,
+        ].sort(),
+      );
+      for (const r of zahozeno) expect(r.duvod).toMatch(/^net::ERR_BLOCKED_BY_CLIENT/);
+      expect(doruceno.sort()).toEqual(['preview/vlastni.js', 'supabase/rest/v1/products']);
     } finally {
       await browser.close();
-      await new Promise((resolve) => {
-        server.close(() => resolve(undefined));
-      });
+      await Promise.all([preview.close(), supabase.close(), cizi.close()]);
     }
   }, 60_000);
+
+  it('bez seznamu povolených originů odmítne stránku vyrobit', async () => {
+    // Prázdný seznam by zablokoval i preview server a build by padal na timeoutu,
+    // ze kterého příčina není poznat. Prohlížeč se ke kontrole nedostane.
+    const browser = /** @type {import('playwright-core').Browser} */ ({});
+    await expect(createPrerenderPage(browser, [])).rejects.toThrow(/povolených originů/);
+  });
+});
+
+describe('captureRouteWithRetry', () => {
+  // Krátké limity, ať test netrvá desítky sekund; logika je stejná jako s produkčními.
+  const LIMITS = { gotoTimeout: 1000, readyTimeout: 300 };
+  const READY = '<html><head><title>x</title></head><body><div data-prerender-ready="true"><h1>Hotovo</h1></div></body></html>';
+  const NOT_READY = '<html><head><title>x</title></head><body><p>Načítám…</p></body></html>';
+  const NOT_FOUND = `<html><head><title>x</title></head><body><div ${NOT_FOUND_MARKER}><h1>Nenalezeno</h1></div></body></html>`;
+
+  /** @type {import('playwright').Browser} */
+  let browser;
+  /** @type {Awaited<ReturnType<typeof startServer>>} */
+  let server;
+  /** @type {Map<string, number>} */
+  const hits = new Map();
+  /** @type {import('node:http').ServerResponse[]} */
+  const held = [];
+
+  beforeAll(async () => {
+    const { chromium } = await import('playwright');
+    browser = await chromium.launch();
+    server = await startServer((req, res) => {
+      const path = req.url ?? '';
+      const n = (hits.get(path) ?? 0) + 1;
+      hits.set(path, n);
+      if (path === '/visi-poprve' && n === 1) {
+        held.push(res); // odpověď nepřijde — `goto` vyprší
+        return;
+      }
+      const body = {
+        '/pomala-poprve': n === 1 ? NOT_READY : READY,
+        '/visi-poprve': READY,
+        '/nikdy-hotova': NOT_READY,
+        '/nenalezeno': NOT_FOUND,
+      }[path];
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(body ?? READY);
+    });
+  }, 60_000);
+
+  afterAll(async () => {
+    await browser?.close();
+    await server?.close();
+  });
+
+  /** @type {import('vitest').MockInstance} */
+  let warn;
+  beforeEach(() => {
+    hits.clear();
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warn.mockRestore();
+  });
+
+  /** @param {string} route */
+  const capture = async (route) => {
+    const page = await createPrerenderPage(browser, [server.origin]);
+    try {
+      return await captureRouteWithRetry(page, server.origin + route, route, LIMITS);
+    } finally {
+      await page.close();
+    }
+  };
+
+  it('stránku, která napoprvé nestihla ohlásit připravenost, zkusí ještě jednou', async () => {
+    const html = await capture('/pomala-poprve');
+    expect(html).toContain('Hotovo');
+    expect(hits.get('/pomala-poprve')).toBe(2);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toMatch(/^↻ .*\/pomala-poprve/);
+  }, 30_000);
+
+  it('opakuje i načtení, které vypršelo', async () => {
+    const html = await capture('/visi-poprve');
+    expect(html).toContain('Hotovo');
+    expect(hits.get('/visi-poprve')).toBe(2);
+    expect(warn).toHaveBeenCalledTimes(1);
+  }, 30_000);
+
+  it('druhý neúspěch nechá vybublat — neúplný web se nasadit nesmí', async () => {
+    await expect(capture('/nikdy-hotova')).rejects.toBeInstanceOf(RetryableRouteError);
+    expect(hits.get('/nikdy-hotova')).toBe(2);
+  }, 30_000);
+
+  it('stránku „nenalezeno" neopakuje — napodruhé by dopadla stejně', async () => {
+    const err = await capture('/nenalezeno').catch((/** @type {unknown} */ e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).not.toBeInstanceOf(RetryableRouteError);
+    expect(String(err)).toMatch(/nenalezeno/);
+    expect(hits.get('/nenalezeno')).toBe(1);
+    expect(warn).not.toHaveBeenCalled();
+  }, 30_000);
+});
+
+describe('zapojení do run()', () => {
+  // `run()` se netestuje (potřebuje databázi a Chromium s preview serverem), takže
+  // kdyby smyčka zase volala `page.goto` napřímo, opakování by tiše zmizelo a testy
+  // `captureRouteWithRetry` by dál procházely. Stejný typ strážce jako u NOT_FOUND_MARKER.
+  const source = readFileSync('scripts/prerender.mjs', 'utf8');
+  const runBody = source.slice(source.indexOf('async function run()'));
+
+  it('smyčka rout jde přes captureRouteWithRetry', () => {
+    expect(runBody).toContain('await captureRouteWithRetry(page, base + route, route)');
+    expect(runBody).not.toContain('page.goto(');
+  });
+
+  it('stránka vzniká přes createPrerenderPage s preview serverem i Supabase', () => {
+    expect(runBody).toContain('createPrerenderPage(browser, [base, supabaseUrl()])');
+    // Volání, ne zmínka: komentář v `run()` `browser.newPage()` cituje.
+    expect(runBody).not.toMatch(/await\s+browser\.newPage\(/);
+  });
 });

@@ -4,7 +4,7 @@ import { preview } from 'vite';
 import { PUBLIC_PAGES } from '../src/constants/publicRoutes.ts';
 import { productDetailPath } from '../src/constants/routes.ts';
 import { productReviewsPath, reviewPageRange } from '../src/constants/reviews.ts';
-import { fetchBlogSlugs, fetchProductSlugs } from './contentSlugs.mjs';
+import { fetchBlogSlugs, fetchProductSlugs, supabaseUrl } from './contentSlugs.mjs';
 
 /** @typedef {import('./contentSlugs.mjs').BlogSlugRow} BlogSlugRow */
 /** @typedef {import('./contentSlugs.mjs').ProductSlugRow} ProductSlugRow */
@@ -33,8 +33,8 @@ const STATIC_ROUTES = PUBLIC_PAGES.map((p) => p.path);
  * je tam ten ze zdroje. Prázdná stránka navíc nese noindex už ve zdrojovém HTML.
  *
  * Hlubší strany mají strop — každá je jedna návštěva headless Chromia navíc
- * a prerender po každých osmi routách browser restartuje. Nad stropem strany
- * dál fungují, jen se nepředgenerují.
+ * a celý prerender běží v jediném procesu prohlížeče (viz `run()`). Nad stropem
+ * strany dál fungují, jen se nepředgenerují.
  *
  * @param {BlogSlugRow[] | null | undefined} blogPosts
  * @param {ProductSlugRow[] | null | undefined} productSlugs
@@ -206,13 +206,20 @@ async function launchBrowser() {
   if (process.env.VERCEL) {
     const sparticuz = (await import('@sparticuz/chromium')).default;
     const { chromium } = await import('playwright-core');
-    // Prerender čte jen DOM — WebGL nepotřebuje. Odebere --use-gl=angle,
-    // --use-angle=swiftshader a --enable-unsafe-swiftshader, které kvůli
-    // --in-process-gpu běží ve stejném procesu jako renderer.
+    // Prerender čte jen DOM — WebGL nepotřebuje. Ze `sparticuz.args` to odebere
+    // --use-gl=angle a --use-angle=swiftshader a přidá --disable-webgl; kvůli
+    // --in-process-gpu (zůstává) by GPU kód běžel ve stejném procesu jako renderer.
+    // --enable-unsafe-swiftshader z příkazové řádky NEZMIZÍ: Playwright ho přidává
+    // vždy sám, před uživatelské `args` (playwright-core 1.60, `_innerDefaultArgs`).
+    // Odstranit by šel jen přes `ignoreDefaultArgs`, který dokumentace Playwrightu
+    // označuje za nebezpečný a který jde ověřit jedině ostrým buildem na Vercelu.
     sparticuz.setGraphicsMode = false;
     return chromium.launch({
-      // /dev/shm má v build containeru 64 MB (změřeno). Playwright to zvenčí řeší
-      // `--ipc=host`, což tady nastavit nejde; tohle je vnitřní ekvivalent.
+      // /dev/shm má v build containeru 64 MB (změřeno). Chromium ho přesto nepoužívá:
+      // --disable-dev-shm-usage posílá Playwright sám ve výchozích přepínačích
+      // (`chromiumSwitches`), takže tenhle řádek je duplicita, ne oprava — a /dev/shm
+      // proto nemohl být příčinou pádů ze srpna. Zůstává jako pojistka pro případ,
+      // že by ho Playwright z výchozích přepínačů vyřadil; sparticuz ho v args nemá.
       args: [...sparticuz.args, '--disable-dev-shm-usage'],
       executablePath: await sparticuz.executablePath(),
       headless: true,
@@ -222,39 +229,160 @@ async function launchBrowser() {
   return chromium.launch();
 }
 
-/** Hostitel captchy. Jediné místo, kde se to jméno v prerenderu píše. */
-export const BLOCKED_HOST = 'challenges.cloudflare.com';
-
 /**
- * Stránka pro prerender. Vytvoření stránky a blokace Turnstile jsou schválně
- * v JEDNÉ funkci — stránku bez blokace tak nejde dostat omylem.
+ * Stránka pro prerender. Vytvoření stránky a omezení sítě jsou schválně v JEDNÉ
+ * funkci — stránku bez omezení tak nejde dostat omylem.
  *
- * Bez té blokace build spadne v půlce prerenderu na „Target page, context or browser
- * has been closed". NENÍ to nedostatek paměti: v okamžiku pádu bylo z 8 GB limitu
- * využito 1,7 GB. Chromiu docházejí vlákna a deskriptory, protože každá stránka
- * s formulářem natáhne Turnstile, ten spustí WebRTC a v build containeru bez
- * odchozího UDP zaplaví log `sendto() … net::ERR_ADDRESS_UNREACHABLE` —
- * a všechno se to sčítá v jediném procesu (`--single-process` chodí ze
- * `sparticuz.args`, takže lokálně ani v CI se pád nereprodukuje). Prerender captchu
- * nepotřebuje: widget se vykresluje až u návštěvníka.
+ * Stránka smí volat jen povolené originy: lokální preview server (HTML, JS, CSS,
+ * obrázky z `public/`) a Supabase (data stránek). Všechno ostatní se zahodí.
+ * Dva důvody, oba změřené:
  *
- * Kdyby tahle blokace zmizela, zčervená integrační test v `prerender.test.js`
- * (opravdové Chromium) a build zastaví kontrola v `verify-dist.mjs` — CI totiž
- * prerender vůbec nespouští, takže jinak by se to poznalo až deploji na Vercelu.
+ * 1. Turnstile. Bez jeho blokace build spadne v půlce prerenderu na „Target page,
+ *    context or browser has been closed". NENÍ to nedostatek paměti: v okamžiku pádu
+ *    bylo z 8 GB limitu využito 1,7 GB. Chromiu docházejí vlákna a deskriptory, protože
+ *    každá stránka s formulářem natáhne Turnstile, ten spustí WebRTC a v build containeru
+ *    bez odchozího UDP zaplaví log `sendto() … net::ERR_ADDRESS_UNREACHABLE` — a všechno
+ *    se to sčítá v jediném procesu (`--single-process` chodí ze `sparticuz.args`, takže
+ *    lokálně ani v CI se pád nereprodukuje). Prerender captchu nepotřebuje: widget se
+ *    vykresluje až u návštěvníka.
+ * 2. Cizí skripty v `<head>`. Na Vercelu tam `vite/umami-plugin.js` vkládá Umami
+ *    (`VITE_UMAMI_WEBSITE_ID` je nastavené v Production) a `page.goto` s `waitUntil: 'load'`
+ *    na něj čeká. Simulovaný výpadek `cloud.umami.is` shodil první routu po 30 s, a tím
+ *    celý produkční build. Allowlist místo seznamu zakázaných hostů chrání i před
+ *    dalším skriptem, který do hlavičky někdo přidá.
+ *
+ * Supabase se pouští celé, ne jen REST. Obrázky ze Storage do HTML nic nepřidají,
+ * ale komponenty s `onError` (`PageHero`, `Hero`) zablokovaný obrázek nahradí náhradním
+ * pozadím — a to by se zapeklo do předgenerovaného HTML.
+ *
+ * Vzor na všechny adresy je nutný, allowlist musí vidět každý požadavek. Užší vzor by stejně
+ * nic neušetřil: Playwright při jakémkoli `page.route` pozastavuje v Chromiu všechny
+ * požadavky (`Fetch.enable` se vzorem `*`) a vzor vyhodnocuje až v Node. Změřeno na
+ * 30 routách: rozdíl pod 1 %. `data:` a `blob:` adresy `page.route` nezachytává.
+ *
+ * Kdyby omezení zmizelo, zčervená integrační test v `prerender.test.js` (opravdové
+ * Chromium) a build zastaví kontrola captchy v `verify-dist.mjs` — CI totiž prerender
+ * vůbec nespouští, takže jinak by se to poznalo až deploji na Vercelu.
  *
  * @param {import('playwright-core').Browser} browser
+ * @param {string[]} allowedOrigins adresy, jejichž origin smí stránka volat
  * @returns {Promise<import('playwright-core').Page>}
  */
-export async function createPrerenderPage(browser) {
+export async function createPrerenderPage(browser, allowedOrigins) {
+  // Prázdný seznam by zablokoval i preview server a každá routa by spadla na timeoutu
+  // s hláškou, ze které příčina není poznat.
+  if (!Array.isArray(allowedOrigins) || allowedOrigins.length === 0) {
+    throw new Error('Prerender: createPrerenderPage potřebuje seznam povolených originů');
+  }
+  const allowed = new Set(allowedOrigins.map((href) => new URL(href).origin));
   const page = await browser.newPage();
   await page.route('**/*', (route) =>
     // `blockedbyclient`, ne výchozí `failed`: `net::ERR_BLOCKED_BY_CLIENT` je podpis,
     // který síťová chyba nikdy nevyrobí (ta hlásí ERR_NAME_NOT_RESOLVED a spol.).
     // Díky tomu test pozná zahozený požadavek od požadavku, který jen neprošel sítí —
     // jinak by po smazání téhle blokace zůstal v prostředí bez internetu zelený.
-    route.request().url().includes(BLOCKED_HOST) ? route.abort('blockedbyclient') : route.continue(),
+    allowed.has(new URL(route.request().url()).origin) ? route.continue() : route.abort('blockedbyclient'),
   );
   return page;
+}
+
+/**
+ * Chyba routy, u které má smysl druhý pokus: vypršel čas. Stránka „nenalezeno" ani
+ * vadné HTML sem nepatří — napodruhé by dopadly stejně a opakování by jen zdvojnásobilo
+ * dobu, než build spadne.
+ */
+export class RetryableRouteError extends Error {}
+
+/**
+ * Playwright hlásí vypršený čas u `goto` i `waitForSelector` jako `TimeoutError`.
+ * Porovnává se jméno, ne `instanceof errors.TimeoutError`: prohlížeč pochází podle
+ * prostředí jednou z `playwright`, jindy z `playwright-core` (viz `launchBrowser`).
+ * @param {unknown} err
+ * @returns {boolean}
+ */
+function isTimeout(err) {
+  return err instanceof Error && err.name === 'TimeoutError';
+}
+
+/**
+ * Načte routu, počká na marker připravenosti a vrátí HTML po úklidu hlavičky.
+ * Nevaliduje — `validateHtml` je deterministická, takže patří až za opakování.
+ *
+ * @param {import('playwright-core').Page} page
+ * @param {string} url
+ * @param {string} route
+ * @param {{ gotoTimeout?: number, readyTimeout?: number }} [timeouts] limity v ms
+ * @returns {Promise<string>}
+ */
+export async function captureRoute(page, url, route, { gotoTimeout = 30000, readyTimeout = 20000 } = {}) {
+  try {
+    await page.goto(url, { waitUntil: 'load', timeout: gotoTimeout });
+  } catch (err) {
+    if (!isTimeout(err)) throw err;
+    throw new RetryableRouteError(`Prerender: ${route} se nenačetla do ${gotoTimeout} ms.`, { cause: err });
+  }
+  try {
+    await page.waitForSelector('[data-prerender-ready]', { timeout: readyTimeout });
+  } catch (err) {
+    const seen = await page.evaluate(() => ({
+      html: document.documentElement.outerHTML,
+      title: document.title,
+      h1: document.querySelector('h1')?.textContent?.trim() ?? null,
+    }));
+    const message = explainStuckPage(route, seen);
+    // Stránka „nenalezeno" se napodruhé nezmění — router tu adresu prostě nezná.
+    if (!isTimeout(err) || seen.html.includes(NOT_FOUND_MARKER)) throw new Error(message, { cause: err });
+    throw new RetryableRouteError(message, { cause: err });
+  }
+  // React 19 hoistuje per-route <meta>/<link> ZA statické defaulty z index.html
+  // (nededupuje je) → v <head> by vznikly duplicitní og:title/description/canonical.
+  // Necháme poslední výskyt každého klíče (= React per-route hodnotu).
+  await page.evaluate(() => {
+    /**
+     * @param {string} selector
+     * @param {string} keyAttr
+     */
+    const keepLast = (selector, keyAttr) => {
+      const byKey = new Map();
+      for (const el of document.querySelectorAll(selector)) {
+        const key = el.getAttribute(keyAttr);
+        if (key == null || key === '') continue; // nesloučit prvky bez klíče
+        byKey.set(key, el); // poslední vyhrává
+      }
+      const keep = new Set(byKey.values());
+      for (const el of document.querySelectorAll(selector)) {
+        if (!keep.has(el)) el.remove();
+      }
+    };
+    keepLast('head meta[name]', 'name');
+    keepLast('head meta[property]', 'property');
+    keepLast('head link[rel="canonical"]', 'rel');
+  });
+  return page.content();
+}
+
+/**
+ * `captureRoute` s jedním opakováním, když vypršel čas.
+ *
+ * Jeden pomalý dotaz do Supabase (nad 20 s) by jinak shodil celé nasazení — a build
+ * spouští i deploy hook po schválení recenze nebo úpravě produktu, kde ho nikdo nehlídá.
+ * Spadlý build nechá produkci na poslední verzi, jenže změna se pak neprojeví, dokud
+ * nepřijde další. Druhý neúspěch už vybublá: neúplný web se nasadit nesmí.
+ *
+ * @param {import('playwright-core').Page} page
+ * @param {string} url
+ * @param {string} route
+ * @param {{ gotoTimeout?: number, readyTimeout?: number }} [timeouts] limity v ms
+ * @returns {Promise<string>}
+ */
+export async function captureRouteWithRetry(page, url, route, timeouts) {
+  try {
+    return await captureRoute(page, url, route, timeouts);
+  } catch (err) {
+    if (!(err instanceof RetryableRouteError)) throw err;
+    console.warn(`↻ ${err.message} Zkouším ${route} ještě jednou.`);
+    return captureRoute(page, url, route, timeouts);
+  }
 }
 
 async function run() {
@@ -281,7 +409,8 @@ async function run() {
   // browser.newContext()"). Restartovat browser mezi routami taky ne — měřeno,
   // pokaždé to spadlo dřív, protože `executablePath()` binárku znovu rozbaluje.
   const browser = await launchBrowser();
-  const page = await createPrerenderPage(browser);
+  // Supabase URL je tatáž proměnná, kterou si při `vite build` zapekl bundle.
+  const page = await createPrerenderPage(browser, [base, supabaseUrl()]);
   // Homepage se zapisuje až PO smyčce. Během ní musí `dist/index.html` zůstat čistá
   // šablona z `vite build`, protože `vite preview` ji podává jako SPA fallback každé
   // routě, která ještě nemá vlastní soubor. Kdyby ji přepsala prerenderovaná homepage
@@ -293,42 +422,7 @@ async function run() {
 
   try {
     for (const route of routes) {
-      await page.goto(base + route, { waitUntil: 'load', timeout: 30000 });
-      try {
-        await page.waitForSelector('[data-prerender-ready]', { timeout: 20000 });
-      } catch (err) {
-        const seen = await page.evaluate(() => ({
-          html: document.documentElement.outerHTML,
-          title: document.title,
-          h1: document.querySelector('h1')?.textContent?.trim() ?? null,
-        }));
-        throw new Error(explainStuckPage(route, seen), { cause: err });
-      }
-      // React 19 hoistuje per-route <meta>/<link> ZA statické defaulty z index.html
-      // (nededupuje je) → v <head> by vznikly duplicitní og:title/description/canonical.
-      // Necháme poslední výskyt každého klíče (= React per-route hodnotu).
-      await page.evaluate(() => {
-        /**
-         * @param {string} selector
-         * @param {string} keyAttr
-         */
-        const keepLast = (selector, keyAttr) => {
-          const byKey = new Map();
-          for (const el of document.querySelectorAll(selector)) {
-            const key = el.getAttribute(keyAttr);
-            if (key == null || key === '') continue; // nesloučit prvky bez klíče
-            byKey.set(key, el); // poslední vyhrává
-          }
-          const keep = new Set(byKey.values());
-          for (const el of document.querySelectorAll(selector)) {
-            if (!keep.has(el)) el.remove();
-          }
-        };
-        keepLast('head meta[name]', 'name');
-        keepLast('head meta[property]', 'property');
-        keepLast('head link[rel="canonical"]', 'rel');
-      });
-      const html = await page.content();
+      const html = await captureRouteWithRetry(page, base + route, route);
       // /cestovni-pruvodci (listing) a /cestovni-pruvodci/itinerar-na-miru (statická routa)
       // také odpovídají prefixu, ale nejsou detail → vyloučit přes STATIC_ROUTES.
       const isDetail =

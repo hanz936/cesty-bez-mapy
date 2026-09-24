@@ -2,15 +2,20 @@
 // Přes `verify-dist.mjs` se táhne `prerender.mjs`, a ten importuje `vite` (esbuild).
 // esbuild má invariant `TextEncoder().encode() instanceof Uint8Array`, jenž v jsdom
 // realmu selže → testujeme v node prostředí, stejně jako u prerenderu.
-import { readFileSync } from 'node:fs';
-import { describe, it, expect } from 'vitest';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { PUBLIC_PAGES } from '../src/constants/publicRoutes.ts';
 import {
   isNoindex,
+  missingStaticPages,
   originProblems,
   pageProblems,
   routeForFile,
   shellProblems,
   sitemapPaths,
+  verifyDist,
 } from './verify-dist.mjs';
 
 /** @param {string} href */
@@ -108,6 +113,71 @@ describe('originProblems', () => {
     // `validateHtml` porovnává jen cestu (aby nezávisela na VITE_SITE_URL v prostředí
     // buildu), takže rozjetá doména je přesně to, co musí zachytit až kontrola nad celkem.
     expect(originProblems(['https://www.cestybezmapy.cz/', 'http://localhost:4173/kontakt'])).toHaveLength(1);
+  });
+});
+
+describe('missingStaticPages', () => {
+  const all = PUBLIC_PAGES.map((p) => p.path);
+
+  it('když má každá statická stránka soubor, mlčí', () => {
+    expect(missingStaticPages([...all, '/cestovni-pruvodci/italie'])).toEqual([]);
+  });
+
+  it('chybějící statickou stránku pojmenuje', () => {
+    expect(missingStaticPages(all.filter((p) => p !== '/kontakt'))).toEqual(['statická stránka /kontakt v dist/ chybí']);
+  });
+
+  it('prázdný dist/ je chyba i bez sitemapy', () => {
+    // Tohle dřív prošlo: prázdná sitemapa + žádné stránky = „✓ dist/ v pořádku: 0 stránek".
+    // Křížová kontrola se sitemapou totiž hlídá jen to, co sitemapa sama slibuje.
+    expect(missingStaticPages([])).toHaveLength(PUBLIC_PAGES.length);
+    expect(PUBLIC_PAGES.length).toBeGreaterThan(0);
+  });
+});
+
+describe('verifyDist nad vzorovým dist/', () => {
+  // Skutečný dist/ vzniká jen plným buildem na Vercelu (CI nemá creds ani prerender),
+  // takže celý průchod kontroly se tu zkouší nad malým adresářem sestaveným v testu.
+  const SITE = 'https://www.cestybezmapy.cz';
+  /** @type {string[]} */
+  const dirs = [];
+  afterEach(() => {
+    for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  /** @param {{ skip?: string[], sitemap?: string[] }} [options] */
+  const makeDist = ({ skip = [], sitemap } = {}) => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'verify-dist-'));
+    dirs.push(dir);
+    const routes = PUBLIC_PAGES.map((p) => p.path).filter((r) => !skip.includes(r));
+    for (const route of routes) {
+      const file = path.join(dir, route === '/' ? '' : route.slice(1), 'index.html');
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(file, page(route));
+    }
+    writeFileSync(path.join(dir, 'app-shell.html'), '<html><head><title>Cesty (bez) mapy</title></head><body></body></html>');
+    const locs = (sitemap ?? routes).map((r) => `<url><loc>${SITE}${r}</loc></url>`).join('');
+    writeFileSync(path.join(dir, 'sitemap.xml'), `<urlset>${locs}</urlset>`);
+    return dir;
+  };
+
+  it('úplný dist/ projde', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    await expect(verifyDist(makeDist())).resolves.toBeUndefined();
+  });
+
+  it('prázdný dist/ s prázdnou sitemapou neprojde', async () => {
+    // Dřív tohle hlásilo „✓ dist/ v pořádku: 0 stránek" — křížová kontrola se sitemapou
+    // hlídá jen to, co sitemapa slibuje, a prázdná neslibuje nic.
+    const dir = makeDist({ skip: PUBLIC_PAGES.map((p) => p.path), sitemap: [] });
+    await expect(verifyDist(dir)).rejects.toThrow('statická stránka / v dist/ chybí');
+  });
+
+  it('chybějící statickou stránku najde, i když ji nezmiňuje ani sitemapa', async () => {
+    const routes = PUBLIC_PAGES.map((p) => p.path).filter((r) => r !== '/kontakt');
+    const dir = makeDist({ skip: ['/kontakt'], sitemap: routes });
+    await expect(verifyDist(dir)).rejects.toThrow(/^Kontrola dist\/ našla 1 závad:\n {2}- statická stránka \/kontakt v dist\/ chybí$/);
   });
 });
 

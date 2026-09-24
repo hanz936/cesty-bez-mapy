@@ -19,6 +19,15 @@ function supabaseEnv() {
 }
 
 /**
+ * Adresa Supabase projektu. Prerender podle ní pouští požadavky stránek — viz
+ * `createPrerenderPage`.
+ * @returns {string}
+ */
+export function supabaseUrl() {
+  return supabaseEnv().url;
+}
+
+/**
  * @template T
  * @param {string} path REST cesta včetně query (bez `/rest/v1/` prefixu)
  * @returns {Promise<T>}

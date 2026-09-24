@@ -11,15 +11,18 @@ export default defineConfig(
     // spadl na souborech mimo tsconfig projekt. Generovaný database.types.ts
     // padá na stylistic pravidlech (consistent-type-definitions aj. — empiricky
     // 6 errorů) — artefakt se nelintuje, canonical kopii kryje ignore functions.
-    // middleware.ts (Vercel Edge pre-launch gate) je mimo scope migrace a nekryje
-    // ho žádný tsconfig projekt; starý config (jen js/jsx, espree) ho taky
-    // nelintoval — ignore zachovává přesně předchozí stav.
-    ignores: ['dist', 'supabase/functions/**', 'src/types/database.types.ts', 'middleware.ts'],
+    // `.superpowers` a `.worktrees` jsou mimo git (pracovní poznámky agentů a další
+    // pracovní stromy repa), jenže flat config `.gitignore` nečte — bez ignore by lint
+    // procházel i je, z hlavního checkoutu třeba celý rozdělaný worktree.
+    ignores: ['dist', 'supabase/functions/**', 'src/types/database.types.ts', '.superpowers', '.worktrees'],
   },
-  // Nepřevedené JS/JSX (během migrace) + kořenové JS configy — chování jako dosud
+  // JS/JSX a build skripty (.mjs, .cjs). `files` rozhoduje, kdo pravidla dostane:
+  // ESLint sice `.mjs` a `.cjs` lintuje sám od sebe, ale bez shody tady by prošly
+  // bez jediného pravidla. Doporučená sada jde přes `extends` — dřív byla rozbalená
+  // do objektu a vlastní `rules` níž ji celou přepsaly (JS soubory měly 4 pravidla).
   {
-    files: ['**/*.{js,jsx}'],
-    ...js.configs.recommended,
+    files: ['**/*.{js,jsx,mjs,cjs}'],
+    extends: [js.configs.recommended],
     plugins: {
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,

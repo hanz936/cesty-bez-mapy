@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { PUBLIC_PAGES } from '../src/constants/publicRoutes.ts';
 import { canonicalHref, pathOf } from './prerender.mjs';
 
 /**
@@ -120,6 +121,20 @@ export function originProblems(hrefs) {
 }
 
 /**
+ * Statické stránky, pro které v `dist/` chybí soubor.
+ *
+ * Spodní mez, která nezávisí na sitemapě ani na databázi. Křížová kontrola se sitemapou
+ * chybějící soubory chytí taky, ale jen dokud sitemapa sama něco slibuje: prázdná
+ * sitemapa a prázdný `dist/` spolu prošly jako „✓ dist/ v pořádku: 0 stránek".
+ * @param {Iterable<string>} present routy, pro které soubor v `dist/` je
+ * @returns {string[]}
+ */
+export function missingStaticPages(present) {
+  const have = new Set(present);
+  return PUBLIC_PAGES.filter((p) => !have.has(p.path)).map((p) => `statická stránka ${p.path} v dist/ chybí`);
+}
+
+/**
  * Všechny `index.html` pod adresářem, relativně k němu.
  * @param {string} dir
  * @param {string} [prefix]
@@ -135,27 +150,35 @@ async function indexFiles(dir, prefix = '') {
   return found;
 }
 
-async function run() {
+/**
+ * Zkontroluje hotový `dist/` a při závadách vyhodí se seznamem všech najednou.
+ * Adresář je parametr kvůli testu nad malým vzorovým `dist/` — skutečný vzniká jen
+ * při plném buildu, který CI spustit nemůže.
+ * @param {string} [dir]
+ * @returns {Promise<void>}
+ */
+export async function verifyDist(dir = DIST) {
   const problems = [];
-  const files = await indexFiles(DIST);
+  const files = await indexFiles(dir);
   const canonicals = [];
   const byRoute = new Map();
 
   for (const rel of files) {
     const route = routeForFile(rel);
-    const html = await fs.readFile(path.posix.join(DIST, rel), 'utf8');
+    const html = await fs.readFile(path.posix.join(dir, rel), 'utf8');
     byRoute.set(route, html);
     problems.push(...pageProblems(route, html));
     const href = canonicalHref(html);
     if (href) canonicals.push(href);
   }
   problems.push(...originProblems(canonicals));
+  problems.push(...missingStaticPages(byRoute.keys()));
 
-  const shell = await fs.readFile(path.posix.join(DIST, SHELL), 'utf8').catch(() => null);
+  const shell = await fs.readFile(path.posix.join(dir, SHELL), 'utf8').catch(() => null);
   if (shell === null) problems.push(`chybí ${SHELL} — rewrite by servíroval prerenderovanou homepage`);
   else problems.push(...shellProblems(shell));
 
-  const xml = await fs.readFile(path.posix.join(DIST, 'sitemap.xml'), 'utf8');
+  const xml = await fs.readFile(path.posix.join(dir, 'sitemap.xml'), 'utf8');
   for (const route of sitemapPaths(xml)) {
     const html = byRoute.get(route);
     // Sitemapa slibuje adresy, které chceme ve výsledcích vyhledávání. Chybějící
@@ -172,7 +195,7 @@ async function run() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  run().catch((e) => {
+  verifyDist().catch((e) => {
     console.error(e);
     process.exit(1);
   });

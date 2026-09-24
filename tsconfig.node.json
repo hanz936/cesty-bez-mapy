@@ -3,8 +3,10 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "target": "ES2023",
     "lib": ["ES2023"],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    // Jako tsconfig.scripts.json i dnešní šablona create-vite: relativní import musí mít
+    // příponu. Soubor přesunutý odsud do scripts/ (ty spouští Node napřímo) tak nezačne
+    // padat na tom, co tady prošlo.
+    "module": "nodenext",
     "moduleDetection": "force",
     "types": ["node"],
     "noEmit": true,
@@ -14,12 +16,15 @@
     "strict": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    // Držet zapnuté i tady, ať se tři projekty chovají stejně a soubor přesunutý mezi
-    // nimi nemůže tiše získat syntax, kterou Node neumí odstranit. Viz tsconfig.app.json.
+    // Držet zapnuté ve všech třech projektech, ať soubor přesunutý mezi nimi nemůže
+    // tiše získat syntax, kterou Node neumí odstranit. Viz tsconfig.app.json.
     "erasableSyntaxOnly": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["vite.config.ts"]
+  // middleware.ts je předlaunchová brána před celým webem. Běží na Vercel Edge runtime,
+  // ne v Node: typy `node` tu zachytí překlep nebo špatnou property, ale propustí i API,
+  // které Edge nemá (`Buffer`, `fs`). Nepoužívat v něm nic mimo webové standardy.
+  "include": ["vite.config.ts", "middleware.ts"]
 }
