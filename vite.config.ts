@@ -181,18 +181,6 @@ export default defineConfig({
     css: true,
     // Edge Function tests use https:// imports and run under `deno test`, not Vitest.
     exclude: ['**/node_modules/**', '**/dist/**', 'supabase/functions/**'],
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        'src/test/',
-        '**/*.test.{js,jsx,ts,tsx}',
-        '**/*.spec.{js,jsx,ts,tsx}',
-        'vite.config.ts',
-        'eslint.config.js',
-      ],
-    },
   },
 
   // Performance optimization
