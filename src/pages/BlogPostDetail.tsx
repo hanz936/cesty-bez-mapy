@@ -62,8 +62,9 @@ const BlogPostDetail = () => {
             : await fetchPostBySlug(slug);
         if (!isMounted) return;
         if (!data) {
-          // Článek neexistuje, není (už/ještě) publikovaný, nebo neplatí token náhledu →
-          // definitivní 404, ne chyba → <NotFound /> níže.
+          // Článek neexistuje, není (už/ještě) publikovaný, nebo náhled odmítl token či článek
+          // nenašel (400/404 z get-blog-preview) → definitivní 404, ne chyba → <NotFound /> níže.
+          // Jiné selhání náhledu `fetchPreviewPost` vyhodí → přechodná chyba v catch.
           setNotFoundSlug(slug);
           return;
         }

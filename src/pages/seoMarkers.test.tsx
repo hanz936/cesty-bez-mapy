@@ -168,6 +168,27 @@ describe('static page prerender marker + SEO (SEO-02/05/06)', () => {
     expect(container.querySelector('[data-prerender-ready="true"]')).toBeNull();
   });
 
+  it('BlogPostDetail: náhled, kterému Edge funkce odpoví 500, ukáže chybu načtení, ne NotFound', async () => {
+    // Skutečná `fetchPreviewPost` (ne mock modulu) nad `fetch`, který vrátí 500 — hlídá celé
+    // spojení: lib vyhodí a stránka to vezme jako přechodnou chybu, bez noindexu.
+    const actual = await vi.importActual<typeof import('../lib/blog')>('../lib/blog');
+    vi.mocked(fetchPreviewPost).mockImplementationOnce(actual.fetchPreviewPost);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'Server error' }), { status: 500 })),
+    );
+    try {
+      const { container } = renderBlogPost('?preview=1&token=platny');
+
+      expect(await screen.findByRole('heading', { level: 1, name: 'Článek se nepodařilo načíst.' })).toBeInTheDocument();
+      expect(document.title).toBe('Chyba načítání | Cesty bez mapy');
+      expect(document.head.querySelector('meta[name="robots"]')).toBeNull();
+      expect(container.querySelector('[data-page="not-found"]')).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('BlogPostDetail: náhled s neplatným tokenem vykreslí NotFound s noindex', async () => {
     vi.mocked(fetchPreviewPost).mockResolvedValueOnce(null);
     renderBlogPost('?preview=1&token=neplatny');

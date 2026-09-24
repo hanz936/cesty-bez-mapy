@@ -98,7 +98,15 @@ export async function fetchExistingProductSlugs(slugs: string[]): Promise<Set<st
   return new Set((data ?? []).map((p) => p.slug));
 }
 
-/** Náhled konceptu přes Edge funkci (service-role, token-gated). */
+/**
+ * Náhled konceptu přes Edge funkci (service-role, token-gated).
+ *
+ * `null` = článek definitivně není: `get-blog-preview` vrací 400 (chybí slug nebo neplatný
+ * token) a 404 (článek nenalezen) → stránka vykreslí `<NotFound />`. Jakýkoli jiný neúspěšný
+ * status (500, výpadek brány…) je přechodná chyba a VYHODÍ se, aby ji stránka ukázala jako
+ * chybu načtení, ne jako neexistující článek. `fetch()` na HTTP chybu sám nevyhazuje
+ * (MDN, *Using Fetch*: „fetch() fulfills with a Response"), status se proto kontroluje tady.
+ */
 export async function fetchPreviewPost(slug: string, token: string): Promise<BlogPostFull | null> {
   const base = import.meta.env.VITE_SUPABASE_URL;
   const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -111,7 +119,8 @@ export async function fetchPreviewPost(slug: string, token: string): Promise<Blo
     },
     body: JSON.stringify({ slug, token }),
   });
-  if (!res.ok) return null;
+  if (res.status === 400 || res.status === 404) return null;
+  if (!res.ok) throw new Error(`get-blog-preview: HTTP ${res.status}`);
   // get-blog-preview Edge Function has no published TS types; the response is
   // asserted to the subset of fields this module reads (no runtime shape change,
   // same pattern as src/utils/ares.ts lookupIco).

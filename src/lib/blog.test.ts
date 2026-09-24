@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 
 // Chainovatelný mock query builderu: každá metoda vrací `this`,
 // terminál je await (thenable) → vrátí { data, error } z _result.
@@ -26,7 +26,7 @@ function makeBuilder(): MockBuilder {
 const fromMock = vi.fn<(...args: unknown[]) => unknown>();
 vi.mock('./supabase', () => ({ supabase: { from: (...a: unknown[]) => fromMock(...a) } }));
 
-import { fetchPublishedPosts, fetchPostBySlug, fetchRelatedPosts, fetchExistingProductSlugs } from './blog';
+import { fetchPublishedPosts, fetchPostBySlug, fetchRelatedPosts, fetchExistingProductSlugs, fetchPreviewPost } from './blog';
 
 beforeEach(() => { fromMock.mockReset(); });
 
@@ -86,5 +86,34 @@ describe('fetchExistingProductSlugs', () => {
     const res = await fetchExistingProductSlugs([]);
     expect(res.size).toBe(0);
     expect(fromMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('fetchPreviewPost — definitivní „nenalezeno" vs. přechodná chyba', () => {
+  const POST = { id: 'b1', slug: 'koncept', title: 'Koncept' };
+  const respond = (status: number, body: unknown) =>
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status })));
+
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('200 → článek', async () => {
+    respond(200, { post: POST });
+    await expect(fetchPreviewPost('koncept', 'token')).resolves.toEqual(POST);
+  });
+  it('404 (článek nenalezen) → null', async () => {
+    respond(404, { error: 'Not found' });
+    await expect(fetchPreviewPost('koncept', 'token')).resolves.toBeNull();
+  });
+  it('400 (chybí slug / neplatný token) → null', async () => {
+    respond(400, { error: 'Invalid token' });
+    await expect(fetchPreviewPost('koncept', 'neplatny')).resolves.toBeNull();
+  });
+  it('500 → vyhodí (přechodná chyba, ne neexistující článek)', async () => {
+    respond(500, { error: 'Server error' });
+    await expect(fetchPreviewPost('koncept', 'token')).rejects.toThrow('HTTP 500');
+  });
+  it('503 bez JSON těla (výpadek brány) → vyhodí', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Service Unavailable', { status: 503 })));
+    await expect(fetchPreviewPost('koncept', 'token')).rejects.toThrow('HTTP 503');
   });
 });
