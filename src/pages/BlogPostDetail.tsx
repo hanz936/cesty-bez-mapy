@@ -15,6 +15,8 @@ import { readingTimeMinutes, extractProductSlugs } from '../utils/blogContent';
 import { buildBlogMeta } from '../utils/blogSeo';
 import BlogContentRenderer from '../components/blog/BlogContentRenderer';
 import SeoTags from '../components/common/SeoTags';
+import PageTitle from '../components/common/PageTitle';
+import NotFound from './NotFound';
 
 type BlogPost = NonNullable<Awaited<ReturnType<typeof fetchPostBySlug>>>;
 type BlogTag = Awaited<ReturnType<typeof fetchTags>>[number];
@@ -40,6 +42,9 @@ const BlogPostDetail = () => {
   const [validProductSlugs, setValidProductSlugs] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Slug, pro který článek definitivně není (viz `!data` níže). Svázané se slugem, ne boolean:
+  // po SPA navigaci na jiný článek „nenalezeno" nepřežije do jeho prvního renderu.
+  const [notFoundSlug, setNotFoundSlug] = useState<string | null>(null);
 
   useEffect(() => { window.scrollTo(0, 0); }, [slug]);
 
@@ -50,13 +55,16 @@ const BlogPostDetail = () => {
       try {
         setLoading(true);
         setError(null);
+        setNotFoundSlug(null);
         const data =
           isPreview && previewToken
             ? await fetchPreviewPost(slug, previewToken)
             : await fetchPostBySlug(slug);
         if (!isMounted) return;
         if (!data) {
-          setError('Článek nebyl nalezen.');
+          // Článek neexistuje, není (už/ještě) publikovaný, nebo neplatí token náhledu →
+          // definitivní 404, ne chyba → <NotFound /> níže.
+          setNotFoundSlug(slug);
           return;
         }
         setPost(data);
@@ -97,9 +105,18 @@ const BlogPostDetail = () => {
     );
   }
 
+  // Definitivně nenalezeno → stránka 404 s `noindex`. Proč ho smí vydat jen stránka, která
+  // opravdu ví, že nic nenašla (a ne přechodná chyba níže), vysvětluje komentář v NotFound.tsx.
+  if (notFoundSlug !== null && notFoundSlug === slug) {
+    return <NotFound />;
+  }
+
+  // Přechodná chyba (síť, DB) — záměrně BEZ `noindex`, článek nejspíš existuje. Titulek ano,
+  // jinak by zůstal ten z předchozí stránky.
   if (error || !post) {
     return (
       <Layout>
+        <PageTitle title="Chyba načítání" />
         <div className="min-h-screen bg-white flex items-center justify-center px-4">
           <div className="max-w-md text-center">
             <div className="mb-6"><span className="text-6xl">😔</span></div>

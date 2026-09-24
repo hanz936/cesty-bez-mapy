@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { CartProvider } from '../contexts';
 import { PRODUCT_REVIEWS_LIMIT } from '../constants/reviews';
 
@@ -131,15 +131,18 @@ describe('ProductDetail per-route SEO + Product JSON-LD + marker (SEO-03)', () =
     expect(breadcrumb.itemListElement[1]).not.toHaveProperty('item');
   });
 
-  it('při chybě/nenalezení produktu marker NEvykreslí (žádné prerendrování 404)', async () => {
+  it('nenalezený produkt (PGRST116) vykreslí NotFound s noindex a bez markeru (I-2)', async () => {
     const builder = makeBuilder({ data: null, error: { code: 'PGRST116' } });
     fromMock.mockReturnValue(builder);
 
     const { container } = renderProductDetail('neexistujici');
 
-    await waitFor(() => {
-      expect(container.querySelector('h1')).toHaveTextContent('Produkt nebyl nalezen');
-    });
+    // Deaktivovaný nebo smazaný produkt: jeho dřív indexovaná adresa musí dostat
+    // noindex, jinak z ní Google (a Seznam, který zná jen meta robots) udělá soft 404.
+    expect(await screen.findByRole('heading', { level: 1, name: 'Stránka nenalezena' })).toBeInTheDocument();
+    expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex');
+    expect(document.title).toBe('Stránka nenalezena | Cesty bez mapy');
+    expect(container.querySelector('[data-page="not-found"]')).not.toBeNull();
 
     expect(container.querySelector('[data-prerender-ready="true"]')).toBeNull();
     // Footer vykresluje vlastní Organization JSON-LD vždy (SEO-08) — ověřujeme jen,
@@ -147,8 +150,56 @@ describe('ProductDetail per-route SEO + Product JSON-LD + marker (SEO-03)', () =
     const scripts = [...container.querySelectorAll('script[type="application/ld+json"]')];
     const hasProductJsonLd = scripts.some((s) => (JSON.parse(s.textContent) as { '@type': string })['@type'] === 'Product');
     expect(hasProductJsonLd).toBe(false);
-    // PGRST116 → setError bez throw: žádný catch se nespustí, do Sentry se nic nehlásí
+    // PGRST116 není chyba: žádný catch se nespustí, do Sentry se nic nehlásí
     expect(captureExceptionMock).not.toHaveBeenCalled();
+  });
+
+  it('přechodná chyba načtení: dosavadní chybové UI, titulek „Chyba načítání", BEZ noindex', async () => {
+    const builder = makeBuilder({ data: null, error: { code: '57014', message: 'canceling statement due to statement timeout' } });
+    fromMock.mockReturnValue(builder);
+
+    const { container } = renderProductDetail();
+
+    await waitFor(() => {
+      expect(container.querySelector('h1')).toHaveTextContent('canceling statement due to statement timeout');
+    });
+    // Produkt nejspíš existuje — noindex by ho mohl vyřadit z indexu.
+    expect(document.head.querySelector('meta[name="robots"]')).toBeNull();
+    expect(document.title).toBe('Chyba načítání | Cesty bez mapy');
+    expect(container.querySelector('[data-page="not-found"]')).toBeNull();
+    expect(container.querySelector('[data-prerender-ready="true"]')).toBeNull();
+  });
+
+  it('SPA navigace z nenalezeného produktu na existující: NotFound nepřežije', async () => {
+    fromMock
+      .mockReturnValueOnce(makeBuilder({ data: null, error: { code: 'PGRST116' } }))
+      .mockReturnValue(makeBuilder({ data: fixtureProduct, error: null }));
+
+    function GoTo() {
+      const navigate = useNavigate();
+      return (
+        <button type="button" onClick={() => void navigate('/cestovni-pruvodci/toskansko')}>
+          jinam
+        </button>
+      );
+    }
+    const { container } = render(
+      <CartProvider>
+        <MemoryRouter initialEntries={['/cestovni-pruvodci/neexistujici']}>
+          <GoTo />
+          <Routes>
+            <Route path="/cestovni-pruvodci/:slug" element={<ProductDetail />} />
+          </Routes>
+        </MemoryRouter>
+      </CartProvider>,
+    );
+    await screen.findByRole('heading', { level: 1, name: 'Stránka nenalezena' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'jinam' }));
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Toskánsko na 7 dní' })).toBeInTheDocument();
+    expect(container.querySelector('[data-page="not-found"]')).toBeNull();
+    expect(document.head.querySelector('meta[name="robots"]')).toBeNull();
   });
 
   it('výpadek recenzí neshodí stránku — produkt se vykreslí a JSON-LD nese aggregateRating bez review', async () => {

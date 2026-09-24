@@ -10,6 +10,8 @@ import { supabase } from '../lib/supabase';
 import { useCart } from '../contexts';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import SeoTags from '../components/common/SeoTags';
+import PageTitle from '../components/common/PageTitle';
+import NotFound from './NotFound';
 import { buildProductMeta, productDisplayName } from '../utils/productSeo';
 import { fetchApprovedReviews } from '../lib/reviews';
 import type { PublicReview } from '../lib/reviews';
@@ -50,6 +52,9 @@ const ProductDetail = () => {
   const [product, setProduct] = useState<ProductDetailRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Slug, pro který DB definitivně nic nevrátila (PGRST116). Svázané se slugem, ne boolean:
+  // po SPA navigaci na jiný produkt „nenalezeno" nepřežije do jeho prvního renderu.
+  const [notFoundSlug, setNotFoundSlug] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
@@ -70,6 +75,7 @@ const ProductDetail = () => {
       try {
         setLoading(true);
         setError(null);
+        setNotFoundSlug(null);
         setReviewsFetchFailed(false);
         // SPA nav mezi produkty: bez resetu by JSON-LD (a `preloaded` pro ProductReviews)
         // nesly recenze predchoziho produktu, kdyz novy fetch selze nebo produkt recenze nema.
@@ -99,8 +105,9 @@ const ProductDetail = () => {
 
         if (fetchError) {
           if (fetchError.code === 'PGRST116') {
-            // No rows returned
-            setError('Produkt nebyl nalezen');
+            // Žádný řádek pro slug + is_active + !is_deleted: produkt neexistuje, byl
+            // deaktivovaný nebo smazaný. To je definitivní 404, ne chyba → <NotFound /> níže.
+            setNotFoundSlug(slug!);
           } else {
             throw fetchError;
           }
@@ -290,10 +297,19 @@ const ProductDetail = () => {
     );
   }
 
-  // Error state
+  // Definitivně nenalezeno → stránka 404 s `noindex`. Proč ho smí vydat jen stránka, která
+  // opravdu ví, že nic nenašla (a ne přechodná chyba níže), vysvětluje komentář v NotFound.tsx.
+  // Po deaktivaci produktu (A9 hned přestaví web) sem padá jeho dříve indexovaná adresa.
+  if (notFoundSlug !== null && notFoundSlug === slug) {
+    return <NotFound />;
+  }
+
+  // Error state — přechodná chyba (síť, DB). Záměrně BEZ `noindex`: produkt nejspíš existuje
+  // a noindex by ho mohl vyřadit z indexu. Titulek ano, jinak by zůstal ten z předchozí stránky.
   if (error || !product) {
     return (
       <Layout>
+        <PageTitle title="Chyba načítání" />
         <div className="min-h-screen bg-white flex items-center justify-center px-4">
           <div className="max-w-md text-center">
             <div className="mb-6">

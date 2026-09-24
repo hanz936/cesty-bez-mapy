@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { CartProvider } from '../contexts';
@@ -9,7 +9,7 @@ import TravelInspiration from './TravelInspiration';
 import Reviews from './Reviews';
 import CustomItineraryDetail from './CustomItineraryDetail';
 import BlogPostDetail from './BlogPostDetail';
-import { fetchPostBySlug, fetchPublishedPosts } from '../lib/blog';
+import { fetchPostBySlug, fetchPreviewPost, fetchPublishedPosts } from '../lib/blog';
 
 // Článek pro BlogPostDetail. `vi.hoisted` proto, že továrna `vi.mock` se vytahuje
 // nad importy — obyčejná konstanta by v ní byla ještě neinicializovaná.
@@ -120,10 +120,10 @@ describe('static page prerender marker + SEO (SEO-02/05/06)', () => {
   // /inspirace/:slug vznikají z publikovaných článků a blog zatím žádný nemá,
   // takže prerender tuhle stránku nikdy nenavštíví. Bez těchhle dvou testů by
   // ztráta markeru vyplavala až prvním Janiným článkem — spadlým buildem.
-  const renderBlogPost = () =>
+  const renderBlogPost = (search = '') =>
     render(
       <CartProvider>
-        <MemoryRouter initialEntries={[`/inspirace/${BLOG_POST.slug}`]}>
+        <MemoryRouter initialEntries={[`/inspirace/${BLOG_POST.slug}${search}`]}>
           <Routes>
             <Route path="/inspirace/:slug" element={<BlogPostDetail />} />
           </Routes>
@@ -149,6 +149,32 @@ describe('static page prerender marker + SEO (SEO-02/05/06)', () => {
       expect(container.querySelector('[data-loading="true"]')).toBeNull();
     });
     expect(container.querySelector('[data-prerender-ready="true"]')).toBeNull();
+    // Přechodná chyba: dosavadní chybové UI, vlastní titulek, ale BEZ noindex —
+    // článek nejspíš existuje (I-2, N-F-1).
+    expect(screen.getByRole('heading', { level: 1, name: 'Článek se nepodařilo načíst.' })).toBeInTheDocument();
+    expect(document.title).toBe('Chyba načítání | Cesty bez mapy');
+    expect(document.head.querySelector('meta[name="robots"]')).toBeNull();
+    expect(container.querySelector('[data-page="not-found"]')).toBeNull();
+  });
+
+  it('BlogPostDetail: neexistující/nepublikovaný článek vykreslí NotFound s noindex (I-2)', async () => {
+    vi.mocked(fetchPostBySlug).mockResolvedValueOnce(null);
+    const { container } = renderBlogPost();
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Stránka nenalezena' })).toBeInTheDocument();
+    expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex');
+    expect(document.title).toBe('Stránka nenalezena | Cesty bez mapy');
+    expect(container.querySelector('[data-page="not-found"]')).not.toBeNull();
+    expect(container.querySelector('[data-prerender-ready="true"]')).toBeNull();
+  });
+
+  it('BlogPostDetail: náhled s neplatným tokenem vykreslí NotFound s noindex', async () => {
+    vi.mocked(fetchPreviewPost).mockResolvedValueOnce(null);
+    renderBlogPost('?preview=1&token=neplatny');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Stránka nenalezena' })).toBeInTheDocument();
+    expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex');
+    expect(vi.mocked(fetchPreviewPost)).toHaveBeenCalledWith(BLOG_POST.slug, 'neplatny');
   });
 
   it('CustomItineraryDetail vydá marker až po doběhnutí recenzí', async () => {
