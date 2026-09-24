@@ -117,13 +117,14 @@ describe('orientační body dokumentu', () => {
 
   it('strážce navigací opravdu vidí všechny `<nav>` v repu', () => {
     // Bez tohohle by rozbitý regulární výraz, který nenajde nic, nechal předchozí
-    // test zelený navždy. 10 = hlavní menu, jeho záložní podoba, patička, drobečky,
-    // stránkování a pět zpětných odkazů na stránkách.
+    // test zelený navždy. Dolní mez, ne přesný počet — každá nová legitimní `<nav>`
+    // by jinak test shodila. Dnes 10 = hlavní menu, jeho záložní podoba, patička,
+    // drobečky, stránkování a pět zpětných odkazů na stránkách.
     const count = sourceFiles().reduce(
       (sum, file) => sum + Array.from(readFileSync(`${SRC}/${file}`, 'utf8').matchAll(NAVIGATION_TAG)).length,
       0,
     );
 
-    expect(count).toBe(10);
+    expect(count).toBeGreaterThanOrEqual(10);
   });
 });

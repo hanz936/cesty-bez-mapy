@@ -72,7 +72,8 @@ describe('fokus v režimu vynucených barev', () => {
     }
 
     expect(missing).toEqual(WITHOUT_INDICATOR);
-    // Pojistka proti výrazu, který nenajde nic: 29 řetězců tříd v 17 souborech.
-    expect(checked).toBe(29);
+    // Pojistka proti výrazu, který nenajde nic — dolní mez, ne přesný počet, aby test
+    // nepadal na každém novém legitimním `outline-hidden`. Dnes 29 řetězců tříd v 17 souborech.
+    expect(checked).toBeGreaterThanOrEqual(29);
   });
 });
