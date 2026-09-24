@@ -1,0 +1,14 @@
+{
+  // Testy běží ve Vitestu (jsdom + Node), aplikace v prohlížeči. Proto vlastní projekt: testy
+  // dostanou globály Vitestu a typy Node (`node:fs`, `global`), aplikační kód v tsconfig.app.json
+  // ani jedno nevidí, takže `process` nebo `describe` v něm shodí type-check. Vitest 3 typy Node
+  // do aplikace tiše zatahoval přes `vitest/globals`. Vzor: tsconfig.vitest.json ze šablony create-vue.
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    "types": ["vite/client", "vitest/globals", "node"]
+  },
+  // Aplikační kód, který testy importují, sem přibude přes rozlišení modulů sám.
+  "include": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test"],
+  "exclude": []
+}

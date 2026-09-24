@@ -291,7 +291,6 @@ const OrderConfirmation = React.memo(() => {
       attempts++;
 
       if (!done && attempts < maxAttempts) {
-        // eslint-disable-next-line @typescript-eslint/no-misused-promises -- pre-existing async `poll` passed to setTimeout; return value is ignored by design (fire-and-forget)
         pollingRef.current = setTimeout(poll, 1000);
       } else if (attempts >= maxAttempts && !order) {
         setError('Zpracování objednávky trvá déle než obvykle. Kontaktujte nás prosím.');

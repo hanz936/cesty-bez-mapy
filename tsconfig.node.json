@@ -16,8 +16,9 @@
     "strict": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    // Držet zapnuté ve všech třech projektech, ať soubor přesunutý mezi nimi nemůže
-    // tiše získat syntax, kterou Node neumí odstranit. Viz tsconfig.app.json.
+    // Držet zapnuté ve všech projektech (tsconfig.test.json ho dědí z app), ať soubor
+    // přesunutý mezi nimi nemůže tiše získat syntax, kterou Node neumí odstranit.
+    // Viz tsconfig.app.json.
     "erasableSyntaxOnly": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,

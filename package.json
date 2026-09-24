@@ -60,7 +60,7 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.62.1",
     "vite": "^7.0.4",
-    "vitest": "^3.2.4",
+    "vitest": "^5.0.1",
     "vokativ": "^1.0.1"
   },
   "engines": {

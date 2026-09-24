@@ -8,7 +8,7 @@
     "allowImportingTsExtensions": true,
     "moduleDetection": "force",
     "jsx": "react-jsx",
-    "types": ["vite/client", "vitest/globals"],
+    "types": ["vite/client"],
     "noEmit": true,
     "skipLibCheck": true,
     "strict": true,
@@ -25,5 +25,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Testy a jejich setup typuje tsconfig.test.json (globály Vitestu, typy Node).
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test"]
 }

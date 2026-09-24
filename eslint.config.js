@@ -74,7 +74,7 @@ export default defineConfig(
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
-  // Testy — globals (describe/it/expect); pro TS testy typy řeší vitest/globals v tsconfig
+  // Testy — globals (describe/it/expect); pro TS testy typy řeší vitest/globals v tsconfig.test.json
   {
     files: ['**/*.test.{js,jsx,ts,tsx}', '**/__tests__/**/*.{js,jsx,ts,tsx}'],
     languageOptions: {
