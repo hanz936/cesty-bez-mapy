@@ -1,9 +1,60 @@
 # Dedikovaná stránka recenzí pro produkt
 
 **Datum:** 2026-08-07
-**Repo:** `cesty-bez-mapy` (frontend). Admin ani databáze se nemění.
+**Repo:** `cesty-bez-mapy` (frontend). Admin ani databáze se nemění. *(Překonáno — databáze se mění, viz [odchylky](#stav-po-implementaci--odchylky), bod 1.)*
 **Stav:** ověřeno třemi koly nezávislých auditů (Opus 5) proti živým dokumentacím; nálezy zapracovány.
-**Repo (upřesnění):** frontend, plus **jedna** databázová migrace (deploy-hook trigger na `reviews`).
+**Repo (upřesnění):** frontend, plus **jedna** databázová migrace (deploy-hook trigger na `reviews`). *(Překonáno — šest migrací, viz [odchylky](#stav-po-implementaci--odchylky), bod 1.)*
+
+## Stav po implementaci / odchylky
+
+Tahle specifikace je návrh z 2026-08-07. Kód se od ní na několika místech vědomě odchyluje —
+každá odchylka je rozhodnutí uživatele po auditu větve (2026-08-31, opravná kola A1–A14) nebo po
+její finální revizi (2026-09-24). Deník rozhodnutí (`.superpowers/…/progress.md`) v gitu není,
+proto je výsledek zapsaný tady. Překonané věty níž nesou odkaz na příslušný bod.
+
+1. **Databáze se mění: šest migrací místo jedné.**
+   - `20260820213017` — deploy hook na `reviews` (původní návrh).
+   - `20260901075731` (A2) — trvalý záznam volání `deploy_hook_dispatches`, sdílený helper
+     `trigger_vercel_deploy` s deduplikací per transakce a sběrač výsledků na pg_cron. Hromadná
+     akce v adminu dřív spálila jeden z 60 hodinových triggerů Vercelu na každý řádek a chybějící
+     tajemství ani odpověď 429 nezanechaly stopu.
+   - `20260901194427` (A5) — stráž `reject_manual_rating_write` a zámek řádku produktu
+     v `refresh_product_rating` (souběžná schválení si přepisovala agregáty).
+   - `20260915100215` (A6) — `average_rating` drží přesný průměr (bod 3).
+   - `20260923202547` (A9) — deploy hook i na změny `products` a `categories`; katalog a detail by
+     se jinak přestavěly až s nesouvisející změnou.
+   - `20260924…_retry_failed_deploy_hooks` (finální revize, M-2 + M-4) — sběrač znovu pošle
+     přechodně neúspěšný deploy hook (bez odpovědi, 408, 429, 5xx; odstup 15 → 30 → 60 min…,
+     respektuje `Retry-After` / `x-ratelimit-reset`, po 24 h to vzdá; jiné 4xx neopakuje) a řádky
+     `deduplicated` se uzavírají hned (`checked_at`).
+
+   Kód adminu se nemění; upravil se jen plán jeho dashboardu (čtyři zdroje deploy hooku).
+2. **Disclosure není u recenzí, ale na vlastní stránce.** Rozhodnutí uživatele (č. 22, potvrzené
+   po auditu P-7 2026-09-15): stránka `/overovani-recenzi` s popisem ověřování, odkaz v patičce
+   a od A10 i z formuláře recenze. Riziko, že patička je měkčí výklad, než jaký čtou ČOI a dTest,
+   bylo sděleno a přijato vědomě; důvody jsou zapsané v `src/components/reviews/disclosure.ts`.
+3. **Průměr se zaokrouhluje jen na webu, jednou** (A6). DB drží přesný průměr (`numeric` bez
+   přesnosti), web ho zaokrouhlí na jedno desetinné místo (`roundRating` v `src/utils/rating.ts`)
+   pro text, hvězdy, JSON-LD `ratingValue` i filtr katalogu. Dvojí zaokrouhlení
+   (`round(avg, 2)` a pak web) posouvalo výsledek o desetinu nahoru: 4,545… → 4.55 → „4,6".
+4. **`count: 'exact'` jen na vyžádání** (A1/R-4). `fetchApprovedReviews` si počet vyžádá jen tam,
+   kde `total` opravdu použije; stránka recenzí stránkuje podle `products.review_count`. S `count`
+   vrací PostgREST na rozsah mimo data 416 a ten při prerenderu shodil build; 416 je navíc
+   zachycený a přeložený na prázdný výsledek.
+5. **Sitemapa se skládá z hotového `dist/`** (finální revize, M-3): uvádí předgenerované stránky
+   bez `noindex`. Dřív se sitemapa ptala Supabase zvlášť, pár minut po prerenderu, a když se mezi
+   tím obsah změnil (první schválená recenze, aktivace produktu, publikace článku), `verify-dist`
+   build shodil.
+6. **Chybějící produkt nebo článek vykreslí `<NotFound />` s `noindex`** (finální revize, I-2).
+   Deaktivovaný produkt (A9 web hned přestaví) jinak nechal dřív indexovanou adresu jako „měkkou
+   404" bez `noindex`. Přechodná chyba načtení `noindex` nedostane (stránka nejspíš existuje),
+   jen titulek „Chyba načítání".
+7. **Z „Mimo rozsah" se do větve dostaly:** #1 `noindex` na `NotFound` (A4/P-2), #3 natvrdo
+   nastavené `ready` na `/recenze` (A1 — stránka čeká, až se ustálí sekce recenzí), #5
+   `count: 'exact'` (bod 4) a #6 builder cesty proti `ROUTES` (A3 — `productDetailPath`
+   s drift testem v `routes.test.ts`).
+8. **Vitest 5.0.1 místo 3** (A14): bezpečnostní oprava (GHSA-82fw-gwwq-j7x9) existuje jen v major
+   verzi. Typy matcherů jest-dom zajišťuje shim v `src/test/setup.ts`.
 
 ## Problém
 
@@ -74,7 +125,7 @@ kterým plán argumentuje na třech jiných místech.
 | `Product` musí nést **aspoň jedno** z `review` / `aggregateRating` / `offers` → produkt bez recenzí nedostane JSON-LD vůbec **[2. kolo]** | Google, *Product snippet* (2025-12-10): „You must include one of the following properties: review, aggregateRating, offers“ |
 | Na detailu produktu se `review[]` zkrátí na 3 zobrazené | Google, *Structured data general guidelines* (2026-07-10): „include all of the reviews that are **visible** to people on the page“; „**Don't** mark up content that is not visible“ |
 | `aggregateRating` smí na detailu zůstat jen se **zobrazeným** průměrem | Google, *Review snippet* (2026-07-24): „If you use `AggregateRating`, users should be able to see that aggregate rating on the page“ |
-| Zobrazený průměr a `ratingValue` musí být **totéž číslo** → jedna sdílená zaokrouhlovací funkce **[2. kolo]** | DB drží `round(avg, 2)` (`20260711130000_add_reviews_system.sql:88`), tedy např. `4.67`, zatímco souhrn zobrazuje `4,7`. Google, *Structured data general guidelines* (2026-07-10): „Don't mark up content that is not visible to readers of the page“ |
+| Zobrazený průměr a `ratingValue` musí být **totéž číslo** → jedna sdílená zaokrouhlovací funkce **[2. kolo]** | DB drží `round(avg, 2)` (`20260711130000_add_reviews_system.sql:88`), tedy např. `4.67`, zatímco souhrn zobrazuje `4,7`. *(Překonáno — DB drží přesný průměr, viz [odchylky](#stav-po-implementaci--odchylky), bod 3.)* Google, *Structured data general guidelines* (2026-07-10): „Don't mark up content that is not visible to readers of the page“ |
 | Aktuální strana stránkování **zůstává odkazem** s `aria-current="page"` **[2. kolo]** | W3C Design System, *Pagination*: „it is fully linked so users of Assistive Technology can find which is the currently active link“. Rozhodl uživatel 2026-08-07 |
 | `robots` je jen `noindex`, bez `follow` **[2. kolo]** | Google, *Robots meta tag* (2026-03-24) — `follow` není mezi platnými pravidly; následování odkazů je výchozí chování. Seznam `follow` uvádí, ale jako **výchozí hodnotu**, takže vynechání nic nemění |
 | SPA skořápka se oddělí od homepage do `dist/app-shell.html`; rewrite míří na ni **[3. kolo]** | `dist/index.html` dnes slouží jako prerenderovaná homepage **i** jako cíl rewritu `/(.*) → /`. Jeden canonical nemůže být správný pro obojí. Google, *Consolidate duplicate URLs* (2026-07-10): „If you can't set the canonical URL in the HTML source code, leave it out and only set it with JavaScript." Rozhodl uživatel 2026-08-07 |
@@ -90,7 +141,7 @@ kterým plán argumentuje na třech jiných místech.
 | Každá strana má **vlastní** canonical | Google, *Pagination* (2025-12-10): „Don't use the first page of a paginated sequence as the canonical page“ |
 | Stránkování **v cestě**, ne v query parametru | Google, *Consolidate duplicate URLs* (2026-07-10): „specify the canonical URL in the HTML source code and **make sure that JavaScript doesn't change the canonical link element**“ — viz „Proč cesta a ne parametr“ níže |
 | Odkaz zpět na první stranu z každé strany | Google, *Pagination* (2025-12-10) |
-| Disclosure na každé stránce, kde recenze zobrazujeme | § 5a odst. 5 zákona č. 634/1992 Sb.; v repu `src/components/reviews/disclosure.ts`. Podpůrně Google, *Review snippet* (2026-07-24): „Don't include fake or **undisclosed** incentivized reviews“ |
+| Disclosure na každé stránce, kde recenze zobrazujeme *(překonáno — vlastní stránka a odkaz v patičce, viz [odchylky](#stav-po-implementaci--odchylky), bod 2)* | § 5a odst. 5 zákona č. 634/1992 Sb.; v repu `src/components/reviews/disclosure.ts`. Podpůrně Google, *Review snippet* (2026-07-24): „Don't include fake or **undisclosed** incentivized reviews“ |
 | Průměr vždy s počtem hodnocení | Baymard — bez počtu uživatelé průměru nedůvěřují |
 | Rozpad hodnocení (graf 5★…1★) se **nestaví** | Baymard: „consider hiding the ratings UI when there are less than 5 ratings“ — v DB je dnes 1 schválená recenze |
 
@@ -151,10 +202,10 @@ a ve stránkách. Každou jednotku lze testovat samostatně přes props.
 
 ### Databáze
 
-**Jedna migrace [2. kolo].** Agregáty se nemění — `products.average_rating` a `review_count`
+**Jedna migrace [2. kolo].** *(Překonáno — šest migrací, viz [odchylky](#stav-po-implementaci--odchylky), bod 1.)* Agregáty se nemění — `products.average_rating` a `review_count`
 dál udržuje trigger `refresh_product_rating` (migrace `20260711130000_add_reviews_system.sql:76,100`,
 ověřeno, že počítá **jen schválené** recenze) a `fetchApprovedReviews` už přijímá `productId`,
-`limit`, `offset` a vrací `count: 'exact'`.
+`limit`, `offset` a vrací `count: 'exact'`. *(Překonáno — `count` jen na vyžádání, viz [odchylky](#stav-po-implementaci--odchylky), bod 4.)*
 
 Přibývá ale trigger `trg_reviews_deploy_hook`, který po změně schválených recenzí volá Vercel
 deploy hook — stejně jako `trg_blog_publish_deploy` u blogu. Bez něj by prerenderovaný `noindex`
@@ -199,7 +250,8 @@ Při současném objemu je `count: 'exact'` bez výhrad v pořádku.
   jen když produkt `hero_subtitle` má; jinak `description` z JSON-LD vypadne úplně (fallback na
   meta description by markoval marketingovou větu, která na stránce nikde není).
 - **`REVIEWS_DISCLOSURE`** pod nadpisem, stejně jako na detailu (`ProductReviews.tsx:104`).
-  Zákonná povinnost, ne kosmetika.
+  Zákonná povinnost, ne kosmetika. *(Překonáno — disclosure je na `/overovani-recenzi`, viz
+  [odchylky](#stav-po-implementaci--odchylky), bod 2.)*
 - **10 recenzí na stranu, jeden sloupec, plný text bez ořezu.** Odstavec dostane omezenou
   šířku řádku kvůli čitelnosti — třísloupcová mřížka je pro texty do 2 000 znaků nevhodná.
 - Stránkování dole: předchozí / čísla stran / další, plus odkaz na první stranu.
@@ -316,7 +368,8 @@ Vitest + React Testing Library, ve stylu `ProductReviews.test.tsx` a `ReviewsSec
   má přístupný název.
 - `ProductReviewsPage` — offset pro stranu 2; počet stran z `review_count`; **strana mimo rozsah
   se ořízne bez odeslání dotazu** (regrese na PostgREST 416); přesměrování při `/strana/1`
-  a při nečíselném vstupu; prázdný stav; chybový stav; **vykreslí disclosure**.
+  a při nečíselném vstupu; prázdný stav; chybový stav; **vykreslí disclosure**. *(Poslední bod překonán —
+  disclosure na stránce není, viz [odchylky](#stav-po-implementaci--odchylky), bod 2.)*
 - `ReviewsPagination` — `aria-current` na aktuální straně; `aria-label` u každého odkazu;
   adresy odkazů; odkaz na první stranu.
 - `productSeo` — stránka recenzí nemá `offers`; `review[]` se rovná počtu vykreslených recenzí;
@@ -360,9 +413,11 @@ Při dnešním objemu (jedna schválená recenze) je to teoretické.
 
 **Strana mimo rozsah se řeší klientským přesměrováním, ne stavem 404.** Google pro měkké 404 v SPA
 dokumentuje dvě cesty — JS redirect na adresu vracející 404, nebo `noindex` přidaný JavaScriptem.
-Volíme přesměrování na nejbližší platnou stranu (rozhodnutí uživatele) doplněné o `noindex`, protože
-`history.replaceState` Googlebot nevidí jako přesměrování. Tyhle adresy se nikde neodkazují ani
-nedávají do sitemapy.
+Volíme přesměrování na nejbližší platnou stranu (rozhodnutí uživatele) **bez** `noindex` — `Navigate`
+komponentu odmountuje dřív, než by značku renderující crawler viděl (viz odrážku o přesměrovací
+větvi v „Přístupnosti" výš, **[3. kolo]**). Protože `history.replaceState` Googlebot nevidí jako
+přesměrování, ale jako obsah pod původní adresou, ochranu obstará `canonical` cílové strany. Tyhle
+adresy se nikde neodkazují ani nedávají do sitemapy.
 
 ## Před sloučením ověřit ručně
 

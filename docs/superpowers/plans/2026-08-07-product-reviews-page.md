@@ -1,5 +1,7 @@
 # Dedikovaná stránka recenzí pro produkt — implementační plán
 
+> **Stav po implementaci:** kód se od plánu na několika místech vědomě odchyluje (šest migrací, disclosure na `/overovani-recenzi`, přesný průměr v DB, `count` na vyžádání, sitemapa z `dist/`, Vitest 5 aj.) — viz sekci [„Stav po implementaci / odchylky" ve specifikaci](../specs/2026-08-07-product-reviews-page-design.md#stav-po-implementaci--odchylky).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Dát recenzím každého produktu vlastní stránku s plnými texty a stránkováním v cestě; na detailu produktu nechat klikatelný souhrn hodnocení a tři ukázkové recenze.
