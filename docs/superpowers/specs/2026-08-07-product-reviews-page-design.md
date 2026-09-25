@@ -23,12 +23,17 @@ proto je výsledek zapsaný tady. Překonané věty níž nesou odkaz na přísl
    - `20260915100215` (A6) — `average_rating` drží přesný průměr (bod 3).
    - `20260923202547` (A9) — deploy hook i na změny `products` a `categories`; katalog a detail by
      se jinak přestavěly až s nesouvisející změnou.
-   - `20260924…_retry_failed_deploy_hooks` (finální revize, M-2 + M-4) — sběrač znovu pošle
-     přechodně neúspěšný deploy hook (bez odpovědi, 408, 429, 5xx; odstup 15 → 30 → 60 min…,
-     respektuje `Retry-After` / `x-ratelimit-reset`, po 24 h to vzdá; jiné 4xx neopakuje) a řádky
-     `deduplicated` se uzavírají hned (`checked_at`).
+   - `20260924…_retry_failed_deploy_hooks` (finální revize, M-2 + M-4, N-2) — sběrač znovu pošle
+     přechodně odmítnutý deploy hook (bez odpovědi, 408, 429, 5xx; jiné 4xx neopakuje). Odstup
+     15 → 30 → 60 min…, respektuje `Retry-After` / `x-ratelimit-reset`; rozpočet 24 h patří jedné
+     změně — nová změna začíná znovu od 15 minut, i když předchozí to vzdala. Opakování jsou řádky
+     s `retry_of` a počítají se pod zdrojem původního požadavku; řádky `deduplicated` se uzavírají
+     hned (`checked_at`). Známé omezení: nasazení, které Vercel přijme (2xx) a které pak selže
+     nebo narazí na denní limit, sběrač nevidí.
 
-   Kód adminu se nemění; upravil se jen plán jeho dashboardu (čtyři zdroje deploy hooku).
+   Kód adminu se nemění; upravily se jen dokumenty jeho dashboardu (plán, specifikace
+   a předávka): čtyři zdroje deploy hooku, sémantika `retry_of` a uzavřených deduplikovaných
+   řádků a známé omezení výš.
 2. **Disclosure není u recenzí, ale na vlastní stránce.** Rozhodnutí uživatele (č. 22, potvrzené
    po auditu P-7 2026-09-15): stránka `/overovani-recenzi` s popisem ověřování, odkaz v patičce
    a od A10 i z formuláře recenze. Riziko, že patička je měkčí výklad, než jaký čtou ČOI a dTest,
@@ -188,7 +193,7 @@ vlastní záznam, takže i jeho stránka recenzí funguje.
 | `SeoTags` (úprava) | Volitelná `robots` meta značka | žádné |
 | `lib/reviews.ts` (doplnění) | Dotazy do DB, řazení s rozhodujícím druhým klíčem | Supabase |
 | `scripts/contentSlugs.mjs` (úprava) | `fetchProductSlugs()` musí vracet i `review_count` | Supabase REST |
-| `scripts/prerender.mjs`, `scripts/sitemap.mjs` (úprava) | Routy recenzí včetně dalších stran | `contentSlugs`, `constants/reviews` |
+| `scripts/prerender.mjs`, `scripts/sitemap.mjs` (úprava) | Routy recenzí včetně dalších stran *(sitemapa překonána — skládá se z `dist/`, viz [odchylky](#stav-po-implementaci--odchylky), bod 5)* | `contentSlugs`, `constants/reviews` |
 | `constants/reviews.ts` (nová) **[2. kolo]** | `REVIEWS_PAGE_SIZE`, `PRODUCT_REVIEWS_LIMIT`, `MAX_PRERENDERED_REVIEW_PAGES`, `clampPage()` | žádné |
 | `utils/rating.ts` (nová) **[2. kolo]** | Zaokrouhlení průměru pro zobrazení i pro `ratingValue` | žádné |
 | `components/reviews/paginationItems.ts` (nová) **[2. kolo]** | Které strany se ve stránkování vypíšou (zkrácení dlouhých sekvencí) | žádné |
@@ -212,11 +217,13 @@ deploy hook — stejně jako `trg_blog_publish_deploy` u blogu. Bez něj by prer
 u produktu bez recenzí zůstal i po schválení první recenze, a hlubší strany by vznikaly v živém
 DOMu dřív, než pro ně existuje statické HTML. Klientsky se to spravit nedá: u `noindex` může
 Google rendering a vykonání JavaScriptu přeskočit.
-Žádná migrace, žádná nová RLS politika, žádné nové sloupce.
+Žádná migrace, žádná nová RLS politika, žádné nové sloupce. *(Překonáno — šest migrací a nové
+sloupce v `deploy_hook_dispatches`, viz [odchylky](#stav-po-implementaci--odchylky), bod 1.)*
 
 Do budoucna (ne teď): až počet recenzí poroste, bude se hodit složený index
 `(product_id, created_at DESC)` — dnešní migrace má jen `(product_id, status)` a `(created_at DESC)`.
-Při současném objemu je `count: 'exact'` bez výhrad v pořádku.
+Při současném objemu je `count: 'exact'` bez výhrad v pořádku. *(Překonáno — `count` jen na
+vyžádání kvůli 416, viz [odchylky](#stav-po-implementaci--odchylky), bod 4.)*
 
 ## Chování
 
@@ -323,7 +330,9 @@ způsobilými pro review snippet vůbec není.
   source code, leave it out and only set it with JavaScript.“
 - Prerenderují se i další strany; jejich počet plyne z `review_count`, který proto musí
   `fetchProductSlugs()` vracet (`scripts/contentSlugs.mjs:25` dnes selectuje jen `slug`).
-- Totéž rozšíření dostane `scripts/sitemap.mjs`.
+- Totéž rozšíření dostane `scripts/sitemap.mjs`. *(Překonáno — sitemapa se na databázi neptá,
+  skládá se z předgenerovaných stránek v `dist/`; `review_count` potřebuje už jen prerender. Viz
+  [odchylky](#stav-po-implementaci--odchylky), bod 5.)*
 - Stránka použije `<Layout ready={…}>` navázané na načtená data, jako to dělá
   `ProductDetail.tsx:329` — jinak by prerender zachytil načítací stav.
 
@@ -375,7 +384,8 @@ Vitest + React Testing Library, ve stylu `ProductReviews.test.tsx` a `ReviewsSec
 - `productSeo` — stránka recenzí nemá `offers`; `review[]` se rovná počtu vykreslených recenzí;
   detail produktu má nejvýš 3.
 - `prerender.test.js` a `sitemap.test.js` — routy recenzí pro aktivní produkty včetně dalších stran,
-  plus strop počtu předgenerovaných stran.
+  plus strop počtu předgenerovaných stran. *(Pro sitemapu překonáno — `sitemap.test.js` teď
+  ověřuje skládání z `dist/` bez `noindex` stránek, viz [odchylky](#stav-po-implementaci--odchylky), bod 5.)*
 - Sdílená konstanta limitu — test, že detail preloaduje i vykresluje tentýž počet.
 - `clampPage` **[2. kolo]** — tabulka vstupů z adresy (`0`, `-1`, `abc`, `2.5`, `02`, `0x2`, `2e1`,
   `+2`, `' 2 '`, prázdný řetězec, `Infinity`, arabská číslice) a jistota, že žádný nevede na
