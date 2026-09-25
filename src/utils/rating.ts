@@ -1,7 +1,8 @@
 /**
  * Zaokrouhlení průměrného hodnocení na jedno desetinné místo.
  *
- * DB drží průměr PŘESNĚ, bez zaokrouhlení (`refresh_product_rating`), třeba 4.5454….
+ * DB drží průměr zaokrouhlený na 12 desetinných míst (`refresh_product_rating`), třeba
+ * 4.545454545455. Tolik míst projde JSONem i JavaScriptem beze změny a zobrazení nezmění.
  * Zobrazujeme jedno desetinné místo — a Google zakazuje markup obsahu, který na stránce
  * není vidět. Viditelný text i `ratingValue` proto musí projít TOUTO funkcí, aby nemohly
  * vydat různá čísla.

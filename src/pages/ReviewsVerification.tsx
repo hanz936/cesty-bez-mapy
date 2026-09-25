@@ -51,7 +51,8 @@ function ReviewsVerificationContent() {
       {/* Audit P-8: pokyny Komise 2021/C 526/01 chtějí vedle ověřování i „jak se vypočítává
           průměrné hodnocení“. Každá věta tu odpovídá kódu — při změně kódu změnit i ji:
           do průměru i počtu vstupují jen `approved` recenze (`refresh_product_rating`),
-          DB drží průměr PŘESNĚ a na jedno desetinné místo ho zaokrouhlí až `roundRating`,
+          DB drží průměr na 12 desetinných míst (zobrazení to nezmění) a na jedno desetinné
+          místo ho zaokrouhlí až `roundRating`,
           a počet stojí u průměru všude, kde se průměr ukazuje. */}
       <h2 className="text-2xl font-bold text-black mt-10 mb-4">Jak počítáme hodnocení u průvodce</h2>
       <p className="text-gray-700 mb-4">

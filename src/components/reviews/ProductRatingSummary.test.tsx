@@ -29,7 +29,7 @@ describe('ProductRatingSummary', () => {
   });
 
   it('průměr z DB zaokrouhlí na jedno desetinné místo', () => {
-    // DB drží přesný průměr (třeba 4.6667). Uživatel musí vidět touž hodnotu,
+    // DB drží průměr na 12 desetinných míst (třeba 4.666666666667). Uživatel musí vidět touž hodnotu,
     // jakou pošleme do JSON-LD, jinak markujeme obsah, který na stránce není.
     renderIn(<ProductRatingSummary average={4.67} count={3} />);
     expect(screen.getByText(/4,7/)).toBeInTheDocument();

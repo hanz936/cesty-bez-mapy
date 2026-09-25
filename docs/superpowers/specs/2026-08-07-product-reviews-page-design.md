@@ -20,7 +20,7 @@ proto je výsledek zapsaný tady. Překonané věty níž nesou odkaz na přísl
      tajemství ani odpověď 429 nezanechaly stopu.
    - `20260901194427` (A5) — stráž `reject_manual_rating_write` a zámek řádku produktu
      v `refresh_product_rating` (souběžná schválení si přepisovala agregáty).
-   - `20260915100215` (A6) — `average_rating` drží přesný průměr (bod 3).
+   - `20260915100215` (A6) — `average_rating` drží průměr zaokrouhlený na 12 desetinných míst (bod 3).
    - `20260923202547` (A9) — deploy hook i na změny `products` a `categories`; katalog a detail by
      se jinak přestavěly až s nesouvisející změnou.
    - `20260924…_retry_failed_deploy_hooks` (finální revize, M-2 + M-4, N-2) — sběrač znovu pošle
@@ -38,9 +38,11 @@ proto je výsledek zapsaný tady. Překonané věty níž nesou odkaz na přísl
    po auditu P-7 2026-09-15): stránka `/overovani-recenzi` s popisem ověřování, odkaz v patičce
    a od A10 i z formuláře recenze. Riziko, že patička je měkčí výklad, než jaký čtou ČOI a dTest,
    bylo sděleno a přijato vědomě; důvody jsou zapsané v `src/components/reviews/disclosure.ts`.
-3. **Průměr se zaokrouhluje jen na webu, jednou** (A6). DB drží přesný průměr (`numeric` bez
-   přesnosti), web ho zaokrouhlí na jedno desetinné místo (`roundRating` v `src/utils/rating.ts`)
-   pro text, hvězdy, JSON-LD `ratingValue` i filtr katalogu. Dvojí zaokrouhlení
+3. **Na desetiny se průměr zaokrouhluje jen na webu, jednou** (A6). DB drží průměr zaokrouhlený
+   na 12 desetinných míst ve sloupci `numeric` bez přesnosti: tolik míst projde JSONem
+   a JavaScriptem (double) beze změny, takže klient, který neměněný průměr pošle zpátky,
+   nenarazí na stráž z A5. Web ho zaokrouhlí na jedno desetinné místo (`roundRating`
+   v `src/utils/rating.ts`) pro text, hvězdy, JSON-LD `ratingValue` i filtr katalogu. Dvojí zaokrouhlení
    (`round(avg, 2)` a pak web) posouvalo výsledek o desetinu nahoru: 4,545… → 4.55 → „4,6".
 4. **`count: 'exact'` jen na vyžádání** (A1/R-4). `fetchApprovedReviews` si počet vyžádá jen tam,
    kde `total` opravdu použije; stránka recenzí stránkuje podle `products.review_count`. S `count`
@@ -130,7 +132,7 @@ kterým plán argumentuje na třech jiných místech.
 | `Product` musí nést **aspoň jedno** z `review` / `aggregateRating` / `offers` → produkt bez recenzí nedostane JSON-LD vůbec **[2. kolo]** | Google, *Product snippet* (2025-12-10): „You must include one of the following properties: review, aggregateRating, offers“ |
 | Na detailu produktu se `review[]` zkrátí na 3 zobrazené | Google, *Structured data general guidelines* (2026-07-10): „include all of the reviews that are **visible** to people on the page“; „**Don't** mark up content that is not visible“ |
 | `aggregateRating` smí na detailu zůstat jen se **zobrazeným** průměrem | Google, *Review snippet* (2026-07-24): „If you use `AggregateRating`, users should be able to see that aggregate rating on the page“ |
-| Zobrazený průměr a `ratingValue` musí být **totéž číslo** → jedna sdílená zaokrouhlovací funkce **[2. kolo]** | DB drží `round(avg, 2)` (`20260711130000_add_reviews_system.sql:88`), tedy např. `4.67`, zatímco souhrn zobrazuje `4,7`. *(Překonáno — DB drží přesný průměr, viz [odchylky](#stav-po-implementaci--odchylky), bod 3.)* Google, *Structured data general guidelines* (2026-07-10): „Don't mark up content that is not visible to readers of the page“ |
+| Zobrazený průměr a `ratingValue` musí být **totéž číslo** → jedna sdílená zaokrouhlovací funkce **[2. kolo]** | DB drží `round(avg, 2)` (`20260711130000_add_reviews_system.sql:88`), tedy např. `4.67`, zatímco souhrn zobrazuje `4,7`. *(Překonáno — DB drží průměr na 12 desetinných míst, viz [odchylky](#stav-po-implementaci--odchylky), bod 3.)* Google, *Structured data general guidelines* (2026-07-10): „Don't mark up content that is not visible to readers of the page“ |
 | Aktuální strana stránkování **zůstává odkazem** s `aria-current="page"` **[2. kolo]** | W3C Design System, *Pagination*: „it is fully linked so users of Assistive Technology can find which is the currently active link“. Rozhodl uživatel 2026-08-07 |
 | `robots` je jen `noindex`, bez `follow` **[2. kolo]** | Google, *Robots meta tag* (2026-03-24) — `follow` není mezi platnými pravidly; následování odkazů je výchozí chování. Seznam `follow` uvádí, ale jako **výchozí hodnotu**, takže vynechání nic nemění |
 | SPA skořápka se oddělí od homepage do `dist/app-shell.html`; rewrite míří na ni **[3. kolo]** | `dist/index.html` dnes slouží jako prerenderovaná homepage **i** jako cíl rewritu `/(.*) → /`. Jeden canonical nemůže být správný pro obojí. Google, *Consolidate duplicate URLs* (2026-07-10): „If you can't set the canonical URL in the HTML source code, leave it out and only set it with JavaScript." Rozhodl uživatel 2026-08-07 |

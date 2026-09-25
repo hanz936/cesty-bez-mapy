@@ -21,9 +21,10 @@ export function visibleSortOptions(hasReviews: boolean): string[] {
 /**
  * Patří produkt do rozsahu filtru hodnocení („5 / 4.5+ / 4+ / 3.5+ hvězdiček")?
  *
- * DB drží průměr přesně (4.5454…), karta ale ukazuje `formatRatingCs` / hvězdy z `roundRating`
- * („4,5"). Filtr i počty u jeho položek proto porovnávají TUTÉŽ zaokrouhlenou hodnotu — jinak by
- * zákazník ve „4.5+" nenašel průvodce, kterého jeho vlastní karta hodnotí „4,5".
+ * DB drží průměr na 12 desetinných míst (4.545454545455), karta ale ukazuje `formatRatingCs`
+ * / hvězdy z `roundRating` („4,5"). Filtr i počty u jeho položek proto porovnávají TUTÉŽ
+ * zaokrouhlenou hodnotu — jinak by zákazník ve „4.5+" nenašel průvodce, kterého jeho vlastní
+ * karta hodnotí „4,5".
  * Zaokrouhluje se jen tady a jen jednou (pravidlo z `src/utils/rating.ts`).
  *
  * `null`/`undefined`/0 (produkt bez recenzí) nepatří do žádného rozsahu.

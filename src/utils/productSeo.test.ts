@@ -159,7 +159,7 @@ describe('buildProductReviewsMeta', () => {
   });
 
   it('ratingValue nese TOTÉŽ číslo, jaké uvidí uživatel', () => {
-    // DB drží přesný průměr (třeba 4.6667); souhrn na stránce zobrazí 4,7.
+    // DB drží průměr na 12 desetinných míst (třeba 4.666666666667); souhrn na stránce zobrazí 4,7.
     // Kdyby JSON-LD poslalo 4.67, markujeme obsah, který na stránce není.
     const meta = buildProductReviewsMeta(
       { ...REVIEWS_PRODUCT, average_rating: 4.67 },

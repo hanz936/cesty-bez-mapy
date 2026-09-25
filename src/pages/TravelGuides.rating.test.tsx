@@ -68,7 +68,7 @@ describe('matchesRatingRange — filtr porovnává totéž číslo, jaké ukazuj
   });
 });
 
-// Katalog se třemi průvodci, jejichž přesný průměr se liší od toho, co ukazuje karta.
+// Katalog se třemi průvodci, jejichž průměr z DB (12 desetinných míst) se liší od toho, co ukazuje karta.
 const catalogProducts = [
   { title: 'Alfa', average_rating: 49 / 11, review_count: 11 }, // karta „4,5"
   { title: 'Beta', average_rating: 4.44, review_count: 25 }, // karta „4,4"

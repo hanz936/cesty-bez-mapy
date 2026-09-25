@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { roundRating, formatRatingCs, ratingValueJsonLd } from './rating';
 
 describe('rating', () => {
-  it('přesný průměr z DB zaokrouhlí jen jednou', () => {
-    // 11 recenzí se součtem 50. PostgREST posílá `numeric` jako JSON číslo, takže
-    // sem dorazí právě to, co z téhle odpovědi udělá `JSON.parse` (literál by měl
-    // víc číslic, než double unese). Dřívější uložené 4.55 by dalo 4,6 — o desetinu víc.
-    const fromApi = JSON.parse('{"average_rating":4.5454545454545455}') as { average_rating: number };
+  it('průměr z DB (12 desetinných míst) zaokrouhlí jen jednou', () => {
+    // 11 recenzí se součtem 50. DB drží průměr zaokrouhlený na 12 desetinných míst
+    // a PostgREST ho posílá jako JSON číslo, tedy tuhle odpověď; `JSON.parse` z ní udělá
+    // double, jehož zápis je zase 4.545454545455. Dřívější uložené 4.55 by dalo 4,6.
+    const fromApi = JSON.parse('{"average_rating":4.545454545455}') as { average_rating: number };
     expect(roundRating(fromApi.average_rating)).toBe(4.5);
     expect(formatRatingCs(fromApi.average_rating)).toBe('4,5');
   });
