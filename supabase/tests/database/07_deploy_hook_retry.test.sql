@@ -1,5 +1,5 @@
 begin;
-select plan(47);
+select plan(49);
 
 -- Opakování neúspěšného deploy hooku a uzavírání deduplikovaných řádků (nálezy M-2 a M-4
 -- finální revize, migrace 20260924221641).
@@ -219,13 +219,13 @@ select pg_temp.sent(9000017, interval '13 minutes', 503);
 select public.collect_deploy_hook_results();
 select is( pg_temp.retries(), 0, 'první opakování nejdřív 14 minut po neúspěchu' );
 
--- ── Po 24 hodinách se to vzdá ────────────────────────────────
+-- ── Po 24 hodinách od původního požadavku změny se to vzdá ───
 select pg_temp.reset();
 select pg_temp.sent(9000018, interval '25 hours', 503);
 select pg_temp.sent(9000019, interval '5 hours', 503, null, null,
                     (select id from public.deploy_hook_dispatches where request_id = 9000018));
 select public.collect_deploy_hook_results();
-select is( pg_temp.retries(), 0, 'série, jejíž první neúspěch je starší než 24 h, se už neopakuje' );
+select is( pg_temp.retries(), 0, 'změna, jejíž původní požadavek je starší než 24 h, se už neopakuje (ani po pozdějším pokusu)' );
 
 -- ── Novější úspěch → nic ─────────────────────────────────────
 select pg_temp.reset();
@@ -234,8 +234,8 @@ select pg_temp.sent(9000021, interval '30 minutes', 200);
 select public.collect_deploy_hook_results();
 select is( pg_temp.retries(), 0, 'po neúspěchu přišel úspěch → web je aktuální, neopakuje se' );
 
--- Úspěch série uzavírá: nový neúspěch po něm začíná novou sérii s odstupem od 15 minut,
--- i když ta předchozí měla opakování.
+-- Nová změna po úspěchu začíná s odstupem od 15 minut, i když ta předchozí měla opakování
+-- (pokusy se počítají od původního požadavku nejnovější změny, ne od posledního úspěchu).
 select pg_temp.reset();
 select pg_temp.sent(9000022, interval '3 hours', 503);
 select pg_temp.sent(9000023, interval '160 minutes', 503, null, null,
@@ -243,7 +243,34 @@ select pg_temp.sent(9000023, interval '160 minutes', 503, null, null,
 select pg_temp.sent(9000024, interval '150 minutes', 200);
 select pg_temp.sent(9000025, interval '16 minutes', 503);
 select public.collect_deploy_hook_results();
-select is( pg_temp.retries(), 1, 'po úspěchu se pokusy počítají znovu od nuly' );
+select is( pg_temp.retries(), 1, 'nová změna po úspěchu: pokusy se počítají znovu od nuly' );
+
+-- ── Rozpočet opakování patří jedné změně (N-2) ───────────────
+-- Série starší než 24 h to vzdala a od té doby nic neuspělo. Nová změna, jejíž původní
+-- požadavek selže přechodně, se přesto zopakuje — má vlastních 24 hodin.
+select pg_temp.reset();
+select pg_temp.sent(9000030, interval '30 hours', 404);
+select pg_temp.sent(9000031, interval '26 hours', 503);
+select pg_temp.sent(9000032, interval '25 hours', 503, null, null,
+                    (select id from public.deploy_hook_dispatches where request_id = 9000031));
+select pg_temp.sent(9000033, interval '20 minutes', 429);
+select public.collect_deploy_hook_results();
+select is( pg_temp.retries(), 1,
+           'nová změna po vzdané sérii (a bez úspěchu mezi tím) dostane vlastní opakování' );
+
+-- Nová změna uprostřed odstupu předchozí: dvě opakování staré změny (další až po 60 min),
+-- ale nový původní požadavek selhal před 16 minutami → odstup začíná znovu od 15 minut.
+select pg_temp.reset();
+select pg_temp.sent(9000034, interval '3 hours', 503);
+select pg_temp.sent(9000035, interval '165 minutes', 503, null, null,
+                    (select id from public.deploy_hook_dispatches where request_id = 9000034));
+select pg_temp.sent(9000036, interval '135 minutes', 503, null, null,
+                    (select id from public.deploy_hook_dispatches where request_id = 9000035));
+select pg_temp.sent(9000037, interval '16 minutes', 503);
+select public.collect_deploy_hook_results();
+select is( (select retry_of from public.deploy_hook_dispatches where transaction_id = pg_current_xact_id()),
+           (select id from public.deploy_hook_dispatches where request_id = 9000037),
+           'nová změna uprostřed odstupu: odstup začíná znovu od 15 minut a opakuje se ona' );
 
 -- ── Chybějící tajemství během opakování ──────────────────────
 select pg_temp.reset();

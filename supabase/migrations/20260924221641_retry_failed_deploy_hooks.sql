@@ -2,10 +2,14 @@
 --
 -- M-2 (final review 2026-09-24): after 20260923202547 every save of a live product, a
 -- category, a review or a blog post sends one deploy hook request. Vercel allows 60 hook
--- triggers per hour per project, across all deploy hooks (docs re-read 2026-09-24), and the
--- Hobby plan 100 deployments per day. If the LAST request of an editing session fails
--- (a 429 from that limit, a 5xx, a timeout), nothing rebuilds the static site until some
--- unrelated change comes along — the collector recorded the status, but nobody acted on it.
+-- triggers per hour per project, across all deploy hooks (docs re-read 2026-09-24). If the
+-- LAST request of an editing session is rejected (a 429 from that limit, a 408, a 5xx, a
+-- timeout or no response at all), nothing rebuilds the static site until some unrelated
+-- change comes along — the collector recorded the status, but nobody acted on it.
+--
+-- Známé omezení: opakuje se jen ODMÍTNUTÝ požadavek na hook. Když Vercel hook přijme (2xx)
+-- a nasazení pak selže nebo narazí na denní limit nasazení (Hobby: 100/den), sběrač to
+-- nevidí — potřeboval by Vercel deployments API a id jobu z odpovědi hooku.
 --
 -- Oprava: sběrač (pg_cron každých 15 minut) teď po sběru výsledků nejnovější odeslaný
 -- požadavek zkontroluje a když skončil PŘECHODNOU chybou, pošle ho znovu. Je to obnova po
@@ -23,8 +27,11 @@
 --   * 429 nese `Retry-After` nebo `x-ratelimit-reset` (Vercel posílá `x-ratelimit-limit: 60`,
 --     `x-ratelimit-remaining`, `x-ratelimit-reset` v epoch sekundách, ≈ +3600 s; ověřeno
 --     v produkci) → dřív se neposílá;
---   * po 24 hodinách od prvního neúspěšného požadavku série to vzdá — dál je to věc pro
---     člověka (plánovaný panel v adminu), ne pro nekonečné opakování;
+--   * rozpočet opakování patří JEDNÉ změně: 24 hodin od původního požadavku nejnovější
+--     změny (Google Cloud, retry strategy: „overall deadline on the call, including all
+--     potential retries"). Pak to vzdá — dál je to věc pro člověka (plánovaný panel
+--     v adminu). Nová změna dostane vlastní rozpočet i odstup od 15 minut, i když ta
+--     předchozí to vzdala nebo je uprostřed odstupu;
 --   * nejvýš jeden opakovaný požadavek na běh sběrače.
 --
 -- M-4: řádky `deduplicated` zůstávaly navždy s `checked_at = null`, přestože komentář
@@ -124,8 +131,7 @@ create or replace function "public"."collect_deploy_hook_results"() returns void
     as $$
 declare
   latest public.deploy_hook_dispatches%rowtype;
-  last_success_at timestamp with time zone;
-  streak_started_at timestamp with time zone;
+  origin_at timestamp with time zone;
   attempts integer;
   last_retry_at timestamp with time zone;
   last_attempt_at timestamp with time zone;
@@ -175,27 +181,30 @@ begin
           or latest.status_code in (408, 429)
           or latest.status_code >= 500)
   then
-    -- Série = všechno od posledního úspěšně odeslaného požadavku. Pokusy jsou její řádky
-    -- s `retry_of` (odeslané i přeskočené, třeba bez tajemství) — podle nich roste odstup.
-    select max(created_at) into last_success_at
+    -- Původní požadavek nejnovější změny = nejnovější ODESLANÝ řádek bez `retry_of`. Od něj
+    -- se měří 24hodinový rozpočet a počítají pokusy: řádky s `retry_of` vzniklé po něm
+    -- (odeslané i přeskočené, třeba bez tajemství) — podle nich roste odstup. Když původní
+    -- řádek chybí (smazal ho 90denní úklid), počítá se od `latest`.
+    select created_at into origin_at
       from public.deploy_hook_dispatches
      where request_id is not null
-       and status_code between 200 and 299
-       and error_message is null;
+       and retry_of is null
+     order by created_at desc, id desc
+     limit 1;
+    origin_at := coalesce(origin_at, latest.created_at);
 
-    select min(created_at) filter (where request_id is not null),
-           count(*) filter (where retry_of is not null),
-           max(created_at) filter (where retry_of is not null)
-      into streak_started_at, attempts, last_retry_at
+    select count(*), max(created_at)
+      into attempts, last_retry_at
       from public.deploy_hook_dispatches
-     where created_at > coalesce(last_success_at, '-infinity'::timestamp with time zone);
+     where retry_of is not null
+       and created_at > origin_at;
 
     -- `greatest` nulls ignoruje: bez dřívějšího pokusu se počítá od neúspěšného požadavku.
     last_attempt_at := greatest(latest.created_at, last_retry_at);
 
     -- Mocnina je shora omezená jen proti přetečení intervalu: 2^10 × 15 min je přes
     -- 10 dní, takže uvnitř 24hodinového okna se tím nic nemění.
-    if coalesce(streak_started_at, latest.created_at) > pg_catalog.now() - interval '24 hours'
+    if origin_at > pg_catalog.now() - interval '24 hours'
        and pg_catalog.now() >= last_attempt_at
                               + interval '15 minutes' * pg_catalog.power(2, least(attempts, 10))
                               - interval '1 minute'
