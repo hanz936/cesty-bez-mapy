@@ -5,7 +5,7 @@
 -- recenzí se součtem 50 má průměr 4,5454…; uložilo se 4.55 a web i JSON-LD pro Google
 -- ukázaly 4,6 místo 4,5. Změřeno na skutečné `roundRating` přes všechny součty pro 1–100
 -- recenzí: zasaženo 69 počtů recenzí, 820 případů, všechny o desetinu NAHORU. Na
--- PostgreSQL 17.6 reprodukováno přes skutečný trigger (uloženo 4.55, přesně
+-- PostgreSQL 17.6 reprodukováno přes skutečný trigger (uloženo 4.55, `avg` dává
 -- 4.5454545454545455). `/overovani-recenzi` přitom veřejně slibuje průměr „zaokrouhlený
 -- na jedno desetinné místo".
 --
@@ -13,38 +13,80 @@
 -- away from zero." První zaokrouhlení vyrobí z 4,545… přesnou polovinu 4.55 a druhé ji
 -- pošle výš — MDN, `Math.round`: „rounded to the next integer in the direction of +∞".
 --
--- Oprava: zaokrouhluje se jen jednou, až při zobrazení. Sloupec drží přesný průměr jako
--- `numeric` bez přesnosti; `avg(smallint)` vrací `numeric` (docs, „Aggregate Functions").
--- Frontend se měnit nemusí: PostgREST skládá odpověď JSONem PostgreSQL a ten čísla předává
--- jako JSON čísla — PostgreSQL 17, `to_json`: „For any scalar other than a number, a Boolean,
--- or a null value, the text representation will be used". Ověřeno na skutečné `roundRating`
--- pro všechny součty až do 1 000 recenzí, včetně 3 600 přesných polovin: 0 chyb.
+-- Oprava: na jedno desetinné místo se zaokrouhluje jen jednou, až při zobrazení. Sloupec
+-- drží průměr zaokrouhlený na 12 desetinných míst jako `numeric` bez přesnosti; `avg(smallint)`
+-- vrací `numeric` (docs, „Aggregate Functions"). „Exact" v názvu souboru znamená právě tohle:
+-- v DB už žádné zaokrouhlení, které by na webu šlo poznat — ne neomezený počet číslic.
 --
+-- Proč 12 míst: PostgREST skládá odpověď JSONem PostgreSQL a ten čísla předává jako JSON
+-- čísla — PostgreSQL 17, `to_json`: „For any scalar other than a number, a Boolean, or a null
+-- value, the text representation will be used". JavaScriptový klient je čte do IEEE 754
+-- double. Samotné `avg` má aspoň 16 platných číslic (55/12 → 4.5833333333333333), double
+-- z toho udělá 4.583333333333333, tedy jiný `numeric`, a klient, který by neměněný řádek
+-- poslal zpátky, by narazil na stráž z 20260901194427 (`IS DISTINCT FROM` → 42501). Průměr
+-- má před desetinnou čárkou jedinou číslici, takže 12 míst je nejvýš 13 platných číslic
+-- a ty double přenese beze změny. Frontend se měnit nemusí.
+--
+-- Zobrazení to nepokazí: zaokrouhlení na 12 míst může změnit výsledek na jedno desetinné
+-- místo, jen když průměr s/n leží blíž než 5·10⁻¹³ k polovině (x,x5). Pokud to přímo polovina
+-- není, je od ní aspoň 1/(20n) daleko (a přesná polovina projde `round(…, 12)` beze změny),
+-- takže by to chtělo aspoň 10¹¹ recenzí. Ověřeno vzorcem `roundRating` (`Math.round(x * 10)`)
+-- nad hodnotou z `JSON.parse` pro všechny součty do 1 000 recenzí (2 003 000 případů, z toho 3 600
+-- přesných polovin): 0 chyb v zobrazení a 0 hodnot, které by cesta přes double změnila.
+--
+-- ── Nasazení ───────────────────────────────────────────────────────────────
 -- Migrace je OPAKOVATELNÁ, a to schválně: zda `apply_migration` (Management API) balí SQL
 -- do transakce, dokumentace neuvádí, a vlastní BEGIN/COMMIT by případnou vnější transakci
 -- ukončil předčasně. Když spadne v půlce, stačí ji pustit znovu. Vyzkoušeno na PG 17.6
--- oběma směry: z napůl provedeného stavu (typ změněn, funkce ne) i z hotového stavu.
+-- z každého mezistavu oddílu 1 (po krocích 1, 2 a 3), po výměně funkce i z hotového stavu.
+-- Znovu pouštět jen tenhle soubor, a jen dokud je nejnovější nasazenou migrací;
+-- 20260901194427 po něm nikdy — tiše by vrátil `round(…, 2)` do `refresh_product_rating`.
+--
+-- `lock_timeout` 5 s (první a poslední příkaz souboru): kdyby migrace musela na zámek
+-- `products` čekat za dlouhou transakcí, má rychle spadnout, a ne za sebou řadit čtení
+-- i zápisy katalogu (změna typu bere na `products` výhradní zámek). Produkce má
+-- `lock_timeout = 0`, tedy čekání bez konce. S DROP TRIGGER by za ní čekala i přihlášení,
+-- proto tu žádný není (viz oddíl 1). Díky opakovatelnosti znamená timeout jen pustit
+-- migraci znovu. Obyčejné `SET` a na konci `RESET`, ne `SET LOCAL`: to mimo transakční
+-- blok podle docs (SET) „emits a warning and otherwise has no effect". Když soubor běží
+-- v transakci a ta spadne, zmizí `SET` s ní; bez transakce zůstane po pádu jen v tomhle
+-- spojení.
+set lock_timeout = '5s';
 
 -- ── 1. Typ sloupce ─────────────────────────────────────────────────────────
--- Stráž z 20260901194427 je trigger `UPDATE OF … average_rating`, na sloupci tedy závisí,
--- a PostgreSQL 17.6 změnu typu odmítne: „cannot alter type of a column used in a trigger
--- definition" (vyzkoušeno). Proto pryč, změna typu a hned zpátky, beze změny definice —
--- okno bez stráže jsou dva příkazy.
-DROP TRIGGER IF EXISTS "trg_products_reject_manual_rating_write" ON "public"."products";
+-- Stráž z 20260901194427 je trigger `UPDATE OF "review_count", "average_rating"`. Závislost
+-- triggeru na sloupci vzniká právě z toho seznamu a PostgreSQL 17.6 změnu typu takového
+-- sloupce odmítne: „cannot alter type of a column used in a trigger definition" (vyzkoušeno).
+-- Proto se seznam nejdřív zúží na `review_count` (krok 1), typ a default se změní (kroky 2
+-- a 3) a stráž se vrátí v původní podobě (krok 4).
+--
+-- Ne DROP TRIGGER: pod rolí `postgres` si na Supabase (`supautils.drop_trigger_grants`)
+-- bere AccessExclusiveLock i na tabulky `auth`, `storage` a `realtime`, takže zablokovaný
+-- DROP by za sebou zdržel přihlašování i Storage. `create or replace trigger` tyhle zámky
+-- nebere.
+--
+-- Stráž nad `review_count` běží celou dobu; nehlídaný je jen `average_rating`, a to jen
+-- mezi kroky 1 a 4. Backfill (oddíl 3) musí přijít až po kroku 4: docs, CREATE TRIGGER,
+-- nedoporučují nahrazovat trigger v transakci, která už nad jeho tabulkou měnila data,
+-- protože už padlá rozhodnutí o spuštění triggerů se znovu neposuzují. Před krokem 4 tu
+-- žádný UPDATE `products` není.
+create or replace trigger "trg_products_reject_manual_rating_write"
+before insert or update of "review_count" on "public"."products"
+for each row execute function "public"."reject_manual_rating_write"();
 
 ALTER TABLE "public"."products" ALTER COLUMN "average_rating" TYPE numeric;
 ALTER TABLE "public"."products" ALTER COLUMN "average_rating" SET DEFAULT 0;
 
-CREATE TRIGGER "trg_products_reject_manual_rating_write"
-BEFORE INSERT OR UPDATE OF "review_count", "average_rating" ON "public"."products"
-FOR EACH ROW EXECUTE FUNCTION "public"."reject_manual_rating_write"();
+create or replace trigger "trg_products_reject_manual_rating_write"
+before insert or update of "review_count", "average_rating" on "public"."products"
+for each row execute function "public"."reject_manual_rating_write"();
 
-COMMENT ON COLUMN "public"."products"."average_rating" IS 'Exact (unrounded) mean rating of approved reviews, 0 when there are none. Maintained by trigger refresh_product_rating and not writable via the API (trg_products_reject_manual_rating_write). Round only for display, exactly once (src/utils/rating.ts).';
+COMMENT ON COLUMN "public"."products"."average_rating" IS 'Mean rating of approved reviews rounded to 12 decimal places, 0 when there are none. 12 places keep the value unchanged through a JSON round trip via an IEEE 754 double (JavaScript clients). Maintained by trigger refresh_product_rating and not writable via the API (trg_products_reject_manual_rating_write). Round for display only once (src/utils/rating.ts).';
 
 -- ── 2. Trigger přepočtu ────────────────────────────────────────────────────
 -- Tělo je shodné s 20260901194427 (včetně samostatného zámku `for no key update` —
--- zdůvodnění tam), jediná změna je průměr bez `round`. `create or replace` zachová
--- vlastníka i odebrané EXECUTE z 20260716181000; pgTAP to hlídá.
+-- zdůvodnění tam), jediná změna je průměr: `round(…, 12)` místo `round(…, 2)`.
+-- `create or replace` zachová vlastníka i odebrané EXECUTE z 20260716181000; pgTAP to hlídá.
 create or replace function "public"."refresh_product_rating"()
 returns trigger
 language plpgsql
@@ -62,9 +104,10 @@ BEGIN
   PERFORM 1 FROM public.products WHERE id = target_product_id FOR NO KEY UPDATE;
 
   UPDATE public.products p SET
-    -- Bez zaokrouhlení. Zaokrouhluje jen web, jednou (viz hlavička).
+    -- 12 desetinných míst, aby hodnota přežila JSON a JavaScript beze změny; na jedno
+    -- desetinné místo zaokrouhluje jen web, jednou (viz hlavička).
     average_rating = COALESCE(
-      (SELECT avg(r.rating)
+      (SELECT round(avg(r.rating), 12)
          FROM public.reviews r
         WHERE r.product_id = target_product_id AND r.status = 'approved'),
       0),
@@ -77,16 +120,19 @@ END;
 $$;
 
 -- ── 3. Už uložené průměry ──────────────────────────────────────────────────
--- Jen řádky, kde se hodnota opravdu mění; přesně vyjádřitelné průměry (4.50, 0) zůstanou
--- netknuté. Změněným se posune `updated_at` (`trg_products_set_updated_at`) — stejně jako
--- při každém schválení recenze; sitemapa ani prerender `products.updated_at` nečtou.
+-- Jen řádky, kde se hodnota opravdu mění; průměry, které se celé vejdou do dvou desetinných
+-- míst (4.50, 0), zůstanou netknuté. Změněným se posune `updated_at`
+-- (`trg_products_set_updated_at`) — stejně jako při každém schválení recenze; sitemapa ani
+-- prerender `products.updated_at` nečtou.
 -- Stráž tenhle UPDATE pustí: neběží pod rolí `anon` ani `authenticated`.
 UPDATE public.products p
    SET average_rating = COALESCE(
-         (SELECT avg(r.rating) FROM public.reviews r
+         (SELECT round(avg(r.rating), 12) FROM public.reviews r
            WHERE r.product_id = p.id AND r.status = 'approved'),
          0)
  WHERE p.average_rating IS DISTINCT FROM COALESCE(
-         (SELECT avg(r.rating) FROM public.reviews r
+         (SELECT round(avg(r.rating), 12) FROM public.reviews r
            WHERE r.product_id = p.id AND r.status = 'approved'),
          0);
+
+reset lock_timeout;

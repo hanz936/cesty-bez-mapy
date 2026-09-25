@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(58);
+SELECT plan(62);
 
 -- Deploy-hook helper hlasi WARNING, kdyz chybi vault secret `vercel_deploy_hook` —
 -- v lokalni testovaci DB nikdy neni. Vlastni test toho chovani je v 05_deploy_hook.
@@ -49,8 +49,8 @@ SELECT is( (SELECT p.prosecdef FROM pg_proc p JOIN pg_namespace n ON n.oid = p.p
              WHERE n.nspname = 'public' AND p.proname = 'reject_manual_rating_write'),
            false, 'reject_manual_rating_write NENI security definer' );
 
--- Průměr se ukládá PŘESNĚ (migrace 20260915100215). S `numeric(3,2)` se zaokrouhloval
--- dvakrát — v DB na setiny a na webu znovu na desetiny — a vycházel o desetinu výš.
+-- Průměr se ukládá na 12 desetinných míst (migrace 20260915100215). S `numeric(3,2)` se
+-- zaokrouhloval dvakrát — v DB na setiny a na webu znovu na desetiny — a vycházel o desetinu výš.
 SELECT col_type_is('public'::name, 'products'::name, 'average_rating'::name, 'numeric',
                    'average_rating je numeric bez přesnosti');
 
@@ -102,7 +102,7 @@ SELECT is( (SELECT review_count FROM public.products WHERE id = '00000000-0000-0
 SELECT is( (SELECT average_rating FROM public.products WHERE id = '00000000-0000-0000-0000-00000000000a'),
            0.00::numeric, 'average_rating bez recenzi = 0.00' );
 
--- ── Trigger: průměr se ukládá přesně, zaokrouhlí se jen jednou ──────────────
+-- ── Trigger: průměr na 12 desetinných míst, na desetiny se zaokrouhlí jen jednou ──
 -- 11 recenzí, 6× pět a 5× čtyři hvězdy: průměr 4,5454…. Dřív se uložilo 4.55 a web
 -- z toho udělal 4,6. Druhá aserce je přesně ta operace, kterou dělá `roundRating`.
 INSERT INTO public.products (id, title, description, price, slug)
@@ -119,11 +119,41 @@ SELECT '00000000-0000-0000-0000-0000000000e1',
 FROM generate_series(1, 11) g;
 
 SELECT is( (SELECT average_rating FROM public.products WHERE id = '00000000-0000-0000-0000-0000000000e1'),
-           (SELECT avg(rating) FROM public.reviews
-             WHERE product_id = '00000000-0000-0000-0000-0000000000e1' AND status = 'approved'),
-           'average_rating je přesný průměr, ne zaokrouhlený' );
+           4.545454545455::numeric,
+           'average_rating je průměr 50/11 zaokrouhlený na 12 desetinných míst' );
 SELECT is( (SELECT round(average_rating, 1) FROM public.products WHERE id = '00000000-0000-0000-0000-0000000000e1'),
            4.5::numeric, '11 recenzí se součtem 50 dá po jednom zaokrouhlení 4.5, ne 4.6' );
+
+-- Cesta přes JSON a JavaScript: PostgREST pošle `numeric` jako JSON číslo, klient z něj
+-- udělá IEEE 754 double a pošle zpátky jeho nejkratší zápis. `float8::text` dává tentýž
+-- nejkratší zápis jen s `extra_float_digits = 1` (tady je výchozí 0). Bez `round(…, 12)`
+-- by se 4.5454545454545455 vrátilo jako 4.545454545454546, tedy jiné číslo.
+SET LOCAL extra_float_digits = 1;
+SELECT is( (SELECT (average_rating::float8::text)::numeric FROM public.products
+             WHERE id = '00000000-0000-0000-0000-0000000000e1'),
+           (SELECT average_rating FROM public.products WHERE id = '00000000-0000-0000-0000-0000000000e1'),
+           'uložený průměr přežije cestu přes double beze změny' );
+
+-- Slib stráže z 20260901194427: klient, který uloží úpravu a neměněný průměr pošle zpátky
+-- v podobě, jakou z něj udělal JavaScript, projde. Echo se spočítá předem jako postgres.
+-- Změna názvu v témže UPDATE dokazuje, že příkaz řádek opravdu zasáhl (jinak by RLS
+-- mohla tiše vyfiltrovat 0 řádků a aserce by prošly naprázdno).
+SELECT set_config('test.echoed_rating', (SELECT average_rating::float8::text FROM public.products
+                                         WHERE id = '00000000-0000-0000-0000-0000000000e1'), true);
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal2"}';
+SELECT lives_ok(
+  $$ UPDATE public.products
+        SET title = 'Rounding Guide upraveny',
+            average_rating = current_setting('test.echoed_rating')::numeric
+      WHERE id = '00000000-0000-0000-0000-0000000000e1' $$,
+  'admin uloží úpravu i s průměrem vráceným přes JavaScript (stráž ho bere jako beze změny)' );
+RESET ROLE;
+RESET extra_float_digits;
+SELECT is( (SELECT title FROM public.products WHERE id = '00000000-0000-0000-0000-0000000000e1'),
+           'Rounding Guide upraveny', 'UPDATE s vráceným průměrem řádek opravdu zasáhl' );
+SELECT is( (SELECT average_rating FROM public.products WHERE id = '00000000-0000-0000-0000-0000000000e1'),
+           4.545454545455::numeric, 'vrácený průměr uloženou hodnotu nezměnil' );
 
 -- Úklid je nutný: RLS aserce níž počítají schválené recenze napříč celou tabulkou
 -- a čekají přesně jednu. Bez něj by jich viděly 12.
