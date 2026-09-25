@@ -14,9 +14,11 @@
 -- Oprava: sběrač (pg_cron každých 15 minut) teď po sběru výsledků nejnovější odeslaný
 -- požadavek zkontroluje a když skončil PŘECHODNOU chybou, pošle ho znovu. Je to obnova po
 -- chybě, ne časový debounce — per-transakční deduplikace z 20260901075731 zůstává, jak je.
--- Znovu stačí poslat jen ten poslední: build přestaví celý web a Vercel předchozí nasazení
--- pro tentýž hook sám ruší („previous deployments for the same Deploy Hook will be
--- canceled"), takže starší neúspěchy nic nepřidají.
+-- Znovu stačí poslat jen ten poslední: každý build přestaví celý web z aktuální databáze,
+-- takže starší neúspěchy nic nepřidají. Vercel navíc předchozí nasazení téhož hooku ruší,
+-- ale jen pro tutéž verzi projektu, tedy tentýž commit: „If you send multiple requests to
+-- deploy the same version of your project, previous deployments for the same Deploy Hook
+-- will be canceled".
 --
 -- Pravidla (rozhodnutí usera 2026-09-24):
 --   * jen přechodné chyby: bez odpovědi (síť, timeout, propadlá odpověď), 408, 429, 5xx.
@@ -132,29 +134,46 @@ create or replace function "public"."collect_deploy_hook_results"() returns void
 declare
   latest public.deploy_hook_dispatches%rowtype;
   origin_at timestamp with time zone;
-  attempts integer;
+  attempts bigint;
   last_retry_at timestamp with time zone;
   last_attempt_at timestamp with time zone;
 begin
   -- Výsledek požadavku žije v net._http_response jen 6 hodin (unlogged tabulka), takže ho
   -- včas přepíšeme k sobě. U 429 si navíc poznamenáme, kdy Vercel dovolí další pokus:
   -- `Retry-After` v celých sekundách má přednost, jinak `x-ratelimit-reset` (epoch sekundy).
-  -- Nečíselné hodnoty (např. `Retry-After` jako HTTP datum) se ignorují; počet číslic je
-  -- omezený, aby absurdní hodnota nepřetekla interval a neshodila celý běh sběrače.
+  --
+  -- Jména hlaviček se hledají bez ohledu na velikost písmen (RFC 9110: „Field names are
+  -- case-insensitive"). pg_net je ukládá tak, jak přišla: přes HTTP/2 malými písmeny, přes
+  -- HTTP/1.1 je Vercel posílá třeba jako `X-Ratelimit-Reset`. Kdyby totéž jméno přišlo ve dvou
+  -- podobách, vybere `max` — nahodilé to není. `Retry-After` je podle RFC 9110 počet sekund
+  -- „to delay after receiving the response", takže se přičítá k `r.created` (kdy pg_net
+  -- odpověď uložil), ne k času běhu sběrače, který může přijít až o 15 minut později.
+  --
+  -- Nic z toho nesmí shodit celý běh sběrače: nečíselné hodnoty (např. `Retry-After` jako
+  -- HTTP datum) se ignorují, počet číslic je omezený, aby absurdní hodnota nepřetekla
+  -- interval, a hlavičky se čtou jen z JSON objektu (`jsonb_each_text` na čemkoli jiném
+  -- skončí chybou).
   update public.deploy_hook_dispatches d
      set status_code = r.status_code,
          error_message = r.error_msg,
          checked_at = pg_catalog.now(),
          retry_allowed_at = case when r.status_code = 429 then coalesce(
-             case when pg_catalog.btrim(r.headers ->> 'retry-after') ~ '^[0-9]{1,10}$'
-                  then pg_catalog.now() + pg_catalog.make_interval(
-                         secs => pg_catalog.btrim(r.headers ->> 'retry-after')::double precision)
+             case when pg_catalog.btrim(h.retry_after) ~ '^[0-9]{1,10}$'
+                  then r.created + pg_catalog.make_interval(
+                         secs => pg_catalog.btrim(h.retry_after)::double precision)
              end,
-             case when pg_catalog.btrim(r.headers ->> 'x-ratelimit-reset') ~ '^[0-9]{1,12}$'
-                  then pg_catalog.to_timestamp(pg_catalog.btrim(r.headers ->> 'x-ratelimit-reset')::double precision)
+             case when pg_catalog.btrim(h.ratelimit_reset) ~ '^[0-9]{1,12}$'
+                  then pg_catalog.to_timestamp(pg_catalog.btrim(h.ratelimit_reset)::double precision)
              end)
          end
     from net._http_response r
+         -- Agregát bez GROUP BY vrátí vždy právě jeden řádek, i když hlavičky chybí.
+         cross join lateral (
+           select pg_catalog.max(e.value) filter (where pg_catalog.lower(e.key) = 'retry-after') as retry_after,
+                  pg_catalog.max(e.value) filter (where pg_catalog.lower(e.key) = 'x-ratelimit-reset') as ratelimit_reset
+             from pg_catalog.jsonb_each_text(
+                    case when pg_catalog.jsonb_typeof(r.headers) = 'object' then r.headers end) e
+         ) h
    where r.id = d.request_id
      and d.checked_at is null;
 

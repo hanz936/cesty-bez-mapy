@@ -1,5 +1,5 @@
 begin;
-select plan(49);
+select plan(56);
 
 -- Opakování neúspěšného deploy hooku a uzavírání deduplikovaných řádků (nálezy M-2 a M-4
 -- finální revize, migrace 20260924221641).
@@ -167,14 +167,62 @@ select public.collect_deploy_hook_results();
 select is( pg_temp.retries(), 1, '429, jehož reset už minul, se zopakuje' );
 
 -- ── Retry-After má přednost před x-ratelimit-reset ───────────
+-- Retry-After jsou sekundy „after receiving the response" (RFC 9110), takže se počítají
+-- od uložení odpovědi (`created`), ne od běhu sběrače. Obě odpovědi jsou 20 minut staré.
+-- Hodina od přijetí ještě neuběhla, i když reset limitu už minul → čekat.
 select pg_temp.reset();
 select pg_temp.sent(9000010, interval '20 minutes', 429,
-  jsonb_build_object('retry-after', '120',
+  jsonb_build_object('retry-after', '3600',
                      'x-ratelimit-reset', extract(epoch from now() - interval '1 minute')::bigint::text));
 select public.collect_deploy_hook_results();
 select is( (select retry_allowed_at from public.deploy_hook_dispatches where request_id = 9000010),
-           now() + interval '120 seconds', 'Retry-After (sekundy) vyhrává nad x-ratelimit-reset' );
+           now() - interval '20 minutes' + interval '3600 seconds',
+           'Retry-After (sekundy) vyhrává nad x-ratelimit-reset a počítá se od přijetí odpovědi' );
 select is( pg_temp.retries(), 0, 'a podle něj se zatím neopakuje' );
+
+-- Dvě minuty od přijetí uběhly dávno, i když reset limitu je až za 40 minut → opakovat.
+-- S časem běhu sběrače místo `created` by se čekalo ještě dvě minuty a neopakovalo by se.
+select pg_temp.reset();
+select pg_temp.sent(9000038, interval '20 minutes', 429,
+  jsonb_build_object('retry-after', '120',
+                     'x-ratelimit-reset', extract(epoch from now() + interval '40 minutes')::bigint::text));
+select public.collect_deploy_hook_results();
+select is( (select retry_allowed_at from public.deploy_hook_dispatches where request_id = 9000038),
+           now() - interval '20 minutes' + interval '120 seconds',
+           'krátký Retry-After vyhrává i nad resetem v budoucnu' );
+select is( pg_temp.retries(), 1, 'Retry-After uběhl od přijetí odpovědi → právě jedno opakování' );
+
+-- ── Hlavičky z HTTP/1.1: jména s velkými písmeny ─────────────
+-- pg_net ukládá jména hlaviček tak, jak přišla; přes HTTP/1.1 je Vercel posílá s velkými
+-- písmeny. RFC 9110: „Field names are case-insensitive".
+select pg_temp.reset();
+select pg_temp.sent(9000039, interval '20 minutes', 429,
+  jsonb_build_object('Retry-After', '3600',
+                     'X-Ratelimit-Reset', extract(epoch from now() - interval '1 minute')::bigint::text));
+select public.collect_deploy_hook_results();
+select is( (select retry_allowed_at from public.deploy_hook_dispatches where request_id = 9000039),
+           now() - interval '20 minutes' + interval '3600 seconds',
+           '`Retry-After` s velkými písmeny platí stejně jako `retry-after`' );
+
+select pg_temp.reset();
+select pg_temp.sent(9000040, interval '20 minutes', 429,
+  jsonb_build_object('X-Ratelimit-Limit', '60', 'X-Ratelimit-Remaining', '0',
+                     'X-Ratelimit-Reset', extract(epoch from now() + interval '40 minutes')::bigint::text));
+select public.collect_deploy_hook_results();
+select is( (select retry_allowed_at from public.deploy_hook_dispatches where request_id = 9000040),
+           to_timestamp(extract(epoch from now() + interval '40 minutes')::bigint),
+           '`X-Ratelimit-Reset` s velkými písmeny platí stejně jako `x-ratelimit-reset`' );
+select is( pg_temp.retries(), 0, 'a podle něj se zatím neopakuje' );
+
+-- ── Hlavičky, které nejsou JSON objekt ───────────────────────
+-- `jsonb_each_text` na poli skončí chybou; ta by shodila celý běh sběrače každých 15 minut.
+select pg_temp.reset();
+select pg_temp.sent(9000041, interval '20 minutes', 429, '[]'::jsonb);
+select lives_ok( $$ select public.collect_deploy_hook_results() $$,
+                 'sběrač nespadne, když hlavičky nejsou JSON objekt' );
+select ok( (select status_code = 429 and checked_at is not null and retry_allowed_at is null
+              from public.deploy_hook_dispatches where request_id = 9000041),
+           'odpověď se sebrala a retry_allowed_at zůstal null' );
 
 -- Nečíselný Retry-After (HTTP datum) se ignoruje a platí x-ratelimit-reset.
 select pg_temp.reset();
