@@ -158,9 +158,14 @@ export function pathOf(href) {
  *
  * Bez toho build hlásí jen „Timeout waiting for selector" — pravdu o mechanismu,
  * ne o příčině. Ta nejčastější se přitom dá pojmenovat: routa se vyrenderovala jako
- * stránka „nenalezeno", typicky když se rozešla routa v `App.tsx` se stavitelem cesty
- * a prerender chodí na adresu, kterou router nezná. `NotFound` marker připravenosti
- * schválně nevydává (nemá co předgenerovat), takže se to projeví právě timeoutem.
+ * stránka „nenalezeno". `NotFound` marker připravenosti schválně nevydává (nemá co
+ * předgenerovat), takže se to projeví právě timeoutem. Příčiny jsou dvě:
+ *  - rozešla se routa v `App.tsx` se stavitelem cesty a prerender chodí na adresu,
+ *    kterou router nezná;
+ *  - produkt nebo článek zmizel mezi načtením seznamu rout a návštěvou stránky
+ *    (deaktivace, zrušená publikace) — od opravy I-2 detail na chybějící řádek
+ *    vykreslí `NotFound`. Tady stačí build pustit znovu; ta změna ho navíc přes
+ *    deploy hook spustí sama.
  *
  * @param {string} route
  * @param {{ html?: string | null, title?: string | null, h1?: string | null }} seen
@@ -168,7 +173,12 @@ export function pathOf(href) {
  */
 export function explainStuckPage(route, { html, title, h1 }) {
   if (html && html.includes(NOT_FOUND_MARKER)) {
-    return `Prerender: ${route} se vyrenderovala jako stránka „nenalezeno" — router tuhle adresu nezná. Zkontroluj, že cestu staví tentýž zdroj, ze kterého je routa v App.tsx.`;
+    return (
+      `Prerender: ${route} se vyrenderovala jako stránka „nenalezeno". Buď ji router nezná — ` +
+      'zkontroluj, že cestu staví tentýž zdroj, ze kterého je routa v App.tsx — nebo produkt/článek ' +
+      'zmizel mezi načtením seznamu rout a vykreslením (deaktivace, zrušená publikace); pak stačí ' +
+      'build pustit znovu (ta změna ho přes deploy hook stejně spustí).'
+    );
   }
   return `Prerender: ${route} neohlásila připravenost (data-prerender-ready) do limitu. <title>: ${title || '—'}, první <h1>: ${h1 || '—'}.`;
 }
@@ -330,7 +340,8 @@ export async function captureRoute(page, url, route, { gotoTimeout = 30000, read
       h1: document.querySelector('h1')?.textContent?.trim() ?? null,
     }));
     const message = explainStuckPage(route, seen);
-    // Stránka „nenalezeno" se napodruhé nezmění — router tu adresu prostě nezná.
+    // Stránka „nenalezeno" se napodruhé nezmění: router tu adresu nezná, nebo obsah
+    // zmizel a seznam rout je zastaralý — pomůže až nový build, ne další pokus tady.
     if (!isTimeout(err) || seen.html.includes(NOT_FOUND_MARKER)) throw new Error(message, { cause: err });
     throw new RetryableRouteError(message, { cause: err });
   }

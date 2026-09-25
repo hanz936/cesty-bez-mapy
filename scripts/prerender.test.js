@@ -178,6 +178,11 @@ describe('explainStuckPage', () => {
     const msg = explainStuckPage('/cestovni-pruvodci/x', { html: '<div data-page="not-found">…</div>' });
     expect(msg).toContain('/cestovni-pruvodci/x');
     expect(msg).toMatch(/nenalezeno/);
+    // Obě příčiny (N-1): router adresu nezná → App.tsx; nebo obsah zmizel mezi seznamem
+    // rout a návštěvou (od I-2 detail vykreslí NotFound) → stačí nový build.
+    expect(msg).toContain('App.tsx');
+    expect(msg).toMatch(/zmizel mezi načtením seznamu rout a vykreslením/);
+    expect(msg).toMatch(/build pustit znovu/);
   });
   it('marker, který hledá, na stránce 404 opravdu je', () => {
     // Jinak nesvazuje obě strany nic: smazání atributu v `NotFound.tsx` by nechalo
