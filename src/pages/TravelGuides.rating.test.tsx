@@ -70,7 +70,7 @@ describe('matchesRatingRange — filtr porovnává totéž číslo, jaké ukazuj
 
 // Katalog se třemi průvodci, jejichž průměr z DB (12 desetinných míst) se liší od toho, co ukazuje karta.
 const catalogProducts = [
-  { title: 'Alfa', average_rating: 49 / 11, review_count: 11 }, // karta „4,5"
+  { title: 'Alfa', average_rating: 4.454545454545, review_count: 11 }, // 49/11, karta „4,5"
   { title: 'Beta', average_rating: 4.44, review_count: 25 }, // karta „4,4"
   { title: 'Gama', average_rating: 99 / 20, review_count: 20 }, // karta „5,0"
 ].map((p, i) => ({

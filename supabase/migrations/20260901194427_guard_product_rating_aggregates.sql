@@ -41,11 +41,13 @@ set lock_timeout = '5s';
 -- `for no key update`, ne `for update`: docs, „Row-Level Lock Modes" — slabší výhradní
 -- zámek: „this lock will not block `SELECT FOR KEY SHARE` commands that attempt to acquire
 -- a lock on the same rows". Key-share bere kontrola cizího klíče, když vzniká řádek, který
--- na produkt odkazuje (`order_items`, `reviews`); tu tenhle zámek nezdrží. Nákup na commit
--- schválení počká i tak: vložení položky objednávky spustí `update_product_total_sales()`
--- a ten UPDATEuje tentýž řádek produktu. `for no key update` je přesto ten správný, protože
--- je to nejslabší zámek, který funguje: následný UPDATE nemění klíčové sloupce, takže si
--- stejně bere jen `no key update`, a silnější `for update` by nepřidal nic.
+-- na produkt odkazuje (`order_items`, `reviews`); samotnou tu kontrolu tenhle zámek nezdrží.
+-- Na commit schválení ale počká nákup i nová recenze: vložení položky objednávky spustí
+-- `update_product_total_sales()`, který UPDATEuje tentýž řádek produktu, a vložení recenze
+-- spustí `trg_reviews_refresh_product_rating`, který si na řádek bere tentýž zámek jako
+-- tahle funkce. `for no key update` je přesto ten správný, protože je to nejslabší zámek,
+-- který funguje: následný UPDATE nemění klíčové sloupce, takže si stejně bere jen
+-- `no key update`, a silnější `for update` by nepřidal nic.
 create or replace function "public"."refresh_product_rating"()
 returns trigger
 language plpgsql
@@ -145,8 +147,8 @@ $$;
 -- přepis, jen by k tomu nepotřeboval ani závod, ani zastaralý formulář.
 --
 -- `create or replace`, ne DROP + CREATE: DROP TRIGGER pod rolí `postgres` si na Supabase
--- (`supautils.drop_trigger_grants`) bere AccessExclusiveLock i na tabulky `auth`
--- a `storage`, takže zablokovaný DROP by za sebou zdržel přihlašování i Storage.
+-- (`supautils.drop_trigger_grants`) bere AccessExclusiveLock i na tabulky `auth`, `storage`
+-- a `realtime`, takže zablokovaný DROP by za sebou zdržel přihlašování i Storage.
 create or replace trigger "trg_products_reject_manual_rating_write"
 before insert or update of "review_count", "average_rating" on "public"."products"
 for each row execute function "public"."reject_manual_rating_write"();

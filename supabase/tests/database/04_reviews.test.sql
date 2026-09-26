@@ -126,7 +126,7 @@ SELECT is( (SELECT round(average_rating, 1) FROM public.products WHERE id = '000
 
 -- Cesta přes JSON a JavaScript: PostgREST pošle `numeric` jako JSON číslo, klient z něj
 -- udělá IEEE 754 double a pošle zpátky jeho nejkratší zápis. `float8::text` dává tentýž
--- nejkratší zápis jen s `extra_float_digits = 1` (tady je výchozí 0). Bez `round(…, 12)`
+-- nejkratší zápis jen s `extra_float_digits` 1 a víc (tady je výchozí 0). Bez `round(…, 12)`
 -- by se 4.5454545454545455 vrátilo jako 4.545454545454546, tedy jiné číslo.
 SET LOCAL extra_float_digits = 1;
 SELECT is( (SELECT (average_rating::float8::text)::numeric FROM public.products

@@ -38,20 +38,34 @@
 -- Migrace je OPAKOVATELNÁ, a to schválně: zda `apply_migration` (Management API) balí SQL
 -- do transakce, dokumentace neuvádí, a vlastní BEGIN/COMMIT by případnou vnější transakci
 -- ukončil předčasně. Když spadne v půlce, stačí ji pustit znovu. Vyzkoušeno na PG 17.6
--- z každého mezistavu oddílu 1 (po krocích 1, 2 a 3), po výměně funkce i z hotového stavu.
+-- z každého mezistavu (po bloku DO, po krocích 1, 2 a 3 oddílu 1, po výměně funkce)
+-- i z hotového stavu.
 -- Znovu pouštět jen tenhle soubor, a jen dokud je nejnovější nasazenou migrací;
 -- 20260901194427 po něm nikdy — tiše by vrátil `round(…, 2)` do `refresh_product_rating`.
 --
 -- `lock_timeout` 5 s (první a poslední příkaz souboru): kdyby migrace musela na zámek
 -- `products` čekat za dlouhou transakcí, má rychle spadnout, a ne za sebou řadit čtení
--- i zápisy katalogu (změna typu bere na `products` výhradní zámek). Produkce má
+-- i zápisy katalogu (blok DO i změna typu chtějí na `products` výhradní zámek). Produkce má
 -- `lock_timeout = 0`, tedy čekání bez konce. S DROP TRIGGER by za ní čekala i přihlášení,
 -- proto tu žádný není (viz oddíl 1). Díky opakovatelnosti znamená timeout jen pustit
 -- migraci znovu. Obyčejné `SET` a na konci `RESET`, ne `SET LOCAL`: to mimo transakční
 -- blok podle docs (SET) „emits a warning and otherwise has no effect". Když soubor běží
 -- v transakci a ta spadne, zmizí `SET` s ní; bez transakce zůstane po pádu jen v tomhle
 -- spojení.
+--
+-- Hned potom nejsilnější zámek, jaký migrace na `products` potřebuje (AccessExclusive).
+-- Kdyby `apply_migration` pustil soubor v jedné transakci, první zámek na `products` by byl
+-- ShareRowExclusive z kroku 1 a změna typu v kroku 2 by ho povyšovala. Souběžné schválení
+-- recenze nebo nákup, který mezitím zamkl řádek produktu a pak ho UPDATEuje, by s migrací
+-- čekal navzájem → `deadlock detected`; v kontejneru to odnesla souběžná transakce, tedy
+-- schválení nebo nákup, ne migrace. Docs, „13.3.4 Deadlocks": „One should also ensure that
+-- the first lock acquired on an object in a transaction is the most restrictive mode that
+-- will be needed for that object." Blok DO proto, že samotné LOCK mimo transakci skončí
+-- chybou („PostgreSQL reports an error if LOCK is used outside a transaction block.").
+-- DO běží v transakci svého příkazu: bez vnější transakce zámek hned pustí a nic nezmění,
+-- ve vnější ho drží až do COMMIT. `lock_timeout` platí i pro něj.
 set lock_timeout = '5s';
+do $$ begin lock table "public"."products" in access exclusive mode; end $$;
 
 -- ── 1. Typ sloupce ─────────────────────────────────────────────────────────
 -- Stráž z 20260901194427 je trigger `UPDATE OF "review_count", "average_rating"`. Závislost
