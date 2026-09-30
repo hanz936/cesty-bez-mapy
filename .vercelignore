@@ -1,12 +1,7 @@
 # .vercelignore — co NEnahrávat při `vercel deploy` (CLI).
-# POZOR: nahrazuje .gitignore, takže tady musí být i běžné ignorované věci
-# (vč. .env*, jinak by se secrets nahrály na Vercel).
-
-# Závislosti a build artefakty (Vercel si je vygeneruje/nainstaluje sám)
-node_modules
-dist
-dist-ssr
-.cache
+# POZOR: CLI `.gitignore` nečte. Kromě svých výchozích výjimek nahraje všechno, co tady
+# není (vercel.com/docs/deployments/vercel-ignore), tedy i gitignorované pracovní složky.
+# Proto je níž celý `.gitignore`; že se nerozešly, hlídá `vercelignore.test.js`.
 
 # Git historie — nepotřebná pro build a obsahuje objekt > 100 MB (limit uploadu)
 .git
@@ -17,3 +12,144 @@ public/video
 # Lokální secrets — Vercel používá vlastní env proměnné
 .env
 .env.*
+
+# Pracovní složka Superpowers (ledgery, reporty, review diffy). Neignoruje ji `.gitignore`,
+# ale `.git/info/exclude`, a ten kopie níž nepokryje.
+.superpowers
+
+# ── Kopie `.gitignore`: beze změny a ve stejném pořadí (výjimka `!…` platí jen za pravidlem,
+# které ruší). Při každé změně `.gitignore` upravit i tady. ──
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Environment variables and secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+config.json
+secrets.json
+
+# Supabase specific
+supabase/.env
+.supabase/
+supabase/.temp/
+supabase/.branches/
+supabase/temp/
+*_backup.sql
+schema_dump.sql
+
+# Deno lockfiles (Edge Functions resolve deps from import maps in deno.json;
+# lockfiles are generated locally when running `deno test`/`deno run`)
+supabase/functions/**/deno.lock
+
+# Security and certificates
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+id_rsa
+id_dsa
+*.ssh
+# Výjimka: kořenový certifikát Supabase je VEŘEJNÝ (Supabase ho nabízí ke stažení)
+# a `scripts/run-sql.mjs` proti němu ověřuje spojení k produkční databázi. Bez něj
+# by se skript buď neověřoval vůbec, nebo by nešel spustit. Žádný klíč to není.
+!scripts/prod-ca-2021.crt
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+db.json
+database/
+backups/
+
+# SQL files - ignore ALL except migrations
+*.sql
+# EXCEPTION: Allow Supabase migrations (important for version control!)
+!supabase/migrations/*.sql
+# EXCEPTION: Allow archived pre-baseline migrations (konsolidace 2026-06-04)
+!supabase/_archive/migrations-pre-baseline/*.sql
+# EXCEPTION: Allow pgTAP test files
+!supabase/tests/
+!supabase/tests/**
+!supabase/tests/database/
+!supabase/tests/database/*.sql
+
+# Large and binary files
+*.zip
+*.rar
+*.7z
+*.tar.gz
+*.exe
+*.dll
+*.so
+*.dylib
+*.class
+*.o
+*.pyc
+*.mov
+*.mp4
+*.avi
+*.wmv
+*.flv
+
+# Specific large video file
+public/video/background.mp4
+
+# Cache and temporary files
+.cache/
+tmp/
+temp/
+*.tmp
+*.temp
+.sass-cache/
+.parcel-cache/
+coverage/
+
+# Personal and sensitive data
+personal/
+private/
+confidential/
+test-data/
+*.backup
+notes.txt
+todo-private.md
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.vercel
+
+# AI / dev tooling caches
+.playwright-cli/
+.firecrawl/
+
+# Deno lockfile (root only — function-level je řešen samostatně výše)
+/deno.lock
+.audit-tmp/
+.worktrees/
