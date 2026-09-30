@@ -15,7 +15,7 @@
 -- a ta spadne, zmizí `SET` s ní; bez transakce zůstane po pádu jen v tomhle spojení.
 --
 -- Když nasazení spadne, pustit znovu jen tenhle soubor, a jen dokud je nejnovější
--- nasazenou migrací. Po 20260915100215 už nikdy: tiše by vrátil `round(…, 2)` do
+-- nasazenou migrací. Po 20260930130116 už nikdy: tiše by vrátil `round(…, 2)` do
 -- `refresh_product_rating` a s ním dvojí zaokrouhlení.
 set lock_timeout = '5s';
 
@@ -138,7 +138,7 @@ $$;
 -- nezmíní v SET — běžná editace produktu tak nestojí nic navíc. `IS DISTINCT FROM`
 -- uvnitř pak pustí i zápis stejné hodnoty: kdyby klient jednou začal vracet celý
 -- řádek, nerozbije mu to ukládání, dokud se hodnota opravdu neliší. Platí to i po
--- 20260915100215: průměr se tam ukládá na 12 desetinných míst a ty cestu přes JSON
+-- 20260930130116: průměr se tam ukládá na 12 desetinných míst a ty cestu přes JSON
 -- a JavaScript (IEEE 754 double) přežijí beze změny.
 --
 -- INSERT je ve stráži taky, i když tudy dnes nikdo nechodí (`pg_stat_statements`:

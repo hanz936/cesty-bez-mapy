@@ -18,12 +18,12 @@ proto je výsledek zapsaný tady. Překonané věty níž nesou odkaz na přísl
      `trigger_vercel_deploy` s deduplikací per transakce a sběrač výsledků na pg_cron. Hromadná
      akce v adminu dřív spálila jeden z 60 hodinových triggerů Vercelu na každý řádek a chybějící
      tajemství ani odpověď 429 nezanechaly stopu.
-   - `20260901194427` (A5) — stráž `reject_manual_rating_write` a zámek řádku produktu
+   - `20260930125902` (A5) — stráž `reject_manual_rating_write` a zámek řádku produktu
      v `refresh_product_rating` (souběžná schválení si přepisovala agregáty).
-   - `20260915100215` (A6) — `average_rating` drží průměr zaokrouhlený na 12 desetinných míst (bod 3).
-   - `20260923202547` (A9) — deploy hook i na změny `products` a `categories`; katalog a detail by
+   - `20260930130116` (A6) — `average_rating` drží průměr zaokrouhlený na 12 desetinných míst (bod 3).
+   - `20260930130239` (A9) — deploy hook i na změny `products` a `categories`; katalog a detail by
      se jinak přestavěly až s nesouvisející změnou.
-   - `20260924…_retry_failed_deploy_hooks` (finální revize, M-2 + M-4, N-2) — sběrač znovu pošle
+   - `20260930130503_retry_failed_deploy_hooks` (finální revize, M-2 + M-4, N-2) — sběrač znovu pošle
      přechodně odmítnutý deploy hook (bez odpovědi, 408, 429, 5xx; jiné 4xx neopakuje). Odstup
      15 → 30 → 60 min…, respektuje `Retry-After` / `x-ratelimit-reset`; rozpočet 24 h patří jedné
      změně — nová změna začíná znovu od 15 minut, i když předchozí to vzdala. Opakování jsou řádky

@@ -2,7 +2,7 @@ begin;
 select plan(26);
 
 -- Změny produktů a kategorií přestavují web (nález F7 auditu 2026-08-31, migrace
--- 20260923202547). Test běží BEZ vault secretu: helper pak každé vyžádání zapíše jako
+-- 20260930130239). Test běží BEZ vault secretu: helper pak každé vyžádání zapíše jako
 -- `missing_secret` a deduplikace v rámci transakce nic nespolkne — dá se tedy spočítat,
 -- kolikrát si který trigger o rebuild řekl.
 delete from vault.secrets where name = 'vercel_deploy_hook';

@@ -33,7 +33,7 @@ select is( has_function_privilege('anon', 'public.notify_vercel_reviews_change()
 select is( has_function_privilege('authenticated', 'public.notify_vercel_reviews_change()', 'EXECUTE'),
            false, 'authenticated nemá EXECUTE na notify_vercel_reviews_change' );
 
--- Stráž agregátů (migrace 20260901194427). Tytéž advisor 0028/0029 grants.
+-- Stráž agregátů (migrace 20260930125902). Tytéž advisor 0028/0029 grants.
 select has_function('public'::name, 'reject_manual_rating_write'::name, 'stráž agregátů hodnocení existuje');
 select has_trigger('public'::name, 'products'::name, 'trg_products_reject_manual_rating_write'::name,
            'products mají stráž proti ručnímu zápisu agregátů');
@@ -49,7 +49,7 @@ SELECT is( (SELECT p.prosecdef FROM pg_proc p JOIN pg_namespace n ON n.oid = p.p
              WHERE n.nspname = 'public' AND p.proname = 'reject_manual_rating_write'),
            false, 'reject_manual_rating_write NENI security definer' );
 
--- Průměr se ukládá na 12 desetinných míst (migrace 20260915100215). S `numeric(3,2)` se
+-- Průměr se ukládá na 12 desetinných míst (migrace 20260930130116). S `numeric(3,2)` se
 -- zaokrouhloval dvakrát — v DB na setiny a na webu znovu na desetiny — a vycházel o desetinu výš.
 SELECT col_type_is('public'::name, 'products'::name, 'average_rating'::name, 'numeric',
                    'average_rating je numeric bez přesnosti');
@@ -134,7 +134,7 @@ SELECT is( (SELECT (average_rating::float8::text)::numeric FROM public.products
            (SELECT average_rating FROM public.products WHERE id = '00000000-0000-0000-0000-0000000000e1'),
            'uložený průměr přežije cestu přes double beze změny' );
 
--- Slib stráže z 20260901194427: klient, který uloží úpravu a neměněný průměr pošle zpátky
+-- Slib stráže z 20260930125902: klient, který uloží úpravu a neměněný průměr pošle zpátky
 -- v podobě, jakou z něj udělal JavaScript, projde. Echo se spočítá předem jako postgres.
 -- Změna názvu v témže UPDATE dokazuje, že příkaz řádek opravdu zasáhl (jinak by RLS
 -- mohla tiše vyfiltrovat 0 řádků a aserce by prošly naprázdno).

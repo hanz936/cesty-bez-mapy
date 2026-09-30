@@ -2,7 +2,7 @@ begin;
 select plan(56);
 
 -- Opakování neúspěšného deploy hooku a uzavírání deduplikovaných řádků (nálezy M-2 a M-4
--- finální revize, migrace 20260924221641).
+-- finální revize, migrace 20260930130503).
 --
 -- Sběrač se tu volá nad SYNTETICKÝMI řádky: odeslaný požadavek + odpověď v net._http_response,
 -- `created_at` vztažené k now(). Syntetické řádky mají vymyšlené transaction_id — v produkci

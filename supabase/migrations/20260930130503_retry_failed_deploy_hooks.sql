@@ -1,6 +1,6 @@
 -- Retry a deploy hook request that failed for a transient reason, and close deduplicated rows.
 --
--- M-2 (final review 2026-09-24): after 20260923202547 every save of a live product, a
+-- M-2 (final review 2026-09-24): after 20260930130239 every save of a live product, a
 -- category, a review or a blog post sends one deploy hook request. Vercel allows 60 hook
 -- triggers per hour per project, across all deploy hooks (docs re-read 2026-09-24). If the
 -- LAST request of an editing session is rejected (a 429 from that limit, a 408, a 5xx, a

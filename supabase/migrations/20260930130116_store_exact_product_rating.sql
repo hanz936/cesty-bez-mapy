@@ -23,7 +23,7 @@
 -- value, the text representation will be used". JavaScriptový klient je čte do IEEE 754
 -- double. Samotné `avg` má aspoň 16 platných číslic (55/12 → 4.5833333333333333), double
 -- z toho udělá 4.583333333333333, tedy jiný `numeric`, a klient, který by neměněný řádek
--- poslal zpátky, by narazil na stráž z 20260901194427 (`IS DISTINCT FROM` → 42501). Průměr
+-- poslal zpátky, by narazil na stráž z 20260930125902 (`IS DISTINCT FROM` → 42501). Průměr
 -- má před desetinnou čárkou jedinou číslici, takže 12 míst je nejvýš 13 platných číslic
 -- a ty double přenese beze změny. Frontend se měnit nemusí.
 --
@@ -41,7 +41,7 @@
 -- z každého mezistavu (po bloku DO, po krocích 1, 2 a 3 oddílu 1, po výměně funkce)
 -- i z hotového stavu.
 -- Znovu pouštět jen tenhle soubor, a jen dokud je nejnovější nasazenou migrací;
--- 20260901194427 po něm nikdy — tiše by vrátil `round(…, 2)` do `refresh_product_rating`.
+-- 20260930125902 po něm nikdy — tiše by vrátil `round(…, 2)` do `refresh_product_rating`.
 --
 -- `lock_timeout` 5 s (první a poslední příkaz souboru): kdyby migrace musela na zámek
 -- `products` čekat za dlouhou transakcí, má rychle spadnout, a ne za sebou řadit čtení
@@ -68,7 +68,7 @@ set lock_timeout = '5s';
 do $$ begin lock table "public"."products" in access exclusive mode; end $$;
 
 -- ── 1. Typ sloupce ─────────────────────────────────────────────────────────
--- Stráž z 20260901194427 je trigger `UPDATE OF "review_count", "average_rating"`. Závislost
+-- Stráž z 20260930125902 je trigger `UPDATE OF "review_count", "average_rating"`. Závislost
 -- triggeru na sloupci vzniká právě z toho seznamu a PostgreSQL 17.6 změnu typu takového
 -- sloupce odmítne: „cannot alter type of a column used in a trigger definition" (vyzkoušeno).
 -- Proto se seznam nejdřív zúží na `review_count` (krok 1), typ a default se změní (kroky 2
@@ -98,7 +98,7 @@ for each row execute function "public"."reject_manual_rating_write"();
 COMMENT ON COLUMN "public"."products"."average_rating" IS 'Mean rating of approved reviews rounded to 12 decimal places, 0 when there are none. 12 places keep the value unchanged through a JSON round trip via an IEEE 754 double (JavaScript clients). Maintained by trigger refresh_product_rating and not writable via the API (trg_products_reject_manual_rating_write). Round for display only once (src/utils/rating.ts).';
 
 -- ── 2. Trigger přepočtu ────────────────────────────────────────────────────
--- Tělo je shodné s 20260901194427 (včetně samostatného zámku `for no key update` —
+-- Tělo je shodné s 20260930125902 (včetně samostatného zámku `for no key update` —
 -- zdůvodnění tam), jediná změna je průměr: `round(…, 12)` místo `round(…, 2)`.
 -- `create or replace` zachová vlastníka i odebrané EXECUTE z 20260716181000; pgTAP to hlídá.
 create or replace function "public"."refresh_product_rating"()
