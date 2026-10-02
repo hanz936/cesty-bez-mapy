@@ -57,8 +57,9 @@ Klíčové opravy zahrnuté v baseline (migrace 047–049 před konsolidací):
 - `pg_net` přesunut z `public` do `extensions` (lint 0014).
 - Edge: `resend-webhook` `verify_jwt=false`, `get-order-by-session` fix.
 
-Vědomě ponecháno: `fakturoid_tokens` RLS-bez-policy (deny-all), `0012` anon-access policies
+Vědomě ponecháno: `fakturoid_tokens` a `rate_limit_counters` RLS-bez-policy (deny-all), `0012` anon-access policies
 (admin policies gated `is_admin()` vylučující anon), pre-launch unused indexes.
+Výjimka: `idx_deploy_hook_dispatches_retry_of` nemazat ani po launchi, kryje cizí klíč `retry_of` (90denní úklid ve sběrači, bez něj lint 0001).
 Odloženo na Pro plán: leaked-password protection (HIBP).
 
 ## 4. Konvence pro nové migrace
