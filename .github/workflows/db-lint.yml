@@ -4,6 +4,8 @@ on:
     paths:
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
+      # `supabase db start` čte config.toml (verze DB, sekce služeb).
+      - 'supabase/config.toml'
       # Změna workflow se otestuje ve vlastním PR.
       - '.github/workflows/db-lint.yml'
 jobs:
