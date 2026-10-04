@@ -4,13 +4,17 @@ on:
     paths:
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
+      # Změna workflow se otestuje ve vlastním PR.
+      - '.github/workflows/db-lint.yml'
 jobs:
   pgtap:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - run: supabase start
+      - uses: actions/checkout@v7
+      # Bez `version` nainstaluje verzi balíčku `supabase` z package-lock.json
+      # (README setup-cli v3) — CLI v CI se mění s lockfilem, ne s každým vydáním.
+      - uses: supabase/setup-cli@v3
+      # Jen Postgres s migracemi (CI návod Supabase); pgTAP sada nepotřebuje
+      # auth/storage/edge kontejnery.
+      - run: supabase db start
       - run: supabase test db

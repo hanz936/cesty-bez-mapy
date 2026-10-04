@@ -14,7 +14,17 @@ export default defineConfig(
     // `.superpowers` a `.worktrees` jsou mimo git (pracovní poznámky agentů a další
     // pracovní stromy repa), jenže flat config `.gitignore` nečte — bez ignore by lint
     // procházel i je, z hlavního checkoutu třeba celý rozdělaný worktree.
-    ignores: ['dist', 'supabase/functions/**', 'src/types/database.types.ts', '.superpowers', '.worktrees'],
+    // `supabase/.temp` je interní stav Supabase CLI (git ho ignoruje); plný
+    // `supabase start` do něj píše `start-secrets/…/main/index.ts` a lint by při
+    // běžícím stacku spadl na parsing error project service.
+    ignores: [
+      'dist',
+      'supabase/functions/**',
+      'src/types/database.types.ts',
+      '.superpowers',
+      '.worktrees',
+      'supabase/.temp',
+    ],
   },
   // JS/JSX a build skripty (.mjs, .cjs). `files` rozhoduje, kdo pravidla dostane:
   // ESLint sice `.mjs` a `.cjs` lintuje sám od sebe, ale bez shody tady by prošly
