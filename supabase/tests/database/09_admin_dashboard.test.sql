@@ -1,5 +1,5 @@
 begin;
-select plan(12);
+select plan(14);
 
 -- ══════════════════════════════════════════════════════════════════════
 -- Blok A: přístupová migrace admin_dashboard_access
@@ -24,15 +24,19 @@ select is(
       and 'authenticated' = any(roles)),
   1, 'products_authenticated_select existuje (SELECT, authenticated)' );
 
--- Advisor 0006: pro roli authenticated presne jedna permissive SELECT policy na products
+-- Advisor 0006: pro roli authenticated presne jedna permissive policy, ktera plati pro SELECT;
+-- jako lint (splinter) pocita i FOR ALL a policies pro PUBLIC
 select is(
   (select count(*)::int from pg_policies
-    where schemaname = 'public' and tablename = 'products' and cmd = 'SELECT'
-      and permissive = 'PERMISSIVE' and 'authenticated' = any(roles)),
+    where schemaname = 'public' and tablename = 'products' and cmd in ('SELECT', 'ALL')
+      and permissive = 'PERMISSIVE' and roles && array['authenticated', 'public']::name[]),
   1, 'products: jedina permissive SELECT policy pro authenticated (lint 0006)' );
 
-select has_index('public', 'contact_messages', 'idx_contact_messages_read_at',
-                 'idx_contact_messages_read_at existuje');
+-- Parcialni index: predikat overuje zaroven existenci (chybejici index = NULL)
+select is(
+  (select pg_get_expr(i.indpred, i.indrelid) from pg_index i
+    where i.indexrelid = to_regclass('public.idx_contact_messages_read_at')),
+  '(read_at IS NULL)', 'idx_contact_messages_read_at existuje a je parcialni (read_at is null)' );
 select has_index('public', 'email_events', 'idx_email_events_created_at',
                  'idx_email_events_created_at existuje');
 select col_not_null('public', 'products', 'category_ids',
@@ -70,6 +74,16 @@ select is(
 select is(
   (select count(*)::int from public.download_tokens where token = 'dash-token-0'),
   0, 'ne-admin nevidi download_tokens (RLS prazdna mnozina, bez chyby)' );
+
+-- ── RLS: admin bez MFA (aal1) je pro obe policies ne-admin ───
+set local request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal1"}';
+select is(
+  (select count(*)::int from public.products
+    where id in ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a2')),
+  1, 'admin bez MFA (aal1) vidi jen nesmazany produkt' );
+select is(
+  (select count(*)::int from public.download_tokens where token = 'dash-token-0'),
+  0, 'admin bez MFA (aal1) nevidi download_tokens' );
 
 -- ── RLS: admin aal2 vidi i soft-smazane a tokeny ─────────────
 set local request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal2"}';
