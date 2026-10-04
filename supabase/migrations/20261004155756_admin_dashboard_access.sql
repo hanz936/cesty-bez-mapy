@@ -15,18 +15,22 @@
 -- Re-runnable: applied remotely via MCP apply_migration, so a retry after a partial failure must
 -- not stop on "already exists" (house pattern: drop policy if exists in 20260610230500,
 -- create index if not exists in 20260901075731); alter policy … to anon, the backfill and
--- set not null are idempotent by themselves. Every intermediate state is safe:
+-- set not null are idempotent by themselves. Every intermediate state of a first run is safe:
 -- products_authenticated_select exists before products_public_select is narrowed to anon, so
 -- authenticated never lacks a SELECT policy (for a moment it has two permissive ones whose union is
--- the target predicate).
+-- the target predicate). A re-run over a partly applied file (possible only if the statements were
+-- committed one by one) drops products_authenticated_select for a moment before recreating it.
 --
--- Locks: run as postgres, every policy statement also takes AccessExclusiveLock on the auth.* and
--- storage.* tables listed in supautils.policy_grants, and production runs with lock_timeout = 0.
--- lock_timeout 5 s as the first and last statement (FE house pattern since 20260930125902): behind a
--- long transaction the migration fails fast instead of queueing sign-ins and catalog reads behind
--- itself; then just run it again. Plain SET/RESET, not SET LOCAL, which has no effect outside a
--- transaction block. The first statement on products is a policy statement, so the strongest lock on
--- products comes first and the backfill and SET NOT NULL never upgrade it.
+-- Locks: the two index builds come first; each takes only a ShareLock on its own table
+-- (contact_messages, email_events; inside a transaction it blocks writes there until the end), so
+-- no lock on products, download_tokens, auth or storage is held while they build or wait. Run as
+-- postgres, every policy statement takes AccessExclusiveLock on its table and on the auth.* and
+-- storage.* tables listed in supautils.policy_grants — the first one already, even drop policy if
+-- exists for a policy that does not exist — so the backfill and SET NOT NULL never upgrade the lock
+-- on products. Production runs with lock_timeout = 0; lock_timeout 5 s as the first and last
+-- statement (FE house pattern since 20260930125902): behind a long transaction the migration fails
+-- fast instead of queueing sign-ins and catalog reads behind itself; then just run it again. Plain
+-- SET/RESET, not SET LOCAL, which has no effect outside a transaction block.
 --
 -- Row triggers on products (updated_at, deploy hook, rating guard) fire only for backfilled rows:
 -- with no NULL category_ids the UPDATE touches nothing. A live product with NULL would get updated_at
@@ -37,6 +41,12 @@
 -- drop policy download_tokens_admin_select; drop both indexes.
 
 set lock_timeout = '5s';
+
+create index if not exists "idx_contact_messages_read_at" on "public"."contact_messages"
+  using btree ("read_at") where ("read_at" is null);
+
+create index if not exists "idx_email_events_created_at" on "public"."email_events"
+  using btree ("created_at" desc);
 
 drop policy if exists "download_tokens_admin_select" on "public"."download_tokens";
 create policy "download_tokens_admin_select" on "public"."download_tokens"
@@ -57,11 +67,5 @@ alter policy "products_public_select" on "public"."products" to "anon";
 
 update "public"."products" set "category_ids" = '{}' where "category_ids" is null;
 alter table "public"."products" alter column "category_ids" set not null;
-
-create index if not exists "idx_contact_messages_read_at" on "public"."contact_messages"
-  using btree ("read_at") where ("read_at" is null);
-
-create index if not exists "idx_email_events_created_at" on "public"."email_events"
-  using btree ("created_at" desc);
 
 reset lock_timeout;
