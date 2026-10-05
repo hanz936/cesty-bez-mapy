@@ -1,5 +1,5 @@
 begin;
-select plan(29);
+select plan(32);
 
 -- ══════════════════════════════════════════════════════════════════════
 -- Blok A: přístupová migrace admin_dashboard_access
@@ -106,6 +106,41 @@ select is( has_function_privilege('anon', 'public.get_admin_dashboard_overview()
            false, 'anon nema EXECUTE na get_admin_dashboard_overview' );
 select is( has_function_privilege('authenticated', 'public.get_admin_dashboard_overview()', 'EXECUTE'),
            true, 'authenticated ma EXECUTE na get_admin_dashboard_overview' );
+-- RLS je druha vrstva jen pod security invoker; security definer by ji potichu obesel (spec §5.2)
+select isnt_definer('public'::name, 'get_admin_dashboard_overview'::name, array[]::name[],
+                    'get_admin_dashboard_overview() je security invoker');
+select volatility_is('public'::name, 'get_admin_dashboard_overview'::name, array[]::name[], 'stable',
+                     'get_admin_dashboard_overview() je stable');
+
+-- ── Prazdna data: bez objednavek a recenzi same nuly, zadne deleni nulou ──
+-- Smazani objednavek kaskadou smaze polozky, tokeny a recenze; rollback to savepoint vse vrati.
+-- pgTAP cisluje testy sekvenci, kterou rollback nevraci: dalsi test pokracuje spravnym cislem.
+savepoint b_empty;
+delete from public.reviews;
+delete from public.orders;
+set local role authenticated;
+set local request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal2"}';
+select is( public.get_admin_dashboard_overview(),
+           '{"totals": {"revenue": 0, "orders": 0, "customers_with_purchase": 0, "avg_rating": 0},
+             "refunds": {"count": 0, "rate": 0},
+             "revenue_split": {"guides": 0, "custom_itineraries": 0}}'::jsonb,
+           'prazdna data: same nuly, zadne deleni nulou' );
+reset role;
+rollback to savepoint b_empty;
+
+-- ── Vychozi stav pred fixtures bloku B (blok A a pripadna seed data) ──
+-- Hodnoty nize jsou prirustky proti nemu, takze test nezavisi na datech, ktera uz v DB jsou.
+create temp table t_overview_before (v jsonb);
+grant insert, select on t_overview_before to authenticated;
+set local role authenticated;
+set local request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal2"}';
+insert into t_overview_before select public.get_admin_dashboard_overview();
+reset role;
+-- Prumer neni soucet: k nemu soucet a pocet schvalenych hodnoceni pred fixtures
+create temp table t_ratings_before as
+  select coalesce(sum(r.rating), 0)::numeric as total, count(*) as n
+    from public.reviews r
+   where r.status = 'approved';
 
 -- ── Fixtures (jako postgres) — doplnuji blok A ───────────────
 insert into public.products (id, title, description, price, slug, pdf_url)
@@ -116,14 +151,15 @@ insert into public.custom_itinerary_requests (id, customer_email, customer_name,
 values ('00000000-0000-0000-0000-0000000000c1', 'dash-b@example.com', 'B', '{}'::jsonb, 'paid'),
        ('00000000-0000-0000-0000-0000000000c2', 'dash-d@example.com', 'D', '{}'::jsonb, 'completed');
 
--- b1 completed 1000 (guide) · b2 completed 2500 (2x guide 500 + itinerary 1500) · b3 refunded 700
--- b4 completed 300 (soft-deleted guide, 40 days old) · b5 completed 900 (itinerary only)
+-- b1 completed 1000 (guide) · b2 completed 2500 (2x guide 500 + itinerary 1500)
+-- b3 refunded 700 (tyz kupujici jako b1, e-mail velkymi pismeny) · b4 completed 300 (soft-deleted
+-- guide, 40 days old) · b5 completed 600 (itinerary only)
 insert into public.orders (id, customer_email, total_amount, status, created_at)
 values ('00000000-0000-0000-0000-0000000000b1', 'dash-a@example.com', 1000, 'completed', now()),
        ('00000000-0000-0000-0000-0000000000b2', 'dash-b@example.com', 2500, 'completed', now()),
-       ('00000000-0000-0000-0000-0000000000b3', 'dash-a@example.com', 700, 'refunded', now()),
+       ('00000000-0000-0000-0000-0000000000b3', 'DASH-A@example.com', 700, 'refunded', now()),
        ('00000000-0000-0000-0000-0000000000b4', 'dash-c@example.com', 300, 'completed', now() - interval '40 days'),
-       ('00000000-0000-0000-0000-0000000000b5', 'dash-d@example.com', 900, 'completed', now());
+       ('00000000-0000-0000-0000-0000000000b5', 'dash-d@example.com', 600, 'completed', now());
 
 insert into public.order_items (order_id, product_id, quantity, price_at_purchase, vat_rate_at_purchase, custom_itinerary_request_id)
 values ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000a1', 1, 1000, 21, null),
@@ -131,7 +167,7 @@ values ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000
        ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-0000000000a4', 1, 1500, 21, '00000000-0000-0000-0000-0000000000c1'),
        ('00000000-0000-0000-0000-0000000000b3', '00000000-0000-0000-0000-0000000000a1', 1, 700, 21, null),
        ('00000000-0000-0000-0000-0000000000b4', '00000000-0000-0000-0000-0000000000a2', 1, 300, 21, null),
-       ('00000000-0000-0000-0000-0000000000b5', '00000000-0000-0000-0000-0000000000a4', 1, 900, 21, '00000000-0000-0000-0000-0000000000c2');
+       ('00000000-0000-0000-0000-0000000000b5', '00000000-0000-0000-0000-0000000000a4', 1, 600, 21, '00000000-0000-0000-0000-0000000000c2');
 
 -- Deploy-hook trigger na reviews by zapisoval do deploy_hook_dispatches a rozbil blok C;
 -- rating trigger zustava (neskodny). Vse se rolluje zpet.
@@ -139,21 +175,23 @@ alter table public.reviews disable trigger trg_reviews_deploy_hook;
 insert into public.reviews (product_id, order_id, reviewer_name, rating, review_text, status, approved_at)
 values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000b1', 'A', 4, 'Deset znaku minimalne, super.', 'approved', now()),
        ('00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-0000000000b2', 'B', 5, 'Deset znaku minimalne, vyborne.', 'approved', now()),
+       ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000b0', 'Z', 5, 'Deset znaku minimalne, skvele.', 'approved', now()),
        ('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000b4', 'C', 1, 'Deset znaku minimalne, ceka.', 'pending', null);
 
 -- ── Gate: neadmin dostane 42501, ne data ani nuly ────────────
 set local role anon;
-select throws_ok( $$ select public.get_admin_dashboard_overview() $$, '42501', null,
+select throws_ok( $$ select public.get_admin_dashboard_overview() $$, '42501',
+                  'permission denied for function get_admin_dashboard_overview',
                   'anon: volani selze 42501 (EXECUTE odebran)' );
 reset role;
 
 set local role authenticated;
 set local request.jwt.claims = '{"is_admin": false, "is_anonymous": true, "aal": "aal1"}';
-select throws_ok( $$ select public.get_admin_dashboard_overview() $$, '42501', null,
-                  'anonymni authenticated session: 42501' );
+select throws_ok( $$ select public.get_admin_dashboard_overview() $$, '42501', 'forbidden',
+                  'anonymni authenticated session: 42501 forbidden' );
 set local request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal1"}';
-select throws_ok( $$ select public.get_admin_dashboard_overview() $$, '42501', null,
-                  'admin bez MFA (aal1): 42501' );
+select throws_ok( $$ select public.get_admin_dashboard_overview() $$, '42501', 'forbidden',
+                  'admin bez MFA (aal1): 42501 forbidden' );
 reset role;
 
 -- ── Admin aal2 pod roli authenticated (RLS plati) ────────────
@@ -165,26 +203,42 @@ set local request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal":
 insert into t_overview select public.get_admin_dashboard_overview();
 reset role;
 
--- completed: b0 100 + b1 1000 + b2 2500 + b4 300 + b5 900 = 4800
-select is( (select (v->'totals'->>'revenue')::numeric from t_overview), 4800::numeric,
-           'revenue = soucet completed (refunded vylouceno)' );
-select is( (select (v->'totals'->>'orders')::int from t_overview), 6, 'orders = vsechny objednavky' );
-select is( (select (v->'totals'->>'customers_with_purchase')::int from t_overview), 5,
-           'customers_with_purchase = distinct e-maily (z,a,b,c,d)' );
-select is( (select (v->'totals'->>'avg_rating')::numeric from t_overview), 4.5::numeric,
-           'avg_rating = prumer schvalenych (4,5), pending ignorovan' );
-select is( (select (v->'refunds'->>'count')::int from t_overview), 1, 'refunds.count = 1' );
-select is( (select (v->'refunds'->>'rate')::numeric from t_overview), 0.1667::numeric,
-           'refunds.rate = 1/6 zaokrouhleno na 4 mista' );
--- guides: b0 100 + b1 1000 + b2 2x500 + b4 300 = 2400 · itinerare: b2 1500 + b5 900 = 2400
-select is( (select (v->'revenue_split'->>'guides')::numeric from t_overview), 2400::numeric,
-           'revenue_split.guides = polozky bez vazby na itinerar' );
-select is( (select (v->'revenue_split'->>'custom_itineraries')::numeric from t_overview), 2400::numeric,
-           'revenue_split.custom_itineraries = polozky s custom_itinerary_request_id' );
-select is( (select (v->'revenue_split'->>'guides')::numeric + (v->'revenue_split'->>'custom_itineraries')::numeric
-              from t_overview),
-           (select (v->'totals'->>'revenue')::numeric from t_overview),
-           'guides + custom_itineraries = revenue' );
+-- Prirustky proti vychozimu stavu. Completed: b1 1000 + b2 2500 + b4 300 + b5 600 = 4400
+select is( (select (a.v->'totals'->>'revenue')::numeric - (b.v->'totals'->>'revenue')::numeric
+              from t_overview a, t_overview_before b), 4400::numeric,
+           'revenue +4400 = soucet completed (refunded vyloucena)' );
+select is( (select (a.v->'totals'->>'orders')::int - (b.v->'totals'->>'orders')::int
+              from t_overview a, t_overview_before b), 5, 'orders +5 = vsechny objednavky' );
+select is( (select (a.v->'totals'->>'customers_with_purchase')::int - (b.v->'totals'->>'customers_with_purchase')::int
+              from t_overview a, t_overview_before b), 4,
+           'customers_with_purchase +4 = distinct e-maily bez ohledu na velikost pismen (a, b, c, d)' );
+-- Schvalene 4, 5, 5 (pending ignorovan); bez starsich recenzi 14/3 = 4.666666666667 na 12 mist
+-- (D-06), zaokrouhleni na 2 mista by dalo 4.67
+select is( (select (v->'totals'->>'avg_rating')::numeric from t_overview),
+           (select round((total + 14) / (n + 3), 12) from t_ratings_before),
+           'avg_rating = prumer schvalenych na 12 mist, pending ignorovan' );
+select is( (select (a.v->'refunds'->>'count')::int - (b.v->'refunds'->>'count')::int
+              from t_overview a, t_overview_before b), 1, 'refunds.count +1' );
+-- Bez starsich objednavek 1 vracena z 6 (b0 z bloku A + b1..b5) = 0.1667
+select is( (select (v->'refunds'->>'rate')::numeric from t_overview),
+           (select round(((v->'refunds'->>'count')::numeric + 1) / ((v->'totals'->>'orders')::numeric + 5), 4)
+              from t_overview_before),
+           'refunds.rate = vracene / vsechny, zaokrouhleno na 4 mista' );
+-- guides: b1 1000 + b2 2x500 + b4 300 = 2300 · itinerare: b2 1500 + b5 600 = 2100; ruzne castky,
+-- takze prohozene nebo zdvojene podminky rozpadu test shodi
+select is( (select (a.v->'revenue_split'->>'guides')::numeric - (b.v->'revenue_split'->>'guides')::numeric
+              from t_overview a, t_overview_before b), 2300::numeric,
+           'revenue_split.guides +2300 = polozky bez vazby na itinerar' );
+select is( (select (a.v->'revenue_split'->>'custom_itineraries')::numeric
+                 - (b.v->'revenue_split'->>'custom_itineraries')::numeric
+              from t_overview a, t_overview_before b), 2100::numeric,
+           'revenue_split.custom_itineraries +2100 = polozky s custom_itinerary_request_id' );
+select is( (select (a.v->'revenue_split'->>'guides')::numeric + (a.v->'revenue_split'->>'custom_itineraries')::numeric
+                 - (b.v->'revenue_split'->>'guides')::numeric - (b.v->'revenue_split'->>'custom_itineraries')::numeric
+              from t_overview a, t_overview_before b),
+           (select (a.v->'totals'->>'revenue')::numeric - (b.v->'totals'->>'revenue')::numeric
+              from t_overview a, t_overview_before b),
+           'prirustek guides + custom_itineraries = prirustek revenue' );
 
 select * from finish();
 rollback;
