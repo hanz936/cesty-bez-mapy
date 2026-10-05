@@ -28,8 +28,9 @@ begin
       'revenue', coalesce((select sum(o.total_amount) from public.orders o where o.status = 'completed'), 0),
       'orders', v_orders_total,
       -- Buyers = distinct e-mails in orders, not rows in customers (that table also holds
-      -- registered-only users and misses one buyer).
-      'customers_with_purchase', (select count(distinct o.customer_email) from public.orders o),
+      -- registered-only users and misses one buyer). Case-insensitive; the stripe-webhook fallback ''
+      -- (Stripe sent no e-mail) is not a buyer.
+      'customers_with_purchase', (select count(distinct lower(nullif(o.customer_email, ''))) from public.orders o),
       -- Rounded for display only once, in the UI: round(avg, 2) here plus one decimal in the UI
       -- pushed x.x5 up (the double rounding FE fixed in 20260930130116, 820 cases for 1-100 reviews).
       -- 12 places pass the JSON round trip through a JavaScript double unchanged; avg(smallint) is
@@ -41,26 +42,29 @@ begin
       'rate', case when v_orders_total = 0 then 0
                    else round(v_refunded::numeric / v_orders_total::numeric, 4) end
     ),
-    -- Itinerary = order item linked to custom_itinerary_requests (FK); guides = the rest.
-    -- Same "completed only" rule as totals.revenue so guides + custom_itineraries = revenue always.
-    'revenue_split', jsonb_build_object(
-      'guides', coalesce((
-        select sum(oi.price_at_purchase * oi.quantity)
-          from public.order_items oi
-          join public.orders o on o.id = oi.order_id
-         where o.status = 'completed' and oi.custom_itinerary_request_id is null), 0),
-      'custom_itineraries', coalesce((
-        select sum(oi.price_at_purchase * oi.quantity)
-          from public.order_items oi
-          join public.orders o on o.id = oi.order_id
-         where o.status = 'completed' and oi.custom_itinerary_request_id is not null), 0)
+    -- Itinerary = order item linked to custom_itinerary_requests (FK); guides = the rest. One query,
+    -- so both halves share the "completed only" rule of totals.revenue: guides + custom_itineraries
+    -- equals revenue whenever the items of each completed order add up to its total_amount (true for
+    -- every order so far; stripe-webhook stores paidAmount / quantity rounded to 2 places and falls
+    -- back to the list price when Stripe line items cannot be loaded). Known limitation (spec §3.7):
+    -- deleting a paid itinerary request sets the link to null (FK on delete set null) and moves its
+    -- revenue to guides; totals.revenue is unaffected.
+    'revenue_split', (
+      select jsonb_build_object(
+               'guides', coalesce(sum(oi.price_at_purchase * oi.quantity)
+                                    filter (where oi.custom_itinerary_request_id is null), 0),
+               'custom_itineraries', coalesce(sum(oi.price_at_purchase * oi.quantity)
+                                    filter (where oi.custom_itinerary_request_id is not null), 0))
+        from public.order_items oi
+        join public.orders o on o.id = oi.order_id
+       where o.status = 'completed'
     )
   );
 end;
 $$;
 
 comment on function public.get_admin_dashboard_overview() is
-  'Admin dashboard totals: net revenue after refunds, order count, distinct buyers, avg approved rating (12 decimal places; the UI rounds it once for display) and refund rate as a fraction; revenue split guides vs custom itineraries (order_items.custom_itinerary_request_id). Raises 42501 for non-admins. SECURITY INVOKER; reads through admin RLS.';
+  'Admin dashboard totals: net revenue after refunds, order count, distinct buyers (case-insensitive e-mail), avg approved rating (12 decimal places; the UI rounds it once for display) and refund rate as a fraction; revenue split guides vs custom itineraries (order_items.custom_itinerary_request_id). Raises 42501 for non-admins. SECURITY INVOKER; reads through admin RLS.';
 
 revoke all on function public.get_admin_dashboard_overview() from public, anon;
 grant execute on function public.get_admin_dashboard_overview() to authenticated;
