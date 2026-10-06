@@ -153,12 +153,12 @@ values ('00000000-0000-0000-0000-0000000000c1', 'dash-b@example.com', 'B', '{}':
 
 -- b1 completed 1000 (guide) · b2 completed 2500 (2x guide 500 + itinerary 1500)
 -- b3 refunded 700 (tyz kupujici jako b1, e-mail velkymi pismeny) · b4 completed 300 (soft-deleted
--- guide, 40 days old) · b5 completed 600 (itinerary only)
+-- guide, 40 days old, bez e-mailu jako fallback stripe-webhook) · b5 completed 600 (itinerary only)
 insert into public.orders (id, customer_email, total_amount, status, created_at)
 values ('00000000-0000-0000-0000-0000000000b1', 'dash-a@example.com', 1000, 'completed', now()),
        ('00000000-0000-0000-0000-0000000000b2', 'dash-b@example.com', 2500, 'completed', now()),
        ('00000000-0000-0000-0000-0000000000b3', 'DASH-A@example.com', 700, 'refunded', now()),
-       ('00000000-0000-0000-0000-0000000000b4', 'dash-c@example.com', 300, 'completed', now() - interval '40 days'),
+       ('00000000-0000-0000-0000-0000000000b4', '', 300, 'completed', now() - interval '40 days'),
        ('00000000-0000-0000-0000-0000000000b5', 'dash-d@example.com', 600, 'completed', now());
 
 insert into public.order_items (order_id, product_id, quantity, price_at_purchase, vat_rate_at_purchase, custom_itinerary_request_id)
@@ -210,8 +210,8 @@ select is( (select (a.v->'totals'->>'revenue')::numeric - (b.v->'totals'->>'reve
 select is( (select (a.v->'totals'->>'orders')::int - (b.v->'totals'->>'orders')::int
               from t_overview a, t_overview_before b), 5, 'orders +5 = vsechny objednavky' );
 select is( (select (a.v->'totals'->>'customers_with_purchase')::int - (b.v->'totals'->>'customers_with_purchase')::int
-              from t_overview a, t_overview_before b), 4,
-           'customers_with_purchase +4 = distinct e-maily bez ohledu na velikost pismen (a, b, c, d)' );
+              from t_overview a, t_overview_before b), 3,
+           'customers_with_purchase +3 = distinct e-maily bez ohledu na velikost pismen, prazdny se nepocita (a, b, d)' );
 -- Schvalene 4, 5, 5 (pending ignorovan); bez starsich recenzi 14/3 = 4.666666666667 na 12 mist
 -- (D-06), zaokrouhleni na 2 mista by dalo 4.67
 select is( (select (v->'totals'->>'avg_rating')::numeric from t_overview),
