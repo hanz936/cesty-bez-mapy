@@ -1,5 +1,5 @@
 begin;
-select plan(32);
+select plan(70);
 
 -- ══════════════════════════════════════════════════════════════════════
 -- Blok A: přístupová migrace admin_dashboard_access
@@ -239,6 +239,190 @@ select is( (select (a.v->'revenue_split'->>'guides')::numeric + (a.v->'revenue_s
            (select (a.v->'totals'->>'revenue')::numeric - (b.v->'totals'->>'revenue')::numeric
               from t_overview a, t_overview_before b),
            'prirustek guides + custom_itineraries = prirustek revenue' );
+
+-- ══════════════════════════════════════════════════════════════════════
+-- Blok C: get_system_health_overview(p_days) (migrace get_system_health_overview)
+-- ══════════════════════════════════════════════════════════════════════
+
+select has_function('public'::name, 'get_system_health_overview'::name, array['integer']::name[],
+                    'get_system_health_overview(integer) existuje');
+select is( has_function_privilege('anon', 'public.get_system_health_overview(integer)', 'EXECUTE'),
+           false, 'anon nema EXECUTE na get_system_health_overview' );
+select is( has_function_privilege('authenticated', 'public.get_system_health_overview(integer)', 'EXECUTE'),
+           true, 'authenticated ma EXECUTE na get_system_health_overview' );
+-- RLS je druha vrstva jen pod security invoker; security definer by ji potichu obesel (spec §5.2)
+select isnt_definer('public'::name, 'get_system_health_overview'::name, array['integer']::name[],
+                    'get_system_health_overview(integer) je security invoker');
+select volatility_is('public'::name, 'get_system_health_overview'::name, array['integer']::name[], 'stable',
+                     'get_system_health_overview(integer) je stable');
+
+-- ── Fixtures (jako postgres) — okno 30 dni; radky "40 days" jsou mimo okno ──
+-- Tokeny: t1 product_pdf pro b2 (odkaz vydan) · t2 custom pro c2 (prosly, nevyuzity)
+-- · t3 product_pdf pro b4 (mimo okno). Spolu s dash-token-0 (blok A) → product_pdf issued 2.
+insert into public.download_tokens (order_id, custom_itinerary_request_id, asset_type, token, download_count, expires_at, created_at)
+values ('00000000-0000-0000-0000-0000000000b2', null, 'product_pdf', 'dash-token-1', 1, now() + interval '7 days', now()),
+       (null, '00000000-0000-0000-0000-0000000000c2', 'custom_itinerary_pdf', 'dash-token-2', 0, now() - interval '1 day', now()),
+       ('00000000-0000-0000-0000-0000000000b4', null, 'product_pdf', 'dash-token-3', 0, now() - interval '33 days', now() - interval '40 days');
+
+insert into public.integration_logs (service, action, status, created_at)
+values ('fakturoid', 'create_invoice', 'failed', now()),
+       ('fakturoid', 'create_invoice', 'failed', now()),
+       ('stripe', 'create_product', 'success', now()),
+       ('ecomail', 'subscribe', 'failed', now() - interval '40 days');
+
+insert into public.email_events (resend_email_id, event_type, email_to, payload, created_at)
+values ('dash-re-1', 'email.delivered', 'dash-a@example.com', '{}'::jsonb, now()),
+       ('dash-re-2', 'email.delivered', 'dash-b@example.com', '{}'::jsonb, now()),
+       ('dash-re-3', 'email.bounced', 'dash-c@example.com', '{}'::jsonb, now()),
+       ('dash-re-4', 'email.delivered', 'dash-d@example.com', '{}'::jsonb, now() - interval '40 days'),
+       ('dash-re-5', 'email.complained', 'dash-a@example.com', '{}'::jsonb, now());
+
+insert into public.email_suppressions (email, reason, created_at)
+values ('dash-bounce@example.com', 'hard_bounce', now()),
+       ('dash-old@example.com', 'hard_bounce', now() - interval '40 days');
+
+-- Deploy hooky plni tabulku od nuly: radky, ktere pri fixtures zivych produktu v blocich A a B zapsal
+-- trigger trg_products_deploy_hook (FE 20260930130239; bez tajemstvi jako missing_secret), by menily
+-- pocty products i deploy_hooks_latest. Vse se na konci rolluje (stejne jako FE test 08).
+delete from public.deploy_hook_dispatches;
+
+-- reviews: prijato (200) · odmitnuto (500) · sloucena zmena (deduplicated, nejnovejsi radek vubec)
+--          · mimo okno (40 dni)
+-- products: zmena bez odpovedi (timeout pg_net) -> opakovani bez odpovedi -> opakovani 201
+--           (retezec retry_of jako v produkci 2026-10-02)
+-- categories: chybi tajemstvi (nic neodeslano) · blog_posts: odeslano pred 5 min, odpoved nesebrana
+insert into public.deploy_hook_dispatches
+  (id, source, transaction_id, request_id, skip_reason, status_code, error_message, checked_at, retry_of, created_at)
+values ('00000000-0000-0000-0000-0000000000d1', 'reviews', pg_current_xact_id(), 101, null, 200, null, now(), null, now() - interval '3 hours'),
+       ('00000000-0000-0000-0000-0000000000d2', 'reviews', pg_current_xact_id(), 102, null, 500, null, now(), null, now() - interval '170 minutes'),
+       ('00000000-0000-0000-0000-0000000000d3', 'reviews', pg_current_xact_id(), null, 'deduplicated', null, null, now(), null, now() - interval '1 minute'),
+       ('00000000-0000-0000-0000-0000000000d4', 'reviews', pg_current_xact_id(), 104, null, 200, null, now(), null, now() - interval '40 days'),
+       ('00000000-0000-0000-0000-0000000000e1', 'products', pg_current_xact_id(), 201, null, null, 'Timeout of 5000 ms reached', now(), null, now() - interval '2 hours'),
+       ('00000000-0000-0000-0000-0000000000e2', 'products', pg_current_xact_id(), 202, null, null, 'Timeout of 5000 ms reached', now(), '00000000-0000-0000-0000-0000000000e1', now() - interval '90 minutes'),
+       ('00000000-0000-0000-0000-0000000000e3', 'products', pg_current_xact_id(), 203, null, 201, null, now(), '00000000-0000-0000-0000-0000000000e2', now() - interval '1 hour'),
+       ('00000000-0000-0000-0000-0000000000f1', 'categories', pg_current_xact_id(), null, 'missing_secret', null, null, now(), null, now() - interval '30 minutes'),
+       ('00000000-0000-0000-0000-0000000000f2', 'blog_posts', pg_current_xact_id(), 301, null, null, null, null, null, now() - interval '5 minutes');
+
+insert into public.csp_reports (disposition, raw, created_at)
+values ('enforce', '{}'::jsonb, now()),
+       ('enforce', '{}'::jsonb, now() - interval '10 days');
+
+insert into public.newsletter_consent_log (email, consent_given, source, created_at)
+values ('dash-n1@example.com', true, 'checkout', now()),
+       ('dash-n2@example.com', false, 'footer', now()),
+       ('dash-n3@example.com', true, 'checkout', now() - interval '40 days');
+
+-- ── Gate ─────────────────────────────────────────────────────
+set local role anon;
+select throws_ok( $$ select public.get_system_health_overview(30) $$, '42501',
+                  'permission denied for function get_system_health_overview',
+                  'anon: 42501 (EXECUTE odebran)' );
+reset role;
+
+set local role authenticated;
+set local request.jwt.claims = '{"is_admin": false, "is_anonymous": true, "aal": "aal1"}';
+select throws_ok( $$ select public.get_system_health_overview(30) $$, '42501', 'forbidden',
+                  'anonymni authenticated session: 42501 forbidden' );
+set local request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal2"}';
+select throws_ok( $$ select public.get_system_health_overview(0) $$, '22023', 'p_days must be between 1 and 30',
+                  'p_days = 0 odmitnuto (22023)' );
+select throws_ok( $$ select public.get_system_health_overview(31) $$, '22023', 'p_days must be between 1 and 30',
+                  'p_days = 31 odmitnuto (22023; tokeny se mazou ~37 dni po vydani)' );
+reset role;
+
+-- ── Admin aal2 pod roli authenticated ────────────────────────
+create temp table t_health (v jsonb);
+grant insert, select on t_health to authenticated;
+
+set local role authenticated;
+set local request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal2"}';
+insert into t_health select public.get_system_health_overview(30);
+reset role;
+
+select is( (select (v->>'window_days')::int from t_health), 30, 'window_days = 30' );
+select is( (select jsonb_array_length(v->'integrations') from t_health), 12,
+           'integrations: 4 sluzby x 3 stavy vcetne nul' );
+select is( (select (e->>'count')::int from t_health, jsonb_array_elements(v->'integrations') e
+             where e->>'service' = 'fakturoid' and e->>'status' = 'failed'), 2,
+           'fakturoid/failed = 2' );
+select is( (select (e->>'count')::int from t_health, jsonb_array_elements(v->'integrations') e
+             where e->>'service' = 'stripe' and e->>'status' = 'success'), 1,
+           'stripe/success = 1' );
+select is( (select (e->>'count')::int from t_health, jsonb_array_elements(v->'integrations') e
+             where e->>'service' = 'ecomail' and e->>'status' = 'failed'), 0,
+           'ecomail/failed = 0 (radek 40 dni stary je mimo okno, nulovy radek existuje)' );
+
+select is( (select (v->'emails'->>'delivered')::int from t_health), 2, 'emails.delivered = 2' );
+select is( (select (v->'emails'->>'bounced')::int from t_health), 1, 'emails.bounced = 1' );
+select is( (select (v->'emails'->>'complained')::int from t_health), 1, 'emails.complained = 1' );
+select is( (select (v->'emails'->>'suppressions')::int from t_health), 1, 'emails.suppressions = 1' );
+
+-- b1 (bez tokenu) ano; b0/b2 maji token; b4 mimo okno; b5 jen itinerar; b3 refunded
+select is( (select (v->'downloads'->>'orders_without_token')::int from t_health), 1,
+           'orders_without_token = 1 (jen b1)' );
+select is( (select (e->>'issued')::int from t_health, jsonb_array_elements(v->'downloads'->'by_asset_type') e
+             where e->>'asset_type' = 'product_pdf'), 2, 'product_pdf issued = 2 (token-0, token-1)' );
+select is( (select (e->>'link_issued')::int from t_health, jsonb_array_elements(v->'downloads'->'by_asset_type') e
+             where e->>'asset_type' = 'product_pdf'), 1, 'product_pdf link_issued = 1' );
+select is( (select (e->>'expired_unused')::int from t_health, jsonb_array_elements(v->'downloads'->'by_asset_type') e
+             where e->>'asset_type' = 'custom_itinerary_pdf'), 1, 'custom_itinerary_pdf expired_unused = 1' );
+select is( (select jsonb_array_length(v->'downloads'->'by_asset_type') from t_health), 2,
+           'by_asset_type: vzdy 2 typy (custom_itinerary_pdf, product_pdf)' );
+
+select is( (select jsonb_array_length(v->'deploy_hooks') from t_health), 4,
+           'deploy_hooks: vzdy 4 zdroje (blog_posts, categories, products, reviews)' );
+select is( (select e from t_health, jsonb_array_elements(v->'deploy_hooks') e where e->>'source' = 'reviews'),
+           '{"source": "reviews", "changes": 2, "retries": 0, "ok": 1, "rejected": 1, "no_response": 0, "pending": 0, "deduplicated": 1, "missing_secret": 0}'::jsonb,
+           'reviews: 2 zmeny (200, 500) a 1 sloucena; radek mimo okno se nepocita' );
+select is( (select e from t_health, jsonb_array_elements(v->'deploy_hooks') e where e->>'source' = 'products'),
+           '{"source": "products", "changes": 1, "retries": 2, "ok": 1, "rejected": 0, "no_response": 2, "pending": 0, "deduplicated": 0, "missing_secret": 0}'::jsonb,
+           'products: zmena + 2 opakovani; 2x bez odpovedi (timeout), posledni 201' );
+select is( (select e from t_health, jsonb_array_elements(v->'deploy_hooks') e where e->>'source' = 'categories'),
+           '{"source": "categories", "changes": 0, "retries": 0, "ok": 0, "rejected": 0, "no_response": 0, "pending": 0, "deduplicated": 0, "missing_secret": 1}'::jsonb,
+           'categories: chybi tajemstvi (nic neodeslano)' );
+select is( (select e from t_health, jsonb_array_elements(v->'deploy_hooks') e where e->>'source' = 'blog_posts'),
+           '{"source": "blog_posts", "changes": 1, "retries": 0, "ok": 0, "rejected": 0, "no_response": 0, "pending": 1, "deduplicated": 0, "missing_secret": 0}'::jsonb,
+           'blog_posts: odeslano, odpoved nesebrana (ceka)' );
+-- Stav webu = nejnovejsi rozhodujici radek; sloucena zmena d3 je novejsi, ale nic nerozhoduje
+select is( (select (v->'deploy_hooks_latest') - 'created_at' from t_health),
+           '{"source": "blog_posts", "is_retry": false, "outcome": "pending"}'::jsonb,
+           'deploy_hooks_latest: nejnovejsi odeslany radek (blog_posts, ceka), deduplicated preskocen' );
+select is( (select (v->'deploy_hooks_latest'->>'created_at')::timestamptz from t_health), now() - interval '5 minutes',
+           'deploy_hooks_latest.created_at = cas toho radku' );
+
+select is( (select (v->>'csp_reports')::int from t_health), 1, 'csp_reports = 1 (7denni okno)' );
+select is( (select (v->>'csp_window_days')::int from t_health), 7, 'csp_window_days = 7' );
+select is( (select (v->'newsletter_consents'->>'opt_in')::int from t_health), 1, 'opt_in = 1' );
+select is( (select (v->'newsletter_consents'->>'opt_out')::int from t_health), 1, 'opt_out = 1' );
+
+-- Stav webu v dalsich scenarich: bez cekajiciho radku rozhoduje chybejici tajemstvi, bez nej
+-- automaticke opakovani s 201 (jako produkce 2026-10-02); prazdna tabulka = null
+delete from public.deploy_hook_dispatches where id = '00000000-0000-0000-0000-0000000000f2';
+set local role authenticated;
+set local request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal2"}';
+select is( (public.get_system_health_overview(30)->'deploy_hooks_latest') - 'created_at',
+           '{"source": "categories", "is_retry": false, "outcome": "missing_secret"}'::jsonb,
+           'deploy_hooks_latest: chybi tajemstvi (web se neprestavi)' );
+reset role;
+
+delete from public.deploy_hook_dispatches where id = '00000000-0000-0000-0000-0000000000f1';
+set local role authenticated;
+set local request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal2"}';
+select is( (public.get_system_health_overview(30)->'deploy_hooks_latest') - 'created_at',
+           '{"source": "products", "is_retry": true, "outcome": "ok"}'::jsonb,
+           'deploy_hooks_latest: automaticke opakovani prijato (201), web aktualni' );
+reset role;
+
+delete from public.deploy_hook_dispatches;
+set local role authenticated;
+set local request.jwt.claims = '{"is_admin": true, "is_anonymous": false, "aal": "aal2"}';
+select is( public.get_system_health_overview(30)->'deploy_hooks_latest', 'null'::jsonb,
+           'deploy_hooks_latest: bez rozhodujiciho radku null' );
+
+-- Vychozi p_days
+select is( (select (public.get_system_health_overview()->>'window_days')::int), 30,
+           'vychozi p_days = 30' );
+reset role;
 
 select * from finish();
 rollback;
