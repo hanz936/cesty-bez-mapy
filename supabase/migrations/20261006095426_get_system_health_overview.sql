@@ -54,6 +54,9 @@ begin
     'downloads', jsonb_build_object(
       -- Completed orders with at least one guide item and no product_pdf token: the customer paid
       -- and got no file. Itinerary-only orders never get a product_pdf token and are excluded.
+      -- Known limitation (spec §3.7): deleting a paid itinerary request sets its order item's
+      -- custom_itinerary_request_id to null (on delete set null), so that itinerary-only order then
+      -- counts here until it leaves the window.
       'orders_without_token', (
         select count(*)
           from public.orders o
@@ -65,6 +68,8 @@ begin
                             where t.order_id = o.id and t.asset_type = 'product_pdf')
       ),
       -- download_count is written when a signed URL is issued, not when the file is downloaded.
+      -- custom_itinerary_pdf tokens are issued without expires_at (send-custom-itinerary-email;
+      -- null = no expiry in get-download-url), so their expired_unused is always 0 (spec §6).
       'by_asset_type', (
         select coalesce(jsonb_agg(jsonb_build_object(
                  'asset_type', a.asset_type,
@@ -84,10 +89,12 @@ begin
           ) d on d.asset_type = a.asset_type
       )
     ),
-    -- Permanent record of every Vercel deploy-hook call (pg_net keeps responses only 6 hours).
-    -- Per source: changes = first requests sent (retry_of is null), retries = automatic re-sends by
-    -- collect_deploy_hook_results() (retry_of is not null). Outcome of every sent row, the same rules
-    -- as deploy_hooks_latest below: pending (not collected yet, checked_at is null), ok (2xx without
+    -- Durable record of every Vercel deploy-hook call, kept 90 days (pg_net keeps responses only
+    -- 6 hours). Per source: changes = first requests sent (retry_of is null), retries = automatic
+    -- re-sends by collect_deploy_hook_results() that were sent (retry_of is not null; a retry the
+    -- helper skipped for lack of the secret counts only as missing_secret), so changes + retries
+    -- = ok + rejected + no_response + pending. Outcome of every sent row, the same rules as
+    -- deploy_hooks_latest below: pending (not collected yet, checked_at is null), ok (2xx without
     -- error), rejected (any other HTTP status: Vercel answered and refused), no_response (no status:
     -- pg_net timeout, network error, response expired — the build may well have run; the collector
     -- retries it). Rows not sent: deduplicated (rode along with an earlier request in the same
@@ -108,7 +115,7 @@ begin
         left join (
           select h.source,
                  count(*) filter (where h.request_id is not null and h.retry_of is null) as changes,
-                 count(*) filter (where h.retry_of is not null) as retries,
+                 count(*) filter (where h.request_id is not null and h.retry_of is not null) as retries,
                  count(*) filter (where h.request_id is not null and h.checked_at is not null
                                     and h.error_message is null and h.status_code between 200 and 299) as ok,
                  count(*) filter (where h.request_id is not null and h.checked_at is not null
@@ -155,7 +162,7 @@ end;
 $$;
 
 comment on function public.get_system_health_overview(integer) is
-  'Admin system-health counters for the last p_days (Prague-midnight window; CSP fixed 7 days): integration_logs per service/status (all pairs, zeros included), Resend e-mail events, completed orders without a product_pdf download token, download tokens per asset type, Vercel deploy-hook requests per source (changes, retries, outcomes, rows not sent) and the outcome of the newest one (deploy_hooks_latest), CSP reports, newsletter opt-in/opt-out. Raises 42501 for non-admins, 22023 for p_days outside 1..30.';
+  'Admin system-health counters for the last p_days (Prague-midnight window; CSP fixed 7 days): integration_logs per service/status (all pairs, zeros included), Resend e-mail events, completed orders without a product_pdf download token, download tokens per asset type, Vercel deploy-hook requests per source (changes, sent retries, outcomes, rows not sent) and the outcome of the newest one (deploy_hooks_latest), CSP reports, newsletter opt-in/opt-out. Raises 42501 for non-admins, 22023 for p_days outside 1..30.';
 
 revoke all on function public.get_system_health_overview(integer) from public, anon;
 grant execute on function public.get_system_health_overview(integer) to authenticated;
