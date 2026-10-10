@@ -320,18 +320,21 @@ values ('00000000-0000-0000-0000-0000000000b2', null, 'product_pdf', 'dash-token
        ('00000000-0000-0000-0000-0000000000b0', null, 'product_pdf', 'dash-token-3', 0, now() - interval '33 days', now() - interval '40 days'),
        ('00000000-0000-0000-0000-0000000000b2', null, 'product_pdf', 'dash-token-4', 0, now() - interval '1 day', now() - interval '8 days');
 
--- Dalsi objednavky pruvodce v okne, vsechny bez tokenu: b6 pending a b9 failed (vyradi je jen stav), b7 a b8
--- completed (pocitaji se) → orders_without_token 3 (b1, b7, b8); kazda chybna podminka da jine cislo
+-- Dalsi objednavky pruvodce v okne, vsechny bez tokenu: b6 pending a b9 failed (vyradi je jen stav), b7, b8
+-- a ba completed (pocitaji se) → orders_without_token 4 (b1, b7, b8, ba). Dokoncenych (4) je jinak nez
+-- nedokoncenych (3: b3, b6, b9), takze ani obracena podminka stavu neda spravne cislo.
 insert into public.orders (id, customer_email, total_amount, status)
 values ('00000000-0000-0000-0000-0000000000b6', 'dash-f@example.com', 500, 'pending'),
        ('00000000-0000-0000-0000-0000000000b7', 'dash-g@example.com', 500, 'completed'),
        ('00000000-0000-0000-0000-0000000000b8', 'dash-h@example.com', 500, 'completed'),
-       ('00000000-0000-0000-0000-0000000000b9', 'dash-i@example.com', 500, 'failed');
+       ('00000000-0000-0000-0000-0000000000b9', 'dash-i@example.com', 500, 'failed'),
+       ('00000000-0000-0000-0000-0000000000ba', 'dash-j@example.com', 500, 'completed');
 insert into public.order_items (order_id, product_id, quantity, price_at_purchase, vat_rate_at_purchase)
 values ('00000000-0000-0000-0000-0000000000b6', '00000000-0000-0000-0000-0000000000a1', 1, 500, 21),
        ('00000000-0000-0000-0000-0000000000b7', '00000000-0000-0000-0000-0000000000a1', 1, 500, 21),
        ('00000000-0000-0000-0000-0000000000b8', '00000000-0000-0000-0000-0000000000a3', 1, 500, 21),
-       ('00000000-0000-0000-0000-0000000000b9', '00000000-0000-0000-0000-0000000000a1', 1, 500, 21);
+       ('00000000-0000-0000-0000-0000000000b9', '00000000-0000-0000-0000-0000000000a1', 1, 500, 21),
+       ('00000000-0000-0000-0000-0000000000ba', '00000000-0000-0000-0000-0000000000a3', 1, 500, 21);
 
 insert into public.integration_logs (service, action, status, created_at)
 values ('fakturoid', 'create_invoice', 'failed', now()),
@@ -339,7 +342,9 @@ values ('fakturoid', 'create_invoice', 'failed', now()),
        ('stripe', 'create_product', 'success', now()),
        ('ecomail', 'subscribe', 'failed', now() - interval '40 days');
 
--- Kazdy typ udalosti ma i radek mimo okno (40 dni); dash-re-8 (10 dni) je v okne 30 dni, ne 7 dni
+-- Kazdy typ udalosti ma i radek mimo okno (40 dni); dash-re-8 (10 dni) je v okne 30 dni, ne 7 dni.
+-- Hranice okna (spec §5.3): dash-re-9 presne na prazske pulnoci pred 30 dny je v okne (>=), dash-re-10
+-- o mikrosekundu drive ne; klouzave okno, pulnoc v UTC ani > misto >= by spravny pocet nedaly
 insert into public.email_events (resend_email_id, event_type, email_to, payload, created_at)
 values ('dash-re-1', 'email.delivered', 'dash-a@example.com', '{}'::jsonb, now()),
        ('dash-re-2', 'email.delivered', 'dash-b@example.com', '{}'::jsonb, now()),
@@ -348,7 +353,11 @@ values ('dash-re-1', 'email.delivered', 'dash-a@example.com', '{}'::jsonb, now()
        ('dash-re-5', 'email.complained', 'dash-a@example.com', '{}'::jsonb, now()),
        ('dash-re-6', 'email.bounced', 'dash-c@example.com', '{}'::jsonb, now() - interval '40 days'),
        ('dash-re-7', 'email.complained', 'dash-b@example.com', '{}'::jsonb, now() - interval '40 days'),
-       ('dash-re-8', 'email.delivered', 'dash-e@example.com', '{}'::jsonb, now() - interval '10 days');
+       ('dash-re-8', 'email.delivered', 'dash-e@example.com', '{}'::jsonb, now() - interval '10 days'),
+       ('dash-re-9', 'email.delivered', 'dash-f@example.com', '{}'::jsonb,
+        ((now() at time zone 'Europe/Prague')::date - 30)::timestamp at time zone 'Europe/Prague'),
+       ('dash-re-10', 'email.delivered', 'dash-g@example.com', '{}'::jsonb,
+        ((now() at time zone 'Europe/Prague')::date - 30)::timestamp at time zone 'Europe/Prague' - interval '1 microsecond');
 
 insert into public.email_suppressions (email, reason, created_at)
 values ('dash-bounce@example.com', 'hard_bounce', now()),
@@ -453,18 +462,18 @@ select is( (select (e->>'count')::int from t_health, jsonb_array_elements(v->'in
              where e->>'service' = 'ecomail' and e->>'status' = 'failed'), 0,
            'ecomail/failed = 0 (radek 40 dni stary je mimo okno, nulovy radek existuje)' );
 
-select is( (select (v->'emails'->>'delivered')::int from t_health), 3,
-           'emails.delivered = 3 (radek 10 dni stary je v okne, 40 dni stary ne)' );
+select is( (select (v->'emails'->>'delivered')::int from t_health), 4,
+           'emails.delivered = 4 (10 dni a prazska pulnoc pred 30 dny v okne; 40 dni a o mikrosekundu drive ne)' );
 select is( (select (v->'emails'->>'bounced')::int from t_health), 1,
            'emails.bounced = 1 (radek 40 dni stary je mimo okno)' );
 select is( (select (v->'emails'->>'complained')::int from t_health), 1,
            'emails.complained = 1 (radek 40 dni stary je mimo okno)' );
 select is( (select (v->'emails'->>'suppressions')::int from t_health), 1, 'emails.suppressions = 1' );
 
--- b1, b7, b8 (bez tokenu) ano; b0/b2 maji token; b4 (40 dni, bez tokenu) vyradi jen okno; b3 (refunded),
+-- b1, b7, b8, ba (bez tokenu) ano; b0/b2 maji token; b4 (40 dni, bez tokenu) vyradi jen okno; b3 (refunded),
 -- b6 (pending) a b9 (failed), vsechny bez tokenu, vyradi jen stav; b5 jen itinerar
-select is( (select (v->'downloads'->>'orders_without_token')::int from t_health), 3,
-           'orders_without_token = 3 (b1, b7, b8)' );
+select is( (select (v->'downloads'->>'orders_without_token')::int from t_health), 4,
+           'orders_without_token = 4 (b1, b7, b8, ba)' );
 select is( (select (e->>'issued')::int from t_health, jsonb_array_elements(v->'downloads'->'by_asset_type') e
              where e->>'asset_type' = 'product_pdf'), 3, 'product_pdf issued = 3 (token-0, token-1, token-4)' );
 select is( (select (e->>'link_issued')::int from t_health, jsonb_array_elements(v->'downloads'->'by_asset_type') e
