@@ -1,5 +1,5 @@
 begin;
-select plan(82);
+select plan(83);
 
 -- ══════════════════════════════════════════════════════════════════════
 -- Blok A: přístupová migrace admin_dashboard_access
@@ -270,9 +270,8 @@ delete from public.newsletter_consent_log;
 delete from public.deploy_hook_dispatches;
 
 -- ── Prazdna data: plny tvar payloadu (vsechny klice, pole v pevnem poradi), same nuly ──
--- Bez polozek objednavek nema zadna objednavka pruvodce a bez tokenu neni nic vydano; mazani
--- objednavek by kaskadou smazalo recenze a pres rating spustilo deploy hook produktu.
--- Rollback to savepoint vse vrati.
+-- Bez polozek objednavek nema zadna objednavka pruvodce a bez tokenu neni nic vydano; objednavky
+-- samy mazat netreba. Rollback to savepoint vse vrati.
 savepoint c_empty;
 delete from public.download_tokens;
 delete from public.order_items;
@@ -313,13 +312,13 @@ rollback to savepoint c_empty;
 --   t1 b2 — odkaz vydan, platnost uz vyprsela (prosly, ale vyuzity: do expired_unused nepatri)
 --   t2 c2 — itinerar jako v produkci bez expires_at (send-custom-itinerary-email): 9 dni stary
 --           a nevyuzity, a presto nikdy prosly (spec §6)
---   t3 b0 — mimo okno (40 dni) · t4 b3 — prosly a nevyuzity
+--   t3 b0 — mimo okno (40 dni) · t4 b2 — prosly a nevyuzity
 --   → product_pdf issued 3 (t0, t1, t4), link_issued 1 (t1), expired_unused 1 (t4)
 insert into public.download_tokens (order_id, custom_itinerary_request_id, asset_type, token, download_count, expires_at, created_at)
 values ('00000000-0000-0000-0000-0000000000b2', null, 'product_pdf', 'dash-token-1', 1, now() - interval '1 day', now() - interval '8 days'),
        (null, '00000000-0000-0000-0000-0000000000c2', 'custom_itinerary_pdf', 'dash-token-2', 0, null, now() - interval '9 days'),
        ('00000000-0000-0000-0000-0000000000b0', null, 'product_pdf', 'dash-token-3', 0, now() - interval '33 days', now() - interval '40 days'),
-       ('00000000-0000-0000-0000-0000000000b3', null, 'product_pdf', 'dash-token-4', 0, now() - interval '1 day', now() - interval '8 days');
+       ('00000000-0000-0000-0000-0000000000b2', null, 'product_pdf', 'dash-token-4', 0, now() - interval '1 day', now() - interval '8 days');
 
 insert into public.integration_logs (service, action, status, created_at)
 values ('fakturoid', 'create_invoice', 'failed', now()),
@@ -449,8 +448,8 @@ select is( (select (v->'emails'->>'complained')::int from t_health), 1,
            'emails.complained = 1 (radek 40 dni stary je mimo okno)' );
 select is( (select (v->'emails'->>'suppressions')::int from t_health), 1, 'emails.suppressions = 1' );
 
--- b1 (bez tokenu) ano; b0/b2 maji token; b4 (40 dni, bez tokenu) vyradi jen okno; b5 jen itinerar;
--- b3 refunded
+-- b1 (bez tokenu) ano; b0/b2 maji token; b4 (40 dni, bez tokenu) vyradi jen okno; b3 (refunded,
+-- bez tokenu) vyradi jen stav; b5 jen itinerar
 select is( (select (v->'downloads'->>'orders_without_token')::int from t_health), 1,
            'orders_without_token = 1 (jen b1)' );
 select is( (select (e->>'issued')::int from t_health, jsonb_array_elements(v->'downloads'->'by_asset_type') e
@@ -495,9 +494,10 @@ select is( (select (v->'newsletter_consents'->>'opt_in')::int from t_health), 1,
 select is( (select (v->'newsletter_consents'->>'opt_out')::int from t_health), 1,
            'opt_out = 1 (radek 40 dni stary je mimo okno)' );
 
--- Stav webu v dalsich scenarich (jako produkce 2026-10-02): bez cekajiciho radku rozhoduje chybejici
--- tajemstvi, bez nej automaticke opakovani s 201, pred nim opakovani bez odpovedi (timeout), pak
--- odmitnuti (500); okno stav webu nema (rozhoduje i radek 40 dni stary); prazdna tabulka = null.
+-- Stav webu v dalsich scenarich: bez cekajiciho radku rozhoduje chybejici tajemstvi, bez nej
+-- automaticke opakovani s 201 a pred nim opakovani bez odpovedi (timeout) — retezec jako v produkci
+-- 2026-10-02 —, pak odmitnuti (500); okno stav webu nema (rozhoduje i radek 40 dni stary); prazdna
+-- tabulka = null.
 -- retry_of ma on delete set null, proto se radek mazne az spolu s opakovanimi, ktere na nej ukazuji.
 delete from public.deploy_hook_dispatches where id = '00000000-0000-0000-0000-0000000000f2';
 set local role authenticated;
@@ -552,6 +552,7 @@ select is( public.get_system_health_overview(30)->'deploy_hooks_latest', 'null':
 -- p_days: 7denni okno vyradi dash-re-8 (10 dni stary); vychozi p_days je 30
 select is( (public.get_system_health_overview(7)->'emails'->>'delivered')::int, 2,
            'p_days = 7: emails.delivered = 2 (radek 10 dni stary je mimo 7denni okno)' );
+select is( (public.get_system_health_overview(7)->>'window_days')::int, 7, 'p_days = 7: window_days = 7' );
 select is( (select (public.get_system_health_overview()->>'window_days')::int), 30,
            'vychozi p_days = 30' );
 reset role;
