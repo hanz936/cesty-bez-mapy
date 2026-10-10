@@ -320,6 +320,17 @@ values ('00000000-0000-0000-0000-0000000000b2', null, 'product_pdf', 'dash-token
        ('00000000-0000-0000-0000-0000000000b0', null, 'product_pdf', 'dash-token-3', 0, now() - interval '33 days', now() - interval '40 days'),
        ('00000000-0000-0000-0000-0000000000b2', null, 'product_pdf', 'dash-token-4', 0, now() - interval '1 day', now() - interval '8 days');
 
+-- Dalsi objednavky pruvodce v okne, vsechny bez tokenu: b6 pending (vyradi ji jen stav), b7 a b8 completed
+-- (pocitaji se) → orders_without_token 3 (b1, b7, b8); kazda chybna podminka da jine cislo
+insert into public.orders (id, customer_email, total_amount, status)
+values ('00000000-0000-0000-0000-0000000000b6', 'dash-f@example.com', 500, 'pending'),
+       ('00000000-0000-0000-0000-0000000000b7', 'dash-g@example.com', 500, 'completed'),
+       ('00000000-0000-0000-0000-0000000000b8', 'dash-h@example.com', 500, 'completed');
+insert into public.order_items (order_id, product_id, quantity, price_at_purchase, vat_rate_at_purchase)
+values ('00000000-0000-0000-0000-0000000000b6', '00000000-0000-0000-0000-0000000000a1', 1, 500, 21),
+       ('00000000-0000-0000-0000-0000000000b7', '00000000-0000-0000-0000-0000000000a1', 1, 500, 21),
+       ('00000000-0000-0000-0000-0000000000b8', '00000000-0000-0000-0000-0000000000a3', 1, 500, 21);
+
 insert into public.integration_logs (service, action, status, created_at)
 values ('fakturoid', 'create_invoice', 'failed', now()),
        ('fakturoid', 'create_invoice', 'failed', now()),
@@ -448,10 +459,10 @@ select is( (select (v->'emails'->>'complained')::int from t_health), 1,
            'emails.complained = 1 (radek 40 dni stary je mimo okno)' );
 select is( (select (v->'emails'->>'suppressions')::int from t_health), 1, 'emails.suppressions = 1' );
 
--- b1 (bez tokenu) ano; b0/b2 maji token; b4 (40 dni, bez tokenu) vyradi jen okno; b3 (refunded,
--- bez tokenu) vyradi jen stav; b5 jen itinerar
-select is( (select (v->'downloads'->>'orders_without_token')::int from t_health), 1,
-           'orders_without_token = 1 (jen b1)' );
+-- b1, b7, b8 (bez tokenu) ano; b0/b2 maji token; b4 (40 dni, bez tokenu) vyradi jen okno; b3 (refunded)
+-- a b6 (pending), obe bez tokenu, vyradi jen stav; b5 jen itinerar
+select is( (select (v->'downloads'->>'orders_without_token')::int from t_health), 3,
+           'orders_without_token = 3 (b1, b7, b8)' );
 select is( (select (e->>'issued')::int from t_health, jsonb_array_elements(v->'downloads'->'by_asset_type') e
              where e->>'asset_type' = 'product_pdf'), 3, 'product_pdf issued = 3 (token-0, token-1, token-4)' );
 select is( (select (e->>'link_issued')::int from t_health, jsonb_array_elements(v->'downloads'->'by_asset_type') e
