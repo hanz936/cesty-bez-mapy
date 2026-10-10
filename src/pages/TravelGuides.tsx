@@ -205,7 +205,6 @@ const mapProductToGuide = (product: Tables<'products'>) => {
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: empty-string badge must fall through to fallback (?? would change behavior)
     badge: product.badge || 'Průvodce',
     category: 'Kategorie',
-    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '||' intentional: pre-existing fallback, left byte-identical
     category_ids: product.category_ids || [], // UUID array kategorií
     isFree: product.price === 0,
     slug: product.slug,
