@@ -55,7 +55,7 @@
     "playwright-core": "^1.60.0",
     "react-email": "6.11.0",
     "resend": "^6.12.3",
-    "supabase": "^2.98.0",
+    "supabase": "^2.121.0",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.62.1",
