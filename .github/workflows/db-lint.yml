@@ -8,6 +8,8 @@ on:
       - 'supabase/config.toml'
       # Změna workflow se otestuje ve vlastním PR.
       - '.github/workflows/db-lint.yml'
+      # setup-cli bere verzi CLI z package-lock.json, takže se otestuje i změna CLI.
+      - 'package-lock.json'
 jobs:
   pgtap:
     runs-on: ubuntu-latest
