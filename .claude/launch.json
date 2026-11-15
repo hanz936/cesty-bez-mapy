@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "autoVerify": false,
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000,
+      "autoPort": false,
+      "env": {
+        "BROWSER": "none"
+      }
+    },
+    {
+      "name": "email-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "email:dev"],
+      "port": 3001,
+      "autoPort": false
+    }
+  ]
+}
