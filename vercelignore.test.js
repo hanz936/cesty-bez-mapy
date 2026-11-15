@@ -32,4 +32,8 @@ describe('.vercelignore pokrývá .gitignore', () => {
   it('vylučuje .superpowers, kterou git ignoruje jen přes .git/info/exclude', () => {
     expect(rules('./.vercelignore')).toContain('.superpowers');
   });
+
+  it('vylučuje .claude/worktrees, kterou git ignoruje jen přes .git/info/exclude', () => {
+    expect(rules('./.vercelignore')).toContain('.claude/worktrees/');
+  });
 });

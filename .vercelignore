@@ -17,6 +17,10 @@ public/video
 # ale `.git/info/exclude`, a ten kopie níž nepokryje.
 .superpowers
 
+# Worktree sessions desktopové aplikace Claude: každá je kopie celého repa. Git je ignoruje
+# taky jen přes `.git/info/exclude`.
+.claude/worktrees/
+
 # ── Kopie `.gitignore`: beze změny a ve stejném pořadí (výjimka `!…` platí jen za pravidlem,
 # které ruší). Při každé změně `.gitignore` upravit i tady. ──
 
