@@ -75,6 +75,16 @@ describe('createAuthTimeoutFetch', () => {
     expect(stub.mock.calls[0][1]).toBe(init);
   });
 
+  it('passes a relative URL through unchanged', async () => {
+    const stub = resolvingStub();
+    vi.stubGlobal('fetch', stub);
+    const f = createAuthTimeoutFetch(20);
+    const init = { method: 'GET' };
+    await f('/auth/v1/user', init);
+    expect(stub).toHaveBeenCalledWith('/auth/v1/user', init);
+    expect(stub.mock.calls[0][1]).toBe(init);
+  });
+
   it("keeps the caller's signal", async () => {
     const stub = hangingStub();
     vi.stubGlobal('fetch', stub);

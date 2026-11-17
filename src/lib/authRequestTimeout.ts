@@ -9,7 +9,14 @@ export function createAuthTimeoutFetch(timeoutMs: number): typeof fetch {
         : input instanceof URL
           ? input.href
           : input.url;
-    if (!new URL(url).pathname.startsWith('/auth/v1/')) {
+    let pathname: string;
+    try {
+      pathname = new URL(url).pathname;
+    } catch {
+      // Unparsable (e.g. relative) URL: let fetch resolve or reject it itself.
+      return globalThis.fetch(input, init);
+    }
+    if (!pathname.startsWith('/auth/v1/')) {
       return globalThis.fetch(input, init);
     }
 
