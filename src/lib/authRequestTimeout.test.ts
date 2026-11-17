@@ -96,6 +96,17 @@ describe('createAuthTimeoutFetch', () => {
     expect(stub.mock.calls[0][1]?.signal).not.toBe(caller.signal);
   });
 
+  it('keeps the signal of a Request input', async () => {
+    vi.stubGlobal('fetch', hangingStub());
+    const f = createAuthTimeoutFetch(10_000);
+    const caller = new AbortController();
+    const pending = f(
+      new Request(`${BASE}/auth/v1/user`, { signal: caller.signal }),
+    );
+    caller.abort('stop');
+    await expect(pending).rejects.toBe('stop');
+  });
+
   it('reads the URL from Request and URL inputs', async () => {
     vi.stubGlobal('fetch', hangingStub());
     const f = createAuthTimeoutFetch(20);
