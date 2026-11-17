@@ -1,4 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
+import {
+  AUTH_REQUEST_TIMEOUT_MS,
+  createAuthTimeoutFetch,
+} from './authRequestTimeout'
 import type { Database } from '../types/database.types'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -10,4 +14,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
   )
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  global: { fetch: createAuthTimeoutFetch(AUTH_REQUEST_TIMEOUT_MS) },
+})
