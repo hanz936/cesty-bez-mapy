@@ -98,7 +98,8 @@ VITE_DEBUG=true
 
 - [App.jsx](src/App.jsx) - Routy, ErrorBoundary, CartProvider
 - [CartContext.jsx](src/contexts/CartContext.jsx) - Stav košíku s localStorage persistencí
-- [supabase.js](src/lib/supabase.js) - Supabase klient
+- [supabase.ts](src/lib/supabase.ts) - Supabase klient
+- [authRequestTimeout.ts](src/lib/authRequestTimeout.ts) - limit 15 s pro požadavky na `/auth/v1/` (v `supabase.ts` předaný jako `global.fetch`); bez něj by visící anonymní přihlášení nechalo checkout a formulář na míru čekat donekonečna
 - [routes.js](src/constants/routes.js) - Definice všech rout (ROUTES objekt)
 - [vite.config.js](vite.config.js) - Build konfigurace, aliasy, chunk splitting
 - Database naming standard: [supabase/CONVENTIONS.md](supabase/CONVENTIONS.md) — vynucováno pgTAP lint guardem
